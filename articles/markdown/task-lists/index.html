@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>Running the Sample | ProMarkdown</title>
+    <title>Interactive Task Lists | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="Running the Sample | ProMarkdown">
-<meta name="twitter:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta name="twitter:title" content="Interactive Task Lists | ProMarkdown">
+<meta name="twitter:description" content="Interactive Task Lists Task-list markers render as checkboxes. They are display-only by default so selection and scrolling remain predictable. To make them interactive, set both IsTaskListInteractive and TaskListToggleCommand. &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot; IsTaskListInteractive=&quot;True&quot; TaskListToggleCommand=&quot;{Binding ToggleTaskCommand}&quot; TextWrapping=&quot;Wrap&quot; /> The command parameter is a MarkdownTaskListToggleRequest: public ICommand ToggleTaskCommand { get; } public DocumentViewModel() { ToggleTaskCommand = new RelayCommand&lt;MarkdownTaskListToggleRequest>(request => { if (request is not null) { DocumentMarkdown = request.UpdatedMarkdown; } }); } The...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="Running the Sample | ProMarkdown">
-<meta property="og:title" content="Running the Sample | ProMarkdown">
+<meta name="twitter:image:alt" content="Interactive Task Lists | ProMarkdown">
+<meta property="og:title" content="Interactive Task Lists | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta property="og:description" content="Interactive Task Lists Task-list markers render as checkboxes. They are display-only by default so selection and scrolling remain predictable. To make them interactive, set both IsTaskListInteractive and TaskListToggleCommand. &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot; IsTaskListInteractive=&quot;True&quot; TaskListToggleCommand=&quot;{Binding ToggleTaskCommand}&quot; TextWrapping=&quot;Wrap&quot; /> The command parameter is a MarkdownTaskListToggleRequest: public ICommand ToggleTaskCommand { get; } public DocumentViewModel() { ToggleTaskCommand = new RelayCommand&lt;MarkdownTaskListToggleRequest>(request => { if (request is not null) { DocumentMarkdown = request.UpdatedMarkdown; } }); } The...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="Running the Sample | ProMarkdown">
+<meta property="og:image:alt" content="Interactive Task Lists | ProMarkdown">
   </head>
   <body>
 
@@ -96,17 +96,23 @@
           <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#docs-sidebar-menu" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body">
-          <ol id='menu-id-getting_started-0' class='menu menu-level0 show '>
-            <li id='menu-item-getting_started-1' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/' class='menu-link  '>Getting Started</a></span>  </li>
-            <li id='menu-item-getting_started-2' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/overview/' class='menu-link  '>Overview</a></span>  </li>
-            <li id='menu-item-getting_started-3' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/installation/' class='menu-link  '>Installation</a></span>  </li>
-            <li id='menu-item-getting_started-4' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/first-document/' class='menu-link  '>Render Your First Document</a></span>  </li>
-            <li id='menu-item-getting_started-5' class='menu-item  active'>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/running-the-sample/' class='menu-link  '>Running the Sample</a></span>  </li>
+          <ol id='menu-id-markdown-0' class='menu menu-level0 show '>
+            <li id='menu-item-markdown-1' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/' class='menu-link  '>User Guide</a></span>  </li>
+            <li id='menu-item-markdown-2' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
+            <li id='menu-item-markdown-3' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
+            <li id='menu-item-markdown-4' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
+            <li id='menu-item-markdown-5' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
+            <li id='menu-item-markdown-6' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
+            <li id='menu-item-markdown-7' class='menu-item  active'>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+            <li id='menu-item-markdown-8' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/plugin-ecosystem/' class='menu-link  '>Plugin Ecosystem</a></span>  </li>
           </ol>
 
         </div>
@@ -124,9 +130,9 @@
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/' class='breadcrumb-link  '><i class='bi bi-book' aria-hidden='true'></i> Docs</a>  </li>
           <li class='breadcrumb-item '>
-            <a href='/ProMarkdown/articles/getting-started/' class='breadcrumb-link  '>Getting Started</a>  </li>
+            <a href='/ProMarkdown/articles/markdown/' class='breadcrumb-link  '>User Guide</a>  </li>
           <li class='breadcrumb-item  active'>
-            Running the Sample  </li>
+            Interactive Task Lists  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -153,24 +159,61 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="running-the-sample">Running the Sample</h1>
-<h2 id="prerequisite">Prerequisite</h2>
-<ul>
-<li>.NET 10 SDK</li>
-</ul>
-<h2 id="build-and-test">Build and test</h2>
-<pre><code class="language-bash">dotnet restore ProMarkdown.slnx
-dotnet build ProMarkdown.slnx
-dotnet test --solution ProMarkdown.slnx
+<h1 id="interactive-task-lists">Interactive Task Lists</h1>
+<p>Task-list markers render as checkboxes. They are display-only by default so selection and scrolling remain predictable. To make them interactive, set both <code>IsTaskListInteractive</code> and <code>TaskListToggleCommand</code>.</p>
+<pre><code class="language-xml">&lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot;
+                            IsTaskListInteractive=&quot;True&quot;
+                            TaskListToggleCommand=&quot;{Binding ToggleTaskCommand}&quot;
+                            TextWrapping=&quot;Wrap&quot; /&gt;
 </code></pre>
-<h2 id="run-the-markdown-sample">Run the Markdown sample</h2>
-<pre><code class="language-bash">dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj
+<p>The command parameter is a <code>MarkdownTaskListToggleRequest</code>:</p>
+<pre><code class="language-csharp">public ICommand ToggleTaskCommand { get; }
+
+public DocumentViewModel()
+{
+    ToggleTaskCommand = new RelayCommand&lt;MarkdownTaskListToggleRequest&gt;(request =&gt;
+    {
+        if (request is not null)
+        {
+            DocumentMarkdown = request.UpdatedMarkdown;
+        }
+    });
+}
 </code></pre>
-<p>The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together.</p>
-<h2 id="serve-the-documentation">Serve the documentation</h2>
-<pre><code class="language-bash">dotnet tool restore
-bash ./serve-docs.sh
-</code></pre>
+<p>The example uses <code>RelayCommand&lt;T&gt;</code> from CommunityToolkit.Mvvm; any <code>ICommand</code> implementation works.</p>
+<h2 id="request-data">Request data</h2>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SourceMarkdown</code></td>
+<td>Document before the toggle.</td>
+</tr>
+<tr>
+<td><code>UpdatedMarkdown</code></td>
+<td>Complete document with the task marker changed.</td>
+</tr>
+<tr>
+<td><code>MarkerOffset</code></td>
+<td>Zero-based source offset of the task marker.</td>
+</tr>
+<tr>
+<td><code>IsChecked</code></td>
+<td>New checkbox state.</td>
+</tr>
+<tr>
+<td><code>TaskText</code></td>
+<td>Text associated with the task item.</td>
+</tr>
+</tbody>
+</table>
+<p>The control invokes the command only when it can construct a source-safe update and <code>CanExecute</code> accepts the request. If execution is rejected, the checkbox returns to its previous visual state.</p>
+<p>Treat <code>UpdatedMarkdown</code> as the authoritative source replacement. Assign it to the same state that supplies the control's <code>Markdown</code> binding; the resulting rerender keeps source, task controls, and external editors synchronized.</p>
 
       </div>
   </div>

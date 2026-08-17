@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>User Guide | ProMarkdown</title>
+    <title>MarkdownTextBlock | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="User Guide | ProMarkdown">
-<meta name="twitter:description" content="User Guide This guide explains how application developers consume ProMarkdown. It starts with the MarkdownTextBlock control, then moves through rendering configuration, source-aware editing, hit testing, theming, and extension points. Core package Install ProMarkdown for the control and the core parsing, rendering, editing, selection, layout, theme, and hit-testing services. The default control configuration is enough for common Markdown documents. Optional features Plugin packages are opt-in. Registration is explicit so applications control...">
+<meta name="twitter:title" content="MarkdownTextBlock | ProMarkdown">
+<meta name="twitter:description" content="MarkdownTextBlock ProMarkdown.Controls.MarkdownTextBlock is the primary control for application views. It derives from SelectableTextBlock, renders a source-mapped Avalonia inline tree, and coordinates selection, links, editing, task lists, and render-resource lifetime. Typical XAML &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot; BaseUri=&quot;{Binding DocumentBaseUri}&quot; FontSize=&quot;14&quot; Padding=&quot;16&quot; TextWrapping=&quot;Wrap&quot; ThemePalette=&quot;{Binding MarkdownPalette}&quot; /> Place wrapped documents in a vertically scrolling container and leave horizontal scrolling disabled. The control observes its own bounds and effective viewport so tables, code blocks, and embedded...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="User Guide | ProMarkdown">
-<meta property="og:title" content="User Guide | ProMarkdown">
+<meta name="twitter:image:alt" content="MarkdownTextBlock | ProMarkdown">
+<meta property="og:title" content="MarkdownTextBlock | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="User Guide This guide explains how application developers consume ProMarkdown. It starts with the MarkdownTextBlock control, then moves through rendering configuration, source-aware editing, hit testing, theming, and extension points. Core package Install ProMarkdown for the control and the core parsing, rendering, editing, selection, layout, theme, and hit-testing services. The default control configuration is enough for common Markdown documents. Optional features Plugin packages are opt-in. Registration is explicit so applications control...">
+<meta property="og:description" content="MarkdownTextBlock ProMarkdown.Controls.MarkdownTextBlock is the primary control for application views. It derives from SelectableTextBlock, renders a source-mapped Avalonia inline tree, and coordinates selection, links, editing, task lists, and render-resource lifetime. Typical XAML &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot; BaseUri=&quot;{Binding DocumentBaseUri}&quot; FontSize=&quot;14&quot; Padding=&quot;16&quot; TextWrapping=&quot;Wrap&quot; ThemePalette=&quot;{Binding MarkdownPalette}&quot; /> Place wrapped documents in a vertically scrolling container and leave horizontal scrolling disabled. The control observes its own bounds and effective viewport so tables, code blocks, and embedded...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="User Guide | ProMarkdown">
+<meta property="og:image:alt" content="MarkdownTextBlock | ProMarkdown">
   </head>
   <body>
 
@@ -99,7 +99,7 @@
           <ol id='menu-id-markdown-0' class='menu menu-level0 show '>
             <li id='menu-item-markdown-1' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/' class='menu-link  '>User Guide</a></span>  </li>
-            <li id='menu-item-markdown-2' class='menu-item '>
+            <li id='menu-item-markdown-2' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
             <li id='menu-item-markdown-3' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
@@ -129,8 +129,10 @@
             <a href='/ProMarkdown/' class='breadcrumb-link  '><i class='bi bi-house-door' aria-hidden='true'></i> Home</a>  </li>
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/' class='breadcrumb-link  '><i class='bi bi-book' aria-hidden='true'></i> Docs</a>  </li>
+          <li class='breadcrumb-item '>
+            <a href='/ProMarkdown/articles/markdown/' class='breadcrumb-link  '>User Guide</a>  </li>
           <li class='breadcrumb-item  active'>
-            User Guide  </li>
+            MarkdownTextBlock  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -157,24 +159,120 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="user-guide">User Guide</h1>
-<p>This guide explains how application developers consume ProMarkdown. It starts with the <code>MarkdownTextBlock</code> control, then moves through rendering configuration, source-aware editing, hit testing, theming, and extension points.</p>
-<h2 id="core-package">Core package</h2>
-<p>Install <code>ProMarkdown</code> for the control and the core parsing, rendering, editing, selection, layout, theme, and hit-testing services. The default control configuration is enough for common Markdown documents.</p>
-<h2 id="optional-features">Optional features</h2>
-<p>Plugin packages are opt-in. Registration is explicit so applications control syntax, rendering behavior, editor selection, startup cost, and transitive dependencies.</p>
-<h2 id="advanced-composition">Advanced composition</h2>
-<p>The public service contracts let applications render outside the stock control, map rendered content back to source, provide custom editor surfaces, or introduce new Markdown syntax and visuals.</p>
-<h2 id="guide-map">Guide map</h2>
+<h1 id="markdowntextblock">MarkdownTextBlock</h1>
+<p><code>ProMarkdown.Controls.MarkdownTextBlock</code> is the primary control for application views. It derives from <code>SelectableTextBlock</code>, renders a source-mapped Avalonia inline tree, and coordinates selection, links, editing, task lists, and render-resource lifetime.</p>
+<h2 id="typical-xaml">Typical XAML</h2>
+<pre><code class="language-xml">&lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot;
+                            BaseUri=&quot;{Binding DocumentBaseUri}&quot;
+                            FontSize=&quot;14&quot;
+                            Padding=&quot;16&quot;
+                            TextWrapping=&quot;Wrap&quot;
+                            ThemePalette=&quot;{Binding MarkdownPalette}&quot; /&gt;
+</code></pre>
+<p>Place wrapped documents in a vertically scrolling container and leave horizontal scrolling disabled. The control observes its own bounds and effective viewport so tables, code blocks, and embedded controls receive a useful available width.</p>
+<h2 id="markdown-properties">Markdown properties</h2>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Markdown</code></td>
+<td>Source text. Changing it reparses and rerenders the document.</td>
+</tr>
+<tr>
+<td><code>BaseUri</code></td>
+<td>Base for relative links and images.</td>
+</tr>
+<tr>
+<td><code>ThemePalette</code></td>
+<td>Semantic document brushes. If null, a built-in palette is selected from <code>Foreground</code>.</td>
+</tr>
+<tr>
+<td><code>RenderController</code></td>
+<td>Parsing and rendering pipeline. Supply a custom instance to activate plugins.</td>
+</tr>
+<tr>
+<td><code>HitTestingService</code></td>
+<td>Maps pointer or rendered-text positions back to Markdown source.</td>
+</tr>
+<tr>
+<td><code>EditingService</code></td>
+<td>Resolves source elements to editor plugins and creates editor controls.</td>
+</tr>
+<tr>
+<td><code>EditorPreferences</code></td>
+<td>Selects a preferred editor ID for each editor feature.</td>
+</tr>
+<tr>
+<td><code>EditorPresentationMode</code></td>
+<td>Displays editors inline with content or in a card surface.</td>
+</tr>
+<tr>
+<td><code>IsEditingEnabled</code></td>
+<td>Allows <code>TryBeginEdit</code> to start an editor session.</td>
+</tr>
+<tr>
+<td><code>IsTaskListInteractive</code></td>
+<td>Allows rendered task checkboxes to accept input when a command is present.</td>
+</tr>
+<tr>
+<td><code>TaskListToggleCommand</code></td>
+<td>Receives a <code>MarkdownTaskListToggleRequest</code> containing updated source.</td>
+</tr>
+</tbody>
+</table>
+<p><code>RenderController</code>, <code>HitTestingService</code>, <code>EditingService</code>, and <code>EditorPreferences</code> reject null assignments. Changing rendering, editing, text, theme, or layout properties triggers the appropriate rerender or layout refresh.</p>
+<h2 id="render-state">Render state</h2>
+<p>After a successful render, the control exposes:</p>
 <ul>
-<li><a href="/ProMarkdown/articles/markdown/markdown-text-block">MarkdownTextBlock</a> covers the primary control and its lifecycle.</li>
-<li><a href="/ProMarkdown/articles/markdown/rendering-services">Rendering Services</a> configures core and plugin-aware pipelines.</li>
-<li><a href="/ProMarkdown/articles/markdown/editing">Source-Aware Editing</a> explains editor sessions and persisted updates.</li>
-<li><a href="/ProMarkdown/articles/markdown/source-mapping">Source Mapping and Hit Testing</a> connects rendered content to source.</li>
-<li><a href="/ProMarkdown/articles/markdown/theming">Theming</a> configures semantic light, dark, and custom palettes.</li>
-<li><a href="/ProMarkdown/articles/markdown/task-lists">Interactive Task Lists</a> persists checkbox changes safely.</li>
-<li><a href="/ProMarkdown/articles/markdown/plugin-ecosystem">Plugin Ecosystem</a> introduces optional packages and extension points.</li>
+<li><code>LastRenderResult</code> — rendered Avalonia inlines, parse result, source maps, and resource tracker</li>
+<li><code>LastParseResult</code> — the Markdig document, original source, transformed source, and parent map</li>
+<li><code>LastRenderMap</code> — mappings from rendered text and visual controls to Markdown AST nodes</li>
+<li><code>ActiveEditorSession</code> — the editor currently replacing a rendered element, or null</li>
 </ul>
+<p>These values are null before the first non-empty attached render and after detaching from the visual tree. Treat them as snapshots: a Markdown, width, theme, or service change can replace them.</p>
+<h2 id="methods-and-events">Methods and events</h2>
+<table class="table">
+<thead>
+<tr>
+<th>Member</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HitTestMarkdown(Point)</code></td>
+<td>Resolve a control-relative point to source and AST metadata.</td>
+</tr>
+<tr>
+<td><code>TryBeginEdit(Point)</code></td>
+<td>Hit test a point and begin an editor session if a plugin supports it.</td>
+</tr>
+<tr>
+<td><code>TryBeginEdit(MarkdownHitTestResult)</code></td>
+<td>Begin editing from a previously resolved hit.</td>
+</tr>
+<tr>
+<td><code>CancelEdit()</code></td>
+<td>End the active session with the <code>UserRequested</code> reason.</td>
+</tr>
+<tr>
+<td><code>MarkdownEdited</code></td>
+<td>Observe replacement, insertion, or removal and synchronize persisted source.</td>
+</tr>
+<tr>
+<td><code>MarkdownEditCanceled</code></td>
+<td>Observe cancellation caused by the user, a Markdown change, or disabled editing.</td>
+</tr>
+</tbody>
+</table>
+<p>Editing is opt-in and gesture-neutral. Set <code>IsEditingEnabled</code>, then call <code>TryBeginEdit</code> from the pointer, keyboard, or command interaction that fits your application. See <a href="/ProMarkdown/articles/markdown/editing">Source-Aware Editing</a>.</p>
+<h2 id="inherited-text-behavior">Inherited text behavior</h2>
+<p>The renderer reads <code>FontFamily</code>, <code>FontSize</code>, <code>Foreground</code>, and <code>TextWrapping</code> from the control. Selection and copy behavior come from <code>SelectableTextBlock</code>; ProMarkdown adds document-segment normalization so selection continues across rich block controls.</p>
 
       </div>
   </div>

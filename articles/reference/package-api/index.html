@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>Repository Structure | ProMarkdown</title>
+    <title>Plugin Package API | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="Repository Structure | ProMarkdown">
-<meta name="twitter:description" content="Repository Structure Top-level layout src/ — the core Markdown library, optional plugins, and sample tests/ — headless Markdown tests docs/ — Markdown implementation and design notes site/ — Lunet documentation content and configuration .github/workflows/ — build, docs, package, and release automation build/ — shared package metadata and SourceLink configuration Solution projects ProMarkdown — core Markdown control and services ProMarkdown.Plugin.* — optional feature packages ProMarkdown.Sample — standalone sample application ProMarkdown.Tests —...">
+<meta name="twitter:title" content="Plugin Package API | ProMarkdown">
+<meta name="twitter:description" content="Plugin Package API Each optional NuGet package exposes one parameterless IMarkdownPlugin entry point. Add instances to the same plugin collection supplied to MarkdownRenderingServices.CreateController and CreateEditingService. IMarkdownPlugin[] plugins = [ new AlertsMarkdownPlugin(), new MathMarkdownPlugin() ]; markdown.RenderController = MarkdownRenderingServices.CreateController(plugins); markdown.EditingService = MarkdownRenderingServices.CreateEditingService(plugins); For package installation, syntax, behavior, and combination examples, see Plugin Ecosystem. Package entry points NuGet package Namespace Public plugin class Registered capabilities ProMarkdown.Plugin.Alerts ProMarkdown.Plugin.Alerts...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="Repository Structure | ProMarkdown">
-<meta property="og:title" content="Repository Structure | ProMarkdown">
+<meta name="twitter:image:alt" content="Plugin Package API | ProMarkdown">
+<meta property="og:title" content="Plugin Package API | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Repository Structure Top-level layout src/ — the core Markdown library, optional plugins, and sample tests/ — headless Markdown tests docs/ — Markdown implementation and design notes site/ — Lunet documentation content and configuration .github/workflows/ — build, docs, package, and release automation build/ — shared package metadata and SourceLink configuration Solution projects ProMarkdown — core Markdown control and services ProMarkdown.Plugin.* — optional feature packages ProMarkdown.Sample — standalone sample application ProMarkdown.Tests —...">
+<meta property="og:description" content="Plugin Package API Each optional NuGet package exposes one parameterless IMarkdownPlugin entry point. Add instances to the same plugin collection supplied to MarkdownRenderingServices.CreateController and CreateEditingService. IMarkdownPlugin[] plugins = [ new AlertsMarkdownPlugin(), new MathMarkdownPlugin() ]; markdown.RenderController = MarkdownRenderingServices.CreateController(plugins); markdown.EditingService = MarkdownRenderingServices.CreateEditingService(plugins); For package installation, syntax, behavior, and combination examples, see Plugin Ecosystem. Package entry points NuGet package Namespace Public plugin class Registered capabilities ProMarkdown.Plugin.Alerts ProMarkdown.Plugin.Alerts...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="Repository Structure | ProMarkdown">
+<meta property="og:image:alt" content="Plugin Package API | ProMarkdown">
   </head>
   <body>
 
@@ -109,9 +109,9 @@
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/editing-api/' class='menu-link  '>Editing API</a></span>  </li>
             <li id='menu-item-reference-6' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/extension-api/' class='menu-link  '>Extension API</a></span>  </li>
-            <li id='menu-item-reference-7' class='menu-item '>
+            <li id='menu-item-reference-7' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/package-api/' class='menu-link  '>Plugin Package API</a></span>  </li>
-            <li id='menu-item-reference-8' class='menu-item  active'>
+            <li id='menu-item-reference-8' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/repository-structure/' class='menu-link  '>Repository Structure</a></span>  </li>
           </ol>
 
@@ -132,7 +132,7 @@
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/reference/' class='breadcrumb-link  '>Reference</a>  </li>
           <li class='breadcrumb-item  active'>
-            Repository Structure  </li>
+            Plugin Package API  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -159,22 +159,163 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="repository-structure">Repository Structure</h1>
-<h2 id="top-level-layout">Top-level layout</h2>
+<h1 id="plugin-package-api">Plugin Package API</h1>
+<p>Each optional NuGet package exposes one parameterless <code>IMarkdownPlugin</code> entry point. Add instances to the same plugin collection supplied to <code>MarkdownRenderingServices.CreateController</code> and <code>CreateEditingService</code>.</p>
+<pre><code class="language-csharp">IMarkdownPlugin[] plugins =
+[
+    new AlertsMarkdownPlugin(),
+    new MathMarkdownPlugin()
+];
+
+markdown.RenderController = MarkdownRenderingServices.CreateController(plugins);
+markdown.EditingService = MarkdownRenderingServices.CreateEditingService(plugins);
+</code></pre>
+<p>For package installation, syntax, behavior, and combination examples, see <a href="/ProMarkdown/articles/markdown/plugin-ecosystem">Plugin Ecosystem</a>.</p>
+<h2 id="package-entry-points">Package entry points</h2>
+<table class="table">
+<thead>
+<tr>
+<th>NuGet package</th>
+<th>Namespace</th>
+<th>Public plugin class</th>
+<th>Registered capabilities</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ProMarkdown.Plugin.Alerts</code></td>
+<td><code>ProMarkdown.Plugin.Alerts</code></td>
+<td><code>AlertsMarkdownPlugin</code></td>
+<td>Alert block renderer, template provider, editor</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.CustomContainers</code></td>
+<td><code>ProMarkdown.Plugin.CustomContainers</code></td>
+<td><code>CustomContainersMarkdownPlugin</code></td>
+<td>Container block renderer, template provider, editor</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.DefinitionLists</code></td>
+<td><code>ProMarkdown.Plugin.DefinitionLists</code></td>
+<td><code>DefinitionListMarkdownPlugin</code></td>
+<td>Definition-list renderer, template provider, editor</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.Figures</code></td>
+<td><code>ProMarkdown.Plugin.Figures</code></td>
+<td><code>FiguresMarkdownPlugin</code></td>
+<td>Figure renderer, template provider, editor</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.Footers</code></td>
+<td><code>ProMarkdown.Plugin.Footers</code></td>
+<td><code>FootersMarkdownPlugin</code></td>
+<td>Footer renderer, template provider, editor</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.Math</code></td>
+<td><code>ProMarkdown.Plugin.Math</code></td>
+<td><code>MathMarkdownPlugin</code></td>
+<td>Block and inline math renderers, template provider, block and inline editors</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.Mermaid</code></td>
+<td><code>ProMarkdown.Plugin.Mermaid</code></td>
+<td><code>MermaidMarkdownPlugin</code></td>
+<td>Parser, diagram renderer, template provider, editor</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.SyntaxHighlighting</code></td>
+<td><code>ProMarkdown.Plugin.SyntaxHighlighting</code></td>
+<td><code>SyntaxHighlightingMarkdownPlugin</code></td>
+<td>Built-in code-block renderer</td>
+</tr>
+<tr>
+<td><code>ProMarkdown.Plugin.TextMate</code></td>
+<td><code>ProMarkdown.Plugin.TextMate</code></td>
+<td><code>TextMateMarkdownPlugin</code></td>
+<td>TextMate code renderer and AvaloniaEdit code editor</td>
+</tr>
+</tbody>
+</table>
+<p>Every class has a public parameterless constructor and this method:</p>
+<pre><code class="language-csharp">public void Register(MarkdownPluginRegistry registry);
+</code></pre>
+<p>Registration is normally performed by the service factories. Call <code>Register</code> directly only when assembling a <code>MarkdownPluginRegistry</code> yourself.</p>
+<h2 id="stable-editor-identifiers">Stable editor identifiers</h2>
+<p>Use these public constants when selecting a preferred editor:</p>
+<table class="table">
+<thead>
+<tr>
+<th>Type</th>
+<th>Constant</th>
+<th>Feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AlertsMarkdownEditorIds</code></td>
+<td><code>Block</code></td>
+<td><code>Alert</code></td>
+</tr>
+<tr>
+<td><code>CustomContainerMarkdownEditorIds</code></td>
+<td><code>Block</code></td>
+<td><code>CustomContainer</code></td>
+</tr>
+<tr>
+<td><code>DefinitionListMarkdownEditorIds</code></td>
+<td><code>Block</code></td>
+<td><code>DefinitionList</code></td>
+</tr>
+<tr>
+<td><code>FiguresMarkdownEditorIds</code></td>
+<td><code>Block</code></td>
+<td><code>Figure</code></td>
+</tr>
+<tr>
+<td><code>FooterMarkdownEditorIds</code></td>
+<td><code>Block</code></td>
+<td><code>Footer</code></td>
+</tr>
+<tr>
+<td><code>MathMarkdownEditorIds</code></td>
+<td><code>Block</code></td>
+<td>block <code>Math</code></td>
+</tr>
+<tr>
+<td><code>MathMarkdownEditorIds</code></td>
+<td><code>Inline</code></td>
+<td>inline <code>Math</code></td>
+</tr>
+<tr>
+<td><code>MermaidMarkdownPlugin</code></td>
+<td><code>MermaidEditorId</code></td>
+<td><code>Mermaid</code></td>
+</tr>
+<tr>
+<td><code>TextMateMarkdownPlugin</code></td>
+<td><code>TextMateCodeEditorId</code></td>
+<td><code>Code</code></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<pre><code class="language-csharp">markdown.EditorPreferences
+    .PreferEditor(
+        MarkdownEditorFeature.Math,
+        MathMarkdownEditorIds.Inline)
+    .PreferEditor(
+        MarkdownEditorFeature.Code,
+        TextMateMarkdownPlugin.TextMateCodeEditorId);
+</code></pre>
+<p><code>SyntaxHighlightingMarkdownPlugin</code> is rendering-only and does not expose an editor ID.</p>
+<h2 id="composition-notes">Composition notes</h2>
 <ul>
-<li><code>src/</code> — the core Markdown library, optional plugins, and sample</li>
-<li><code>tests/</code> — headless Markdown tests</li>
-<li><code>docs/</code> — Markdown implementation and design notes</li>
-<li><code>site/</code> — Lunet documentation content and configuration</li>
-<li><code>.github/workflows/</code> — build, docs, package, and release automation</li>
-<li><code>build/</code> — shared package metadata and SourceLink configuration</li>
-</ul>
-<h2 id="solution-projects">Solution projects</h2>
-<ul>
-<li><code>ProMarkdown</code> — core Markdown control and services</li>
-<li><code>ProMarkdown.Plugin.*</code> — optional feature packages</li>
-<li><code>ProMarkdown.Sample</code> — standalone sample application</li>
-<li><code>ProMarkdown.Tests</code> — headless tests</li>
+<li>Plugin classes retain any resources they reuse across renders; construct them once and reuse the plugin list.</li>
+<li><code>TextMateMarkdownPlugin</code> has a lower renderer order than <code>SyntaxHighlightingMarkdownPlugin</code>, so TextMate gets the first opportunity. It returns <code>false</code> for unsupported language hints and Mermaid aliases, allowing a later renderer to handle the block.</li>
+<li><code>MermaidMarkdownPlugin</code> recognizes <code>mermaid</code>, <code>mmd</code>, <code>mermaidjs</code>, and <code>diagram-mermaid</code> fenced language aliases as well as its documented custom-container form.</li>
+<li>Stable editor constants are API identifiers. Display labels, visual styling, and internal renderer/editor implementation types are not public contracts.</li>
 </ul>
 
       </div>

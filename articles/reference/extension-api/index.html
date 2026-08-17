@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>Repository Structure | ProMarkdown</title>
+    <title>Extension API | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="Repository Structure | ProMarkdown">
-<meta name="twitter:description" content="Repository Structure Top-level layout src/ — the core Markdown library, optional plugins, and sample tests/ — headless Markdown tests docs/ — Markdown implementation and design notes site/ — Lunet documentation content and configuration .github/workflows/ — build, docs, package, and release automation build/ — shared package metadata and SourceLink configuration Solution projects ProMarkdown — core Markdown control and services ProMarkdown.Plugin.* — optional feature packages ProMarkdown.Sample — standalone sample application ProMarkdown.Tests —...">
+<meta name="twitter:title" content="Extension API | ProMarkdown">
+<meta name="twitter:description" content="Extension API Namespace: ProMarkdown.Services These are the complete contracts used to compose ProMarkdown and author plugins. All Order defaults are zero; lower values run first. See the Extension Authoring section for worked examples. Rendering service contracts public interface IMarkdownParsingService { MarkdownParseResult Parse(string markdown); } public interface IMarkdownInlineRenderingService { MarkdownRenderResult Render( MarkdownParseResult parseResult, MarkdownRenderContext context); } public interface IMarkdownRenderController { MarkdownRenderResult Render(MarkdownRenderRequest request); } public interface IMarkdownHitTestingService { MarkdownHitTestResult? HitTest(MarkdownHitTestRequest request);...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="Repository Structure | ProMarkdown">
-<meta property="og:title" content="Repository Structure | ProMarkdown">
+<meta name="twitter:image:alt" content="Extension API | ProMarkdown">
+<meta property="og:title" content="Extension API | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Repository Structure Top-level layout src/ — the core Markdown library, optional plugins, and sample tests/ — headless Markdown tests docs/ — Markdown implementation and design notes site/ — Lunet documentation content and configuration .github/workflows/ — build, docs, package, and release automation build/ — shared package metadata and SourceLink configuration Solution projects ProMarkdown — core Markdown control and services ProMarkdown.Plugin.* — optional feature packages ProMarkdown.Sample — standalone sample application ProMarkdown.Tests —...">
+<meta property="og:description" content="Extension API Namespace: ProMarkdown.Services These are the complete contracts used to compose ProMarkdown and author plugins. All Order defaults are zero; lower values run first. See the Extension Authoring section for worked examples. Rendering service contracts public interface IMarkdownParsingService { MarkdownParseResult Parse(string markdown); } public interface IMarkdownInlineRenderingService { MarkdownRenderResult Render( MarkdownParseResult parseResult, MarkdownRenderContext context); } public interface IMarkdownRenderController { MarkdownRenderResult Render(MarkdownRenderRequest request); } public interface IMarkdownHitTestingService { MarkdownHitTestResult? HitTest(MarkdownHitTestRequest request);...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="Repository Structure | ProMarkdown">
+<meta property="og:image:alt" content="Extension API | ProMarkdown">
   </head>
   <body>
 
@@ -107,11 +107,11 @@
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/rendering-models-api/' class='menu-link  '>Rendering and Source Map API</a></span>  </li>
             <li id='menu-item-reference-5' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/editing-api/' class='menu-link  '>Editing API</a></span>  </li>
-            <li id='menu-item-reference-6' class='menu-item '>
+            <li id='menu-item-reference-6' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/extension-api/' class='menu-link  '>Extension API</a></span>  </li>
             <li id='menu-item-reference-7' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/package-api/' class='menu-link  '>Plugin Package API</a></span>  </li>
-            <li id='menu-item-reference-8' class='menu-item  active'>
+            <li id='menu-item-reference-8' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/repository-structure/' class='menu-link  '>Repository Structure</a></span>  </li>
           </ol>
 
@@ -132,7 +132,7 @@
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/reference/' class='breadcrumb-link  '>Reference</a>  </li>
           <li class='breadcrumb-item  active'>
-            Repository Structure  </li>
+            Extension API  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -159,23 +159,136 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="repository-structure">Repository Structure</h1>
-<h2 id="top-level-layout">Top-level layout</h2>
-<ul>
-<li><code>src/</code> — the core Markdown library, optional plugins, and sample</li>
-<li><code>tests/</code> — headless Markdown tests</li>
-<li><code>docs/</code> — Markdown implementation and design notes</li>
-<li><code>site/</code> — Lunet documentation content and configuration</li>
-<li><code>.github/workflows/</code> — build, docs, package, and release automation</li>
-<li><code>build/</code> — shared package metadata and SourceLink configuration</li>
-</ul>
-<h2 id="solution-projects">Solution projects</h2>
-<ul>
-<li><code>ProMarkdown</code> — core Markdown control and services</li>
-<li><code>ProMarkdown.Plugin.*</code> — optional feature packages</li>
-<li><code>ProMarkdown.Sample</code> — standalone sample application</li>
-<li><code>ProMarkdown.Tests</code> — headless tests</li>
-</ul>
+<h1 id="extension-api">Extension API</h1>
+<p>Namespace: <code>ProMarkdown.Services</code></p>
+<p>These are the complete contracts used to compose ProMarkdown and author plugins. All <code>Order</code> defaults are zero; lower values run first. See the <a href="/ProMarkdown/articles/extensions">Extension Authoring</a> section for worked examples.</p>
+<h2 id="rendering-service-contracts">Rendering service contracts</h2>
+<pre><code class="language-csharp">public interface IMarkdownParsingService
+{
+    MarkdownParseResult Parse(string markdown);
+}
+
+public interface IMarkdownInlineRenderingService
+{
+    MarkdownRenderResult Render(
+        MarkdownParseResult parseResult,
+        MarkdownRenderContext context);
+}
+
+public interface IMarkdownRenderController
+{
+    MarkdownRenderResult Render(MarkdownRenderRequest request);
+}
+
+public interface IMarkdownHitTestingService
+{
+    MarkdownHitTestResult? HitTest(MarkdownHitTestRequest request);
+    MarkdownHitTestResult? HitTestTextPosition(
+        MarkdownRenderResult renderResult,
+        int textPosition);
+}
+
+public interface IMarkdownEditingService
+{
+    MarkdownEditorSession? ResolveSession(MarkdownEditorResolveRequest request);
+    Control? CreateEditor(MarkdownEditorRenderRequest request);
+}
+</code></pre>
+<p>Applications normally obtain these from <code>MarkdownRenderingServices</code>; implement them only when replacing a pipeline stage.</p>
+<h2 id="plugin-bundle">Plugin bundle</h2>
+<pre><code class="language-csharp">public interface IMarkdownPlugin
+{
+    void Register(MarkdownPluginRegistry registry);
+}
+</code></pre>
+<p>An <code>IMarkdownPlugin</code> is a convenient package that registers any combination of the more focused contracts.</p>
+<h2 id="parser-plugin">Parser plugin</h2>
+<pre><code class="language-csharp">public interface IMarkdownParserPlugin
+{
+    int Order =&gt; 0;
+    void Configure(MarkdownPipelineBuilder builder) { }
+    string TransformMarkdown(string markdown) =&gt; markdown;
+}
+</code></pre>
+<p><code>TransformMarkdown</code> plugins run in order before parsing. Then all <code>Configure</code> methods build the shared Markdig pipeline once. A transform that changes the source also makes original-source editing unavailable because Markdig spans no longer address the original string.</p>
+<h2 id="block-rendering-plugin">Block rendering plugin</h2>
+<pre><code class="language-csharp">public interface IMarkdownBlockRenderingPlugin
+{
+    int Order =&gt; 0;
+    bool CanRender(Block block);
+    bool TryRender(MarkdownBlockRenderingPluginContext context);
+}
+</code></pre>
+<p>The first ordered plugin that returns <code>true</code> from <code>TryRender</code> owns the block. Returning <code>false</code> allows later plugins or the built-in renderer to handle it.</p>
+<h3 id="markdownblockrenderingplugincontext">MarkdownBlockRenderingPluginContext</h3>
+<p>The framework constructs this type. Read-only properties are <code>Block</code>, <code>ParseResult</code>, <code>RenderContext</code>, <code>Output</code>, <code>QuoteDepth</code>, <code>ListDepth</code>, and <code>AvailableWidth</code>.</p>
+<pre><code class="language-csharp">public void AddBlockControl(
+    Control control,
+    MarkdownVisualHitTestHandler? hitTestHandler = null);
+public Uri? ResolveUri(string? url);
+public void TrackResource(IDisposable resource);
+public bool IsCurrentRender();
+</code></pre>
+<p>Use <code>AddBlockControl</code> instead of directly inserting a control so the render map and optional detailed hit handler are registered. Use <code>TrackResource</code> for subscriptions, timers, and other disposable state. Check <code>IsCurrentRender</code> before publishing asynchronous results.</p>
+<h2 id="inline-rendering-plugin">Inline rendering plugin</h2>
+<pre><code class="language-csharp">public interface IMarkdownInlineRenderingPlugin
+{
+    int Order =&gt; 0;
+    bool CanRender(Markdig.Syntax.Inlines.Inline inline);
+    bool TryRender(MarkdownInlineRenderingPluginContext context);
+}
+</code></pre>
+<p>Selection follows the same first-success rule as block rendering.</p>
+<h3 id="markdowninlinerenderingplugincontext">MarkdownInlineRenderingPluginContext</h3>
+<p>Read-only properties are <code>Inline</code>, <code>ParseResult</code>, <code>RenderContext</code>, <code>Output</code>, <code>QuoteDepth</code>, and <code>ListDepth</code>.</p>
+<pre><code class="language-csharp">public void AddInline(Avalonia.Controls.Documents.Inline inline);
+public void AddInlineControl(
+    Control control,
+    MarkdownVisualHitTestHandler? hitTestHandler = null);
+public Uri? ResolveUri(string? url);
+public void TrackResource(IDisposable resource);
+public bool IsCurrentRender();
+</code></pre>
+<h2 id="editor-plugin">Editor plugin</h2>
+<pre><code class="language-csharp">public interface IMarkdownEditorPlugin
+{
+    string EditorId { get; }
+    MarkdownEditorFeature Feature { get; }
+    int Order =&gt; 0;
+    bool TryResolveTarget(
+        MarkdownEditorResolveContext context,
+        out MarkdownEditorTarget? target);
+    Control? CreateEditor(MarkdownEditorPluginContext context);
+}
+</code></pre>
+<p>The editing service considers targets nearest to the hit node first, then a preferred editor ID for that feature, then <code>Order</code>. <code>EditorId</code> must be stable and unique within the configured plugin list.</p>
+<h2 id="block-template-provider">Block template provider</h2>
+<pre><code class="language-csharp">public interface IMarkdownBlockTemplateProvider
+{
+    int Order =&gt; 0;
+    IEnumerable&lt;MarkdownBlockTemplate&gt; GetTemplates(
+        MarkdownBlockTemplateContext context);
+}
+</code></pre>
+<p>Templates from providers are ordered and combined for the active editor. See <a href="/ProMarkdown/articles/extensions/block-templates">Block Templates</a>.</p>
+<h2 id="markdownpluginregistry">MarkdownPluginRegistry</h2>
+<pre><code class="language-csharp">public sealed class MarkdownPluginRegistry
+{
+    public IReadOnlyList&lt;IMarkdownParserPlugin&gt; ParserPlugins { get; }
+    public IReadOnlyList&lt;IMarkdownBlockRenderingPlugin&gt; BlockRenderingPlugins { get; }
+    public IReadOnlyList&lt;IMarkdownInlineRenderingPlugin&gt; InlineRenderingPlugins { get; }
+    public IReadOnlyList&lt;IMarkdownEditorPlugin&gt; EditorPlugins { get; }
+    public IReadOnlyList&lt;IMarkdownBlockTemplateProvider&gt; BlockTemplateProviders { get; }
+
+    public MarkdownPluginRegistry AddPlugin(IMarkdownPlugin plugin);
+    public MarkdownPluginRegistry AddParserPlugin(IMarkdownParserPlugin plugin);
+    public MarkdownPluginRegistry AddBlockRenderingPlugin(IMarkdownBlockRenderingPlugin plugin);
+    public MarkdownPluginRegistry AddInlineRenderingPlugin(IMarkdownInlineRenderingPlugin plugin);
+    public MarkdownPluginRegistry AddEditorPlugin(IMarkdownEditorPlugin plugin);
+    public MarkdownPluginRegistry AddBlockTemplateProvider(IMarkdownBlockTemplateProvider provider);
+}
+</code></pre>
+<p>All registration methods are fluent and preserve registration order. <code>MarkdownRenderingServices.CreateController</code> consumes parser and renderer lists; <code>CreateEditingService</code> consumes editor and template lists. Pass the same plugin collection to both factories when a package supplies rendering and editing together.</p>
 
       </div>
   </div>

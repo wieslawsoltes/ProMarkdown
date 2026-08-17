@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>Running the Sample | ProMarkdown</title>
+    <title>Render Your First Document | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="Running the Sample | ProMarkdown">
-<meta name="twitter:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta name="twitter:title" content="Render Your First Document | ProMarkdown">
+<meta name="twitter:description" content="Render Your First Document MarkdownTextBlock is the primary application-facing control. Bind its Markdown property and let it use the built-in render, editing, and hit-testing services. XAML &lt;UserControl xmlns=&quot;https://github.com/avaloniaui&quot; xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot; xmlns:markdown=&quot;using:ProMarkdown.Controls&quot;> &lt;ScrollViewer VerticalScrollBarVisibility=&quot;Auto&quot;> &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot; FontSize=&quot;14&quot; Padding=&quot;16&quot; TextWrapping=&quot;Wrap&quot; /> &lt;/ScrollViewer> &lt;/UserControl>...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="Running the Sample | ProMarkdown">
-<meta property="og:title" content="Running the Sample | ProMarkdown">
+<meta name="twitter:image:alt" content="Render Your First Document | ProMarkdown">
+<meta property="og:title" content="Render Your First Document | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta property="og:description" content="Render Your First Document MarkdownTextBlock is the primary application-facing control. Bind its Markdown property and let it use the built-in render, editing, and hit-testing services. XAML &lt;UserControl xmlns=&quot;https://github.com/avaloniaui&quot; xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot; xmlns:markdown=&quot;using:ProMarkdown.Controls&quot;> &lt;ScrollViewer VerticalScrollBarVisibility=&quot;Auto&quot;> &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot; FontSize=&quot;14&quot; Padding=&quot;16&quot; TextWrapping=&quot;Wrap&quot; /> &lt;/ScrollViewer> &lt;/UserControl>...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="Running the Sample | ProMarkdown">
+<meta property="og:image:alt" content="Render Your First Document | ProMarkdown">
   </head>
   <body>
 
@@ -103,9 +103,9 @@
               <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/overview/' class='menu-link  '>Overview</a></span>  </li>
             <li id='menu-item-getting_started-3' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/installation/' class='menu-link  '>Installation</a></span>  </li>
-            <li id='menu-item-getting_started-4' class='menu-item '>
+            <li id='menu-item-getting_started-4' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/first-document/' class='menu-link  '>Render Your First Document</a></span>  </li>
-            <li id='menu-item-getting_started-5' class='menu-item  active'>
+            <li id='menu-item-getting_started-5' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/running-the-sample/' class='menu-link  '>Running the Sample</a></span>  </li>
           </ol>
 
@@ -126,7 +126,7 @@
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/getting-started/' class='breadcrumb-link  '>Getting Started</a>  </li>
           <li class='breadcrumb-item  active'>
-            Running the Sample  </li>
+            Render Your First Document  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -153,24 +153,46 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="running-the-sample">Running the Sample</h1>
-<h2 id="prerequisite">Prerequisite</h2>
-<ul>
-<li>.NET 10 SDK</li>
-</ul>
-<h2 id="build-and-test">Build and test</h2>
-<pre><code class="language-bash">dotnet restore ProMarkdown.slnx
-dotnet build ProMarkdown.slnx
-dotnet test --solution ProMarkdown.slnx
+<h1 id="render-your-first-document">Render Your First Document</h1>
+<p><code>MarkdownTextBlock</code> is the primary application-facing control. Bind its <code>Markdown</code> property and let it use the built-in render, editing, and hit-testing services.</p>
+<h2 id="xaml">XAML</h2>
+<pre><code class="language-xml">&lt;UserControl
+    xmlns=&quot;https://github.com/avaloniaui&quot;
+    xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot;
+    xmlns:markdown=&quot;using:ProMarkdown.Controls&quot;&gt;
+  &lt;ScrollViewer VerticalScrollBarVisibility=&quot;Auto&quot;&gt;
+    &lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot;
+                                FontSize=&quot;14&quot;
+                                Padding=&quot;16&quot;
+                                TextWrapping=&quot;Wrap&quot; /&gt;
+  &lt;/ScrollViewer&gt;
+&lt;/UserControl&gt;
 </code></pre>
-<h2 id="run-the-markdown-sample">Run the Markdown sample</h2>
-<pre><code class="language-bash">dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj
+<p><code>MarkdownTextBlock</code> derives from Avalonia's <code>SelectableTextBlock</code>, so rendered text supports ordinary selection and copy behavior. The control also honors inherited text properties such as <code>FontFamily</code>, <code>FontSize</code>, <code>Foreground</code>, <code>Padding</code>, and <code>TextWrapping</code>.</p>
+<h2 id="c">C#</h2>
+<pre><code class="language-csharp">using Avalonia.Controls;
+using Avalonia.Media;
+using ProMarkdown.Controls;
+
+var document = new MarkdownTextBlock
+{
+    Markdown = &quot;# Hello\n\nRendered with **ProMarkdown**.&quot;,
+    FontSize = 14,
+    Padding = new Avalonia.Thickness(16),
+    TextWrapping = TextWrapping.Wrap
+};
 </code></pre>
-<p>The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together.</p>
-<h2 id="serve-the-documentation">Serve the documentation</h2>
-<pre><code class="language-bash">dotnet tool restore
-bash ./serve-docs.sh
+<p>Assigning a new value to <code>Markdown</code> reparses and rerenders the document. A null, empty, or whitespace-only value clears the rendered content.</p>
+<h2 id="relative-links-and-images">Relative links and images</h2>
+<p>Set <code>BaseUri</code> when document links or images use relative URLs:</p>
+<pre><code class="language-xml">&lt;markdown:MarkdownTextBlock Markdown=&quot;{Binding DocumentMarkdown}&quot;
+                            BaseUri=&quot;https://docs.example.com/guide/&quot;
+                            TextWrapping=&quot;Wrap&quot; /&gt;
 </code></pre>
+<p>Relative targets are resolved against <code>BaseUri</code>. Absolute <code>http</code>, <code>https</code>, and <code>mailto</code> links continue to work without it. Pointer clicks open links through Avalonia's top-level launcher, while pointer drags remain available for text selection.</p>
+<h2 id="what-the-default-pipeline-supports">What the default pipeline supports</h2>
+<p>The default parser enables precise source locations, Markdig advanced extensions, emoji and smileys, SmartyPants typography, and YAML front matter. ProMarkdown adds layout normalization, source mapping, text selection, link handling, and optional source-aware editors around that parser.</p>
+<p>Continue with the <a href="/ProMarkdown/articles/markdown">User Guide</a> to configure plugins, editing, themes, hit testing, and interactive task lists.</p>
 
       </div>
   </div>

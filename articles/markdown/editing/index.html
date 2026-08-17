@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>Running the Sample | ProMarkdown</title>
+    <title>Source-Aware Editing | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="Running the Sample | ProMarkdown">
-<meta name="twitter:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta name="twitter:title" content="Source-Aware Editing | ProMarkdown">
+<meta name="twitter:description" content="Source-Aware Editing ProMarkdown edits the original Markdown span associated with a rendered element. Editors do not mutate the AST or rendered controls directly; they commit replacement Markdown, and MarkdownTextBlock produces the updated complete source. Enable and start editing markdownView.IsEditingEnabled = true; private void OnPreviewPressed(object? sender, PointerPressedEventArgs args) { if (!args.GetCurrentPoint(markdownView).Properties.IsLeftButtonPressed || markdownView.ActiveEditorSession is not null) { return; } if (markdownView.TryBeginEdit(args.GetPosition(markdownView))) { args.Handled = true; } }...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="Running the Sample | ProMarkdown">
-<meta property="og:title" content="Running the Sample | ProMarkdown">
+<meta name="twitter:image:alt" content="Source-Aware Editing | ProMarkdown">
+<meta property="og:title" content="Source-Aware Editing | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta property="og:description" content="Source-Aware Editing ProMarkdown edits the original Markdown span associated with a rendered element. Editors do not mutate the AST or rendered controls directly; they commit replacement Markdown, and MarkdownTextBlock produces the updated complete source. Enable and start editing markdownView.IsEditingEnabled = true; private void OnPreviewPressed(object? sender, PointerPressedEventArgs args) { if (!args.GetCurrentPoint(markdownView).Properties.IsLeftButtonPressed || markdownView.ActiveEditorSession is not null) { return; } if (markdownView.TryBeginEdit(args.GetPosition(markdownView))) { args.Handled = true; } }...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="Running the Sample | ProMarkdown">
+<meta property="og:image:alt" content="Source-Aware Editing | ProMarkdown">
   </head>
   <body>
 
@@ -96,17 +96,23 @@
           <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#docs-sidebar-menu" aria-label="Close"></button>
         </div>
         <div class="offcanvas-body">
-          <ol id='menu-id-getting_started-0' class='menu menu-level0 show '>
-            <li id='menu-item-getting_started-1' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/' class='menu-link  '>Getting Started</a></span>  </li>
-            <li id='menu-item-getting_started-2' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/overview/' class='menu-link  '>Overview</a></span>  </li>
-            <li id='menu-item-getting_started-3' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/installation/' class='menu-link  '>Installation</a></span>  </li>
-            <li id='menu-item-getting_started-4' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/first-document/' class='menu-link  '>Render Your First Document</a></span>  </li>
-            <li id='menu-item-getting_started-5' class='menu-item  active'>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/running-the-sample/' class='menu-link  '>Running the Sample</a></span>  </li>
+          <ol id='menu-id-markdown-0' class='menu menu-level0 show '>
+            <li id='menu-item-markdown-1' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/' class='menu-link  '>User Guide</a></span>  </li>
+            <li id='menu-item-markdown-2' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
+            <li id='menu-item-markdown-3' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
+            <li id='menu-item-markdown-4' class='menu-item  active'>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
+            <li id='menu-item-markdown-5' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
+            <li id='menu-item-markdown-6' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
+            <li id='menu-item-markdown-7' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+            <li id='menu-item-markdown-8' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/plugin-ecosystem/' class='menu-link  '>Plugin Ecosystem</a></span>  </li>
           </ol>
 
         </div>
@@ -124,9 +130,9 @@
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/' class='breadcrumb-link  '><i class='bi bi-book' aria-hidden='true'></i> Docs</a>  </li>
           <li class='breadcrumb-item '>
-            <a href='/ProMarkdown/articles/getting-started/' class='breadcrumb-link  '>Getting Started</a>  </li>
+            <a href='/ProMarkdown/articles/markdown/' class='breadcrumb-link  '>User Guide</a>  </li>
           <li class='breadcrumb-item  active'>
-            Running the Sample  </li>
+            Source-Aware Editing  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -153,24 +159,85 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="running-the-sample">Running the Sample</h1>
-<h2 id="prerequisite">Prerequisite</h2>
+<h1 id="source-aware-editing">Source-Aware Editing</h1>
+<p>ProMarkdown edits the original Markdown span associated with a rendered element. Editors do not mutate the AST or rendered controls directly; they commit replacement Markdown, and <code>MarkdownTextBlock</code> produces the updated complete source.</p>
+<h2 id="enable-and-start-editing">Enable and start editing</h2>
+<pre><code class="language-csharp">markdownView.IsEditingEnabled = true;
+
+private void OnPreviewPressed(object? sender, PointerPressedEventArgs args)
+{
+    if (!args.GetCurrentPoint(markdownView).Properties.IsLeftButtonPressed ||
+        markdownView.ActiveEditorSession is not null)
+    {
+        return;
+    }
+
+    if (markdownView.TryBeginEdit(args.GetPosition(markdownView)))
+    {
+        args.Handled = true;
+    }
+}
+</code></pre>
+<p><code>IsEditingEnabled</code> permits editing but does not impose a gesture. Applications can start an editor from a click, double click, keyboard command, context menu, or a cached <code>MarkdownHitTestResult</code>.</p>
+<p><code>TryBeginEdit</code> returns false when editing is disabled, the point has no source-mapped element, or no registered editor plugin accepts that element.</p>
+<h2 id="persist-edits">Persist edits</h2>
+<p>Handle <code>MarkdownEdited</code> and update the view model or document store:</p>
+<pre><code class="language-csharp">markdownView.MarkdownEdited += (_, args) =&gt;
+{
+    DocumentMarkdown = args.UpdatedMarkdown;
+    SelectSource(args.RevealStart, args.RevealLength);
+};
+</code></pre>
+<p><code>MarkdownEditedEventArgs</code> provides:</p>
 <ul>
-<li>.NET 10 SDK</li>
+<li><code>Session</code> — selected editor ID, feature, source span, title, and AST node kind</li>
+<li><code>ReplacementMarkdown</code> — replacement for the original session span</li>
+<li><code>UpdatedMarkdown</code> — the complete updated document</li>
+<li><code>RevealStart</code> and <code>RevealLength</code> — the range an external source editor should reveal</li>
+<li><code>Operation</code> — <code>Replace</code>, <code>InsertBlockBefore</code>, <code>InsertBlockAfter</code>, or <code>RemoveBlock</code></li>
 </ul>
-<h2 id="build-and-test">Build and test</h2>
-<pre><code class="language-bash">dotnet restore ProMarkdown.slnx
-dotnet build ProMarkdown.slnx
-dotnet test --solution ProMarkdown.slnx
+<p>The control updates its own <code>Markdown</code> value before raising the event. Still update the bound source explicitly unless your binding is configured to propagate target changes.</p>
+<h2 id="cancellation">Cancellation</h2>
+<p>Call <code>CancelEdit()</code> to cancel the active session. <code>MarkdownEditCanceled</code> reports the session and one of these reasons:</p>
+<table class="table">
+<thead>
+<tr>
+<th>Reason</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>UserRequested</code></td>
+<td><code>CancelEdit()</code> or an editor's cancel action</td>
+</tr>
+<tr>
+<td><code>MarkdownChanged</code></td>
+<td>New external Markdown arrived while a session was active</td>
+</tr>
+<tr>
+<td><code>EditingDisabled</code></td>
+<td><code>IsEditingEnabled</code> changed to false</td>
+</tr>
+</tbody>
+</table>
+<p>This makes document refresh and mode changes deterministic instead of applying an editor result to stale source.</p>
+<h2 id="presentation-modes">Presentation modes</h2>
+<p><code>EditorPresentationMode</code> controls how registered editor plugins compose their UI:</p>
+<ul>
+<li><code>Inline</code> keeps text-oriented editors close to the rendered line or block.</li>
+<li><code>Card</code> uses a labeled editor surface with explicit actions.</li>
+</ul>
+<p>Plugins receive the selected mode through <code>MarkdownEditorPluginContext.PresentationMode</code> and can use <code>MarkdownEditorUiFactory.CreateEditorSurface</code> to follow the built-in behavior.</p>
+<h2 id="choose-a-preferred-editor">Choose a preferred editor</h2>
+<p>Multiple editor plugins may support the same feature. Use <code>MarkdownEditorPreferences</code> to select an editor ID:</p>
+<pre><code class="language-csharp">markdownView.EditorPreferences = new MarkdownEditorPreferences()
+    .PreferEditor(
+        MarkdownEditorFeature.Code,
+        TextMateMarkdownPlugin.TextMateCodeEditorId);
 </code></pre>
-<h2 id="run-the-markdown-sample">Run the Markdown sample</h2>
-<pre><code class="language-bash">dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj
-</code></pre>
-<p>The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together.</p>
-<h2 id="serve-the-documentation">Serve the documentation</h2>
-<pre><code class="language-bash">dotnet tool restore
-bash ./serve-docs.sh
-</code></pre>
+<p>Preferences are keyed by <code>MarkdownEditorFeature</code>. <code>PreferEditor</code> and <code>ClearPreference</code> mutate and return the same preferences instance; assign a new or cloned instance to the control when you want an immediate rerender.</p>
+<p>Built-in editor IDs are exposed by <code>MarkdownBuiltInEditorIds</code> for paragraphs, headings, lists, tables, code, YAML front matter, abbreviations, link references, and footnotes. Optional packages expose their own IDs where selection is useful.</p>
 
       </div>
   </div>

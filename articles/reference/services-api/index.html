@@ -6,21 +6,21 @@
     <meta name="generator" content="lunet 1.0.10.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
-    <title>Repository Structure | ProMarkdown</title>
+    <title>Services and Helpers API | ProMarkdown</title>
     <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
     <script src="/ProMarkdown/js/lite-defer.js" defer></script>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
-<meta name="twitter:title" content="Repository Structure | ProMarkdown">
-<meta name="twitter:description" content="Repository Structure Top-level layout src/ — the core Markdown library, optional plugins, and sample tests/ — headless Markdown tests docs/ — Markdown implementation and design notes site/ — Lunet documentation content and configuration .github/workflows/ — build, docs, package, and release automation build/ — shared package metadata and SourceLink configuration Solution projects ProMarkdown — core Markdown control and services ProMarkdown.Plugin.* — optional feature packages ProMarkdown.Sample — standalone sample application ProMarkdown.Tests —...">
+<meta name="twitter:title" content="Services and Helpers API | ProMarkdown">
+<meta name="twitter:description" content="Services and Helpers API Namespace: ProMarkdown.Services MarkdownRenderingServices Factory and shared-default entry point. public static IMarkdownRenderController DefaultController { get; } public static IMarkdownHitTestingService DefaultHitTestingService { get; } public static IMarkdownEditingService DefaultEditingService { get; } public static IMarkdownRenderController CreateDefaultController(); public static IMarkdownRenderController CreateController(params IMarkdownPlugin[] plugins); public static IMarkdownRenderController CreateController(IEnumerable&lt;IMarkdownPlugin>? plugins); public static IMarkdownEditingService CreateEditingService(params IMarkdownPlugin[] plugins); public static IMarkdownEditingService CreateEditingService(IEnumerable&lt;IMarkdownPlugin>? plugins); public static IMarkdownHitTestingService CreateHitTestingService(); See Rendering Services...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta name="twitter:image:alt" content="Repository Structure | ProMarkdown">
-<meta property="og:title" content="Repository Structure | ProMarkdown">
+<meta name="twitter:image:alt" content="Services and Helpers API | ProMarkdown">
+<meta property="og:title" content="Services and Helpers API | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Repository Structure Top-level layout src/ — the core Markdown library, optional plugins, and sample tests/ — headless Markdown tests docs/ — Markdown implementation and design notes site/ — Lunet documentation content and configuration .github/workflows/ — build, docs, package, and release automation build/ — shared package metadata and SourceLink configuration Solution projects ProMarkdown — core Markdown control and services ProMarkdown.Plugin.* — optional feature packages ProMarkdown.Sample — standalone sample application ProMarkdown.Tests —...">
+<meta property="og:description" content="Services and Helpers API Namespace: ProMarkdown.Services MarkdownRenderingServices Factory and shared-default entry point. public static IMarkdownRenderController DefaultController { get; } public static IMarkdownHitTestingService DefaultHitTestingService { get; } public static IMarkdownEditingService DefaultEditingService { get; } public static IMarkdownRenderController CreateDefaultController(); public static IMarkdownRenderController CreateController(params IMarkdownPlugin[] plugins); public static IMarkdownRenderController CreateController(IEnumerable&lt;IMarkdownPlugin>? plugins); public static IMarkdownEditingService CreateEditingService(params IMarkdownPlugin[] plugins); public static IMarkdownEditingService CreateEditingService(IEnumerable&lt;IMarkdownPlugin>? plugins); public static IMarkdownHitTestingService CreateHitTestingService(); See Rendering Services...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
-<meta property="og:image:alt" content="Repository Structure | ProMarkdown">
+<meta property="og:image:alt" content="Services and Helpers API | ProMarkdown">
   </head>
   <body>
 
@@ -101,7 +101,7 @@
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/' class='menu-link  '>Reference</a></span>  </li>
             <li id='menu-item-reference-2' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/controls-api/' class='menu-link  '>Controls API</a></span>  </li>
-            <li id='menu-item-reference-3' class='menu-item '>
+            <li id='menu-item-reference-3' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/services-api/' class='menu-link  '>Services and Helpers API</a></span>  </li>
             <li id='menu-item-reference-4' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/rendering-models-api/' class='menu-link  '>Rendering and Source Map API</a></span>  </li>
@@ -111,7 +111,7 @@
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/extension-api/' class='menu-link  '>Extension API</a></span>  </li>
             <li id='menu-item-reference-7' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/package-api/' class='menu-link  '>Plugin Package API</a></span>  </li>
-            <li id='menu-item-reference-8' class='menu-item  active'>
+            <li id='menu-item-reference-8' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/repository-structure/' class='menu-link  '>Repository Structure</a></span>  </li>
           </ol>
 
@@ -132,7 +132,7 @@
           <li class='breadcrumb-item '>
             <a href='/ProMarkdown/articles/reference/' class='breadcrumb-link  '>Reference</a>  </li>
           <li class='breadcrumb-item  active'>
-            Repository Structure  </li>
+            Services and Helpers API  </li>
         </ol>
 
         <p id="lunet-results"></p>
@@ -159,23 +159,139 @@
           </button>
         </div>
 <!-- lunet:summarize -->
-<h1 id="repository-structure">Repository Structure</h1>
-<h2 id="top-level-layout">Top-level layout</h2>
-<ul>
-<li><code>src/</code> — the core Markdown library, optional plugins, and sample</li>
-<li><code>tests/</code> — headless Markdown tests</li>
-<li><code>docs/</code> — Markdown implementation and design notes</li>
-<li><code>site/</code> — Lunet documentation content and configuration</li>
-<li><code>.github/workflows/</code> — build, docs, package, and release automation</li>
-<li><code>build/</code> — shared package metadata and SourceLink configuration</li>
-</ul>
-<h2 id="solution-projects">Solution projects</h2>
-<ul>
-<li><code>ProMarkdown</code> — core Markdown control and services</li>
-<li><code>ProMarkdown.Plugin.*</code> — optional feature packages</li>
-<li><code>ProMarkdown.Sample</code> — standalone sample application</li>
-<li><code>ProMarkdown.Tests</code> — headless tests</li>
-</ul>
+<h1 id="services-and-helpers-api">Services and Helpers API</h1>
+<p>Namespace: <code>ProMarkdown.Services</code></p>
+<h2 id="markdownrenderingservices">MarkdownRenderingServices</h2>
+<p>Factory and shared-default entry point.</p>
+<pre><code class="language-csharp">public static IMarkdownRenderController DefaultController { get; }
+public static IMarkdownHitTestingService DefaultHitTestingService { get; }
+public static IMarkdownEditingService DefaultEditingService { get; }
+
+public static IMarkdownRenderController CreateDefaultController();
+public static IMarkdownRenderController CreateController(params IMarkdownPlugin[] plugins);
+public static IMarkdownRenderController CreateController(IEnumerable&lt;IMarkdownPlugin&gt;? plugins);
+public static IMarkdownEditingService CreateEditingService(params IMarkdownPlugin[] plugins);
+public static IMarkdownEditingService CreateEditingService(IEnumerable&lt;IMarkdownPlugin&gt;? plugins);
+public static IMarkdownHitTestingService CreateHitTestingService();
+</code></pre>
+<p>See <a href="/ProMarkdown/articles/markdown/rendering-services">Rendering Services</a> for composition and reuse guidance.</p>
+<h2 id="parsing-and-rendering-implementations">Parsing and rendering implementations</h2>
+<h3 id="markdownparsingservice">MarkdownParsingService</h3>
+<pre><code class="language-csharp">public MarkdownParsingService(IEnumerable&lt;IMarkdownParserPlugin&gt;? parserPlugins = null);
+public MarkdownParseResult Parse(string markdown);
+</code></pre>
+<p>Implements <code>IMarkdownParsingService</code>. Parser plugins are ordered by <code>Order</code>; the Markdig pipeline is constructed once.</p>
+<h3 id="markdowninlinerenderingservice">MarkdownInlineRenderingService</h3>
+<pre><code class="language-csharp">public MarkdownInlineRenderingService(
+    IEnumerable&lt;IMarkdownBlockRenderingPlugin&gt;? blockRenderingPlugins = null,
+    IEnumerable&lt;IMarkdownInlineRenderingPlugin&gt;? inlineRenderingPlugins = null);
+
+public MarkdownRenderResult Render(
+    MarkdownParseResult parseResult,
+    MarkdownRenderContext context);
+</code></pre>
+<p>Implements <code>IMarkdownInlineRenderingService</code> and renders the AST into Avalonia inlines plus source maps.</p>
+<h3 id="markdownrendercontroller">MarkdownRenderController</h3>
+<pre><code class="language-csharp">public MarkdownRenderController(
+    IMarkdownParsingService parsingService,
+    IMarkdownInlineRenderingService inlineRenderingService);
+
+public MarkdownRenderResult Render(MarkdownRenderRequest request);
+</code></pre>
+<p>Implements <code>IMarkdownRenderController</code> and applies the post-render theme, borders, tasks, block quotes, and selection normalizers.</p>
+<h3 id="markdownhittestingservice">MarkdownHitTestingService</h3>
+<pre><code class="language-csharp">public MarkdownHitTestingService();
+public MarkdownHitTestResult? HitTest(MarkdownHitTestRequest request);
+public MarkdownHitTestResult? HitTestTextPosition(
+    MarkdownRenderResult renderResult,
+    int textPosition);
+</code></pre>
+<p>Implements <code>IMarkdownHitTestingService</code>.</p>
+<h3 id="markdowneditingservice">MarkdownEditingService</h3>
+<pre><code class="language-csharp">public MarkdownEditingService(
+    IEnumerable&lt;IMarkdownEditorPlugin&gt;? editorPlugins = null,
+    IEnumerable&lt;IMarkdownBlockTemplateProvider&gt;? blockTemplateProviders = null);
+
+public MarkdownEditorSession? ResolveSession(MarkdownEditorResolveRequest request);
+public Control? CreateEditor(MarkdownEditorRenderRequest request);
+</code></pre>
+<p>Implements <code>IMarkdownEditingService</code>. See the <a href="/ProMarkdown/articles/reference/editing-api">Editing API</a> for related models.</p>
+<h2 id="markdownthemepalette">MarkdownThemePalette</h2>
+<p>Semantic brush collection used by core and plugin renderers.</p>
+<pre><code class="language-csharp">public static MarkdownThemePalette Light { get; }
+public static MarkdownThemePalette Dark { get; }
+public static MarkdownThemePalette Resolve(IBrush? foreground);
+</code></pre>
+<p>All instance properties are init-only:</p>
+<table class="table">
+<thead>
+<tr>
+<th>Category</th>
+<th>Properties</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mode and text</td>
+<td><code>IsDark</code>, <code>Foreground</code>, <code>MutedForeground</code>, <code>Accent</code>, <code>HyperlinkForeground</code></td>
+</tr>
+<tr>
+<td>Surfaces</td>
+<td><code>Surface</code>, <code>SurfaceRaised</code>, <code>Border</code>, <code>QuoteBorder</code></td>
+</tr>
+<tr>
+<td>Code and tables</td>
+<td><code>InlineCodeBackground</code>, <code>CodeHeaderBackground</code>, <code>TableHeaderBackground</code>, <code>TableAlternateRowBackground</code></td>
+</tr>
+<tr>
+<td>Text semantics</td>
+<td><code>MarkedTextBackground</code>, <code>InsertedTextForeground</code></td>
+</tr>
+<tr>
+<td>Alerts</td>
+<td><code>NoteAccent</code>, <code>NoteBackground</code>, <code>TipAccent</code>, <code>TipBackground</code>, <code>ImportantAccent</code>, <code>ImportantBackground</code>, <code>WarningAccent</code>, <code>WarningBackground</code>, <code>CautionAccent</code>, <code>CautionBackground</code></td>
+</tr>
+<tr>
+<td>Syntax</td>
+<td><code>CodeKeywordForeground</code>, <code>CodeTypeForeground</code>, <code>CodeStringForeground</code>, <code>CodeCommentForeground</code>, <code>CodeNumberForeground</code>, <code>CodePropertyForeground</code>, <code>CodeTagForeground</code>, <code>CodeAttributeForeground</code>, <code>CodePunctuationForeground</code></td>
+</tr>
+</tbody>
+</table>
+<p>See <a href="/ProMarkdown/articles/markdown/theming">Theming</a> for examples.</p>
+<h2 id="markdowncodeblockrendering">MarkdownCodeBlockRendering</h2>
+<p>Shared code-surface helpers for rendering plugins.</p>
+<pre><code class="language-csharp">public static IBrush DefaultCodeTextForeground { get; }
+public static string NormalizeCode(string? code);
+public static string NormalizeLanguageHint(string? languageHint);
+public static string FormatLanguageLabel(string? languageHint);
+
+public static MarkdownCodeBlockSurface CreateSurface(
+    CodeBlock block,
+    string code,
+    InlineCollection inlines,
+    string? languageHint,
+    string? metaText,
+    MarkdownRenderContext renderContext,
+    IBrush? textForeground = null,
+    IBrush? metaForeground = null);
+</code></pre>
+<p><code>MarkdownCodeBlockSurface</code> is a positional record containing <code>Control</code> and optional <code>MarkdownVisualHitTestHandler</code>. It supports record equality, cloning, and deconstruction.</p>
+<h2 id="markdowncalloutrendering">MarkdownCalloutRendering</h2>
+<p>Shared callout presentation helpers:</p>
+<pre><code class="language-csharp">public static MarkdownCalloutPresentation ResolvePresentation(
+    string? kind,
+    string? fallbackTitle = null);
+
+public static Control CreateCalloutSurface(
+    string title,
+    string? subtitle,
+    Control body,
+    IBrush accentBrush,
+    IBrush background);
+
+public static string FormatLabel(string? value);
+</code></pre>
+<p><code>MarkdownCalloutPresentation</code> is a positional record struct with <code>Title</code>, <code>AccentBrush</code>, and <code>Background</code>, including value equality and deconstruction.</p>
 
       </div>
   </div>

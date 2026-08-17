@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html data-lunet-theme-mode="system" data-lunet-theme-storage-key="lunet-theme" data-lunet-css-prefix="lunet" lang="en" itemscope itemtype="http://schema.org/WebPage">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="lunet 1.0.10.0">
+    <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
+    <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
+    <title>Rendering and Source Map API | ProMarkdown</title>
+    <link rel="stylesheet" href="/ProMarkdown/css/lite.css">
+    <script src="/ProMarkdown/js/lite-defer.js" defer></script>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@wieslawsoltes">
+<meta name="twitter:title" content="Rendering and Source Map API | ProMarkdown">
+<meta name="twitter:description" content="Rendering and Source Map API Namespace: ProMarkdown.Services These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see Source Mapping and Hit Testing. Render inputs MarkdownRenderRequest public string? Markdown { get; init; } public required MarkdownRenderContext Context { get; init; } MarkdownRenderContext Create one context per render. All properties except ThemePalette and EditorState are required initializers. Property Type Purpose BaseUri Uri? Resolves...">
+<meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
+<meta name="twitter:image:alt" content="Rendering and Source Map API | ProMarkdown">
+<meta property="og:title" content="Rendering and Source Map API | ProMarkdown">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
+<meta property="og:description" content="Rendering and Source Map API Namespace: ProMarkdown.Services These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see Source Mapping and Hit Testing. Render inputs MarkdownRenderRequest public string? Markdown { get; init; } public required MarkdownRenderContext Context { get; init; } MarkdownRenderContext Create one context per render. All properties except ThemePalette and EditorState are required initializers. Property Type Purpose BaseUri Uri? Resolves...">
+<meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
+<meta property="og:image:alt" content="Rendering and Source Map API | ProMarkdown">
+  </head>
+  <body>
+
+    <div id="lunet" class="container">
+      <nav class="navbar navbar-expand-md sticky-top">
+        <a class="navbar-brand" href="/ProMarkdown/">
+          <img class="lunet-logo" src="/ProMarkdown/img/lunet-logo.png" alt="ProMarkdown" width="96" height="96">
+          <span class="visually-hidden">Home</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+          data-bs-target="#navbarSupportedContent"
+          aria-controls="navbarSupportedContent"
+          aria-expanded="false"
+          aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div id="navbarSupportedContent" class="collapse navbar-collapse justify-content-between">
+<ol id='nav-id-home-0' class='navbar-nav nav-level0 show '>
+  <li id='nav-item-home-1' class='nav-item '>
+    <span class='nav-item-row'><a href='/ProMarkdown/' class='nav-link  '><i class='bi bi-house-door' aria-hidden='true'></i> Home</a></span>  </li>
+  <li id='nav-item-home-2' class='nav-item  active'>
+    <span class='nav-item-row'><a href='/ProMarkdown/articles/' class='nav-link  '><i class='bi bi-book' aria-hidden='true'></i> Docs</a></span>  </li>
+</ol>
+          <ol class="navbar-nav flex-grow-1" style="padding-right: 0.5rem;">
+            <li class="nav-item w-100">
+                <div class="lunet-search dropdown w-100">
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input id="search-input" type="search" class="form-control" placeholder="Search... (Alt+s)" aria-label="Search" aria-controls="search-results" data-bs-toggle="dropdown" data-bs-auto-close="outside" data-search-empty-message="Enter words to search..." data-search-no-results-message="No results found.">
+                    <ul id="search-results" class="dropdown-menu w-100 p-0" style="max-height: 50vh;" role="listbox" aria-labelledby="search-input"></ul>
+                  </div>
+                </div>
+            </li>
+          </ol>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 navbar-right">
+            <div class="dropdown">
+              <button
+                id="theme-mode-toggle"
+                class="btn btn-outline-secondary btn-sm lunet-theme-toggle dropdown-toggle"
+                type="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                aria-label="Theme">
+                <i class="bi bi-circle-half" data-lunet-theme-toggle-icon aria-hidden="true"></i>
+                <span
+                  data-lunet-theme-toggle-label
+                  data-theme-system-label="System"
+                  data-theme-light-label="Light"
+                  data-theme-dark-label="Dark">Theme</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="theme-mode-toggle">
+                <li><button class="dropdown-item" type="button" data-lunet-theme-choice="system"><i class="bi bi-circle-half me-2"></i>System</button></li>
+                <li><button class="dropdown-item" type="button" data-lunet-theme-choice="light"><i class="bi bi-sun-fill me-2"></i>Light</button></li>
+                <li><button class="dropdown-item" type="button" data-lunet-theme-choice="dark"><i class="bi bi-moon-stars-fill me-2"></i>Dark</button></li>
+              </ul>
+            </div>
+<ol id='nav-id-home2-0' class='navbar-nav nav-level0 show flex-shrink-0'>
+  <li id='nav-item-home2-1' class='nav-item '>
+    <span class='nav-item-row'><a href='https://github.com/wieslawsoltes/ProMarkdown' class='nav-link  btn btn-info'><i class="bi bi-github"></i> GitHub</a></span>  </li>
+</ol>
+          </div>
+        </div>
+      </nav>
+      <div class="lunet lunet-articles">
+        <section data-prismjs-copy="" data-prismjs-copy-success="" data-prismjs-copy-timeout="1200" data-copy-tooltip="Copy to Clipboard." data-copy-tooltip-success="Copied!" data-copy-tooltip-error="Failed to copy!">
+
+<div class="container-xxl">
+  <div class="row">
+      <!-- Left sidebar - responsive offcanvas (offcanvas on mobile, visible sidebar on md+) -->
+      <nav id="docs-sidebar-menu" class="col-md-3 col-lg-3 col-xl-3 col-xxl-2 offcanvas-md offcanvas-start sticky-md-top menu-sidebar align-self-start order-1 order-md-0" tabindex="-1" aria-labelledby="docs-sidebar-menu-label" aria-expanded="true">
+        <div class="offcanvas-header">
+          <h5 class="offcanvas-title" id="docs-sidebar-menu-label">Menu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#docs-sidebar-menu" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+          <ol id='menu-id-reference-0' class='menu menu-level0 show '>
+            <li id='menu-item-reference-1' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/' class='menu-link  '>Reference</a></span>  </li>
+            <li id='menu-item-reference-2' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/controls-api/' class='menu-link  '>Controls API</a></span>  </li>
+            <li id='menu-item-reference-3' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/services-api/' class='menu-link  '>Services and Helpers API</a></span>  </li>
+            <li id='menu-item-reference-4' class='menu-item  active'>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/rendering-models-api/' class='menu-link  '>Rendering and Source Map API</a></span>  </li>
+            <li id='menu-item-reference-5' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/editing-api/' class='menu-link  '>Editing API</a></span>  </li>
+            <li id='menu-item-reference-6' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/extension-api/' class='menu-link  '>Extension API</a></span>  </li>
+            <li id='menu-item-reference-7' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/package-api/' class='menu-link  '>Plugin Package API</a></span>  </li>
+            <li id='menu-item-reference-8' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/reference/repository-structure/' class='menu-link  '>Repository Structure</a></span>  </li>
+          </ol>
+
+        </div>
+      </nav>
+      <!-- Right sidebar (TOC) - collapsible on mobile, visible sidebar on xxl+ -->
+      <aside id="docs-sidebar-toc" class="col-12 col-xxl-2 sticky-xxl-top menu-sidebar align-self-start order-0 order-xxl-2 collapse d-xxl-block" aria-expanded="true">
+        <h3 class="toc-title">On this page</h3>
+        <nav class="js-toc"></nav>
+      </aside>
+      <!-- Main content column -->
+      <div class="col-12 col-md-9 col-lg-9 col-xl-9 col-xxl-8 order-2 order-md-1 js-toc-content">
+        <ol class='breadcrumb'>
+          <li class='breadcrumb-item '>
+            <a href='/ProMarkdown/' class='breadcrumb-link  '><i class='bi bi-house-door' aria-hidden='true'></i> Home</a>  </li>
+          <li class='breadcrumb-item '>
+            <a href='/ProMarkdown/articles/' class='breadcrumb-link  '><i class='bi bi-book' aria-hidden='true'></i> Docs</a>  </li>
+          <li class='breadcrumb-item '>
+            <a href='/ProMarkdown/articles/reference/' class='breadcrumb-link  '>Reference</a>  </li>
+          <li class='breadcrumb-item  active'>
+            Rendering and Source Map API  </li>
+        </ol>
+
+        <p id="lunet-results"></p>
+        <!-- Toggle buttons visible only on small screens -->
+        <div class="d-md-none mb-3">
+          <button
+            class="btn btn-outline-secondary btn-sm me-2"
+            type="button"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#docs-sidebar-menu"
+            aria-controls="docs-sidebar-menu"
+            aria-label="Toggle docs menu">
+            Menu
+          </button>
+          <button
+            class="btn btn-outline-secondary btn-sm d-xxl-none"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#docs-sidebar-toc"
+            aria-controls="docs-sidebar-toc"
+            aria-expanded="false"
+            aria-label="Toggle Table Of Contents">
+            On this page
+          </button>
+        </div>
+<!-- lunet:summarize -->
+<h1 id="rendering-and-source-map-api">Rendering and Source Map API</h1>
+<p>Namespace: <code>ProMarkdown.Services</code></p>
+<p>These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see <a href="/ProMarkdown/articles/markdown/source-mapping">Source Mapping and Hit Testing</a>.</p>
+<h2 id="render-inputs">Render inputs</h2>
+<h3 id="markdownrenderrequest">MarkdownRenderRequest</h3>
+<pre><code class="language-csharp">public string? Markdown { get; init; }
+public required MarkdownRenderContext Context { get; init; }
+</code></pre>
+<h3 id="markdownrendercontext">MarkdownRenderContext</h3>
+<p>Create one context per render. All properties except <code>ThemePalette</code> and <code>EditorState</code> are required initializers.</p>
+<table class="table">
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BaseUri</code></td>
+<td><code>Uri?</code></td>
+<td>Resolves relative links and images.</td>
+</tr>
+<tr>
+<td><code>FontSize</code></td>
+<td><code>double</code></td>
+<td>Base text size.</td>
+</tr>
+<tr>
+<td><code>FontFamily</code></td>
+<td><code>FontFamily</code></td>
+<td>Base text family.</td>
+</tr>
+<tr>
+<td><code>Foreground</code></td>
+<td><code>IBrush?</code></td>
+<td>Host foreground used for palette resolution.</td>
+</tr>
+<tr>
+<td><code>TextWrapping</code></td>
+<td><code>TextWrapping</code></td>
+<td>Host wrapping behavior.</td>
+</tr>
+<tr>
+<td><code>ThemePalette</code></td>
+<td><code>MarkdownThemePalette?</code></td>
+<td>Optional explicit semantic palette.</td>
+</tr>
+<tr>
+<td><code>AvailableWidth</code></td>
+<td><code>double</code></td>
+<td>Width available to block renderers and editors.</td>
+</tr>
+<tr>
+<td><code>RenderGeneration</code></td>
+<td><code>int</code></td>
+<td>Identity of this render.</td>
+</tr>
+<tr>
+<td><code>ResourceTracker</code></td>
+<td><code>MarkdownRenderResourceTracker</code></td>
+<td>Owns render-scoped disposables.</td>
+</tr>
+<tr>
+<td><code>IsCurrentRender</code></td>
+<td><code>Func&lt;int, bool&gt;</code></td>
+<td>Tests whether asynchronous work still belongs to the active generation.</td>
+</tr>
+<tr>
+<td><code>EditorState</code></td>
+<td><code>MarkdownEditorState?</code></td>
+<td>Optional editing callbacks and active session.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="parse-result-and-source-spans">Parse result and source spans</h2>
+<h3 id="markdownparseresult">MarkdownParseResult</h3>
+<pre><code class="language-csharp">public MarkdownParseResult(
+    MarkdownDocument document,
+    string originalMarkdown,
+    string parsedMarkdown,
+    IReadOnlyDictionary&lt;MarkdownObject, MarkdownObject?&gt;? parentMap = null);
+
+public static MarkdownParseResult Empty { get; }
+public MarkdownDocument Document { get; }
+public string OriginalMarkdown { get; }
+public string ParsedMarkdown { get; }
+public IReadOnlyDictionary&lt;MarkdownObject, MarkdownObject?&gt; ParentMap { get; }
+public bool UsesOriginalSourceSpans { get; }
+public bool TryGetParent(MarkdownObject markdownObject, out MarkdownObject? parent);
+</code></pre>
+<p><code>UsesOriginalSourceSpans</code> is false when a parser plugin transformed the source before Markdig parsed it. In that case, spans refer to <code>ParsedMarkdown</code>; source-based editing is deliberately unavailable.</p>
+<h3 id="markdownsourcespan">MarkdownSourceSpan</h3>
+<pre><code class="language-csharp">public readonly record struct MarkdownSourceSpan(int Start, int Length)
+</code></pre>
+<p>Members: static <code>Empty</code>; computed <code>End</code>, <code>EndExclusive</code>, and <code>IsEmpty</code>; <code>Contains(int)</code>; <code>Slice(string)</code>; and <code>FromMarkdig(SourceSpan)</code>. As a record struct it also supplies value equality and deconstruction.</p>
+<h3 id="markdownastnodeinfo">MarkdownAstNodeInfo</h3>
+<pre><code class="language-csharp">public MarkdownAstNodeInfo(
+    MarkdownObject node,
+    MarkdownSourceSpan sourceSpan,
+    int line,
+    int column);
+</code></pre>
+<p>Read-only properties: <code>Node</code>, <code>SourceSpan</code>, <code>Line</code>, <code>Column</code>, and computed <code>NodeKind</code>.</p>
+<h2 id="render-result-and-lifetime">Render result and lifetime</h2>
+<h3 id="markdownrenderresult">MarkdownRenderResult</h3>
+<pre><code class="language-csharp">public MarkdownRenderResult(
+    InlineCollection inlines,
+    MarkdownRenderResourceTracker resourceTracker,
+    MarkdownParseResult parseResult,
+    MarkdownRenderMap renderMap);
+
+public InlineCollection Inlines { get; }
+public MarkdownRenderResourceTracker ResourceTracker { get; }
+public MarkdownParseResult ParseResult { get; }
+public MarkdownRenderMap RenderMap { get; }
+public static MarkdownRenderResult Empty(MarkdownRenderResourceTracker resourceTracker);
+</code></pre>
+<p>The result owns its <code>ResourceTracker</code>. Dispose the previous tracker when replacing a manual render result. <code>MarkdownTextBlock</code> handles this automatically.</p>
+<h3 id="markdownrenderresourcetracker">MarkdownRenderResourceTracker</h3>
+<pre><code class="language-csharp">public sealed class MarkdownRenderResourceTracker : IDisposable
+{
+    public void Track(IDisposable resource);
+    public void Dispose();
+}
+</code></pre>
+<p>Tracking after disposal immediately disposes the resource; repeated disposal is safe.</p>
+<h2 id="render-maps">Render maps</h2>
+<h3 id="markdownrenderedelementkind">MarkdownRenderedElementKind</h3>
+<pre><code class="language-csharp">public enum MarkdownRenderedElementKind
+{
+    Text,
+    LineBreak,
+    InlineControl,
+    BlockControl
+}
+</code></pre>
+<h3 id="markdowntextsourcemapentry">MarkdownTextSourceMapEntry</h3>
+<pre><code class="language-csharp">public MarkdownTextSourceMapEntry(
+    int renderedTextStart,
+    int renderedTextLength,
+    MarkdownAstNodeInfo astNode,
+    MarkdownRenderedElementKind elementKind);
+</code></pre>
+<p>Read-only properties: <code>RenderedTextStart</code>, <code>RenderedTextLength</code>, computed <code>RenderedTextEndExclusive</code>, <code>AstNode</code>, and <code>ElementKind</code>. <code>Contains(int textPosition)</code> tests the half-open rendered-text range.</p>
+<h3 id="markdownvisualsourcemapentry">MarkdownVisualSourceMapEntry</h3>
+<pre><code class="language-csharp">public MarkdownVisualSourceMapEntry(
+    Control control,
+    MarkdownAstNodeInfo astNode,
+    MarkdownRenderedElementKind elementKind,
+    MarkdownVisualHitTestHandler? hitTestHandler);
+</code></pre>
+<p>Read-only properties: <code>Control</code>, <code>AstNode</code>, <code>ElementKind</code>, and <code>HitTestHandler</code>.</p>
+<h3 id="markdownrendermap">MarkdownRenderMap</h3>
+<pre><code class="language-csharp">public MarkdownRenderMap(
+    IReadOnlyList&lt;MarkdownTextSourceMapEntry&gt; textEntries,
+    IReadOnlyDictionary&lt;Control, MarkdownVisualSourceMapEntry&gt; visualEntries);
+
+public static MarkdownRenderMap Empty { get; }
+public IReadOnlyList&lt;MarkdownTextSourceMapEntry&gt; TextEntries { get; }
+public IReadOnlyDictionary&lt;Control, MarkdownVisualSourceMapEntry&gt; VisualEntries { get; }
+public bool TryGetTextEntry(int textPosition, out MarkdownTextSourceMapEntry? entry);
+public bool TryGetVisualEntry(Control control, out MarkdownVisualSourceMapEntry? entry);
+</code></pre>
+<h2 id="hit-testing">Hit testing</h2>
+<h3 id="service-requests">Service requests</h3>
+<p><code>MarkdownHitTestRequest</code> has required init-only properties <code>Host</code>, <code>Point</code>, <code>TextLayout</code>, <code>Padding</code>, and <code>RenderResult</code>.</p>
+<p><code>MarkdownVisualHitTestRequest</code> has required init-only properties <code>Host</code>, <code>HitVisual</code>, <code>Control</code>, <code>HostPoint</code>, <code>LocalPoint</code>, <code>RenderResult</code>, and <code>DefaultEntry</code>.</p>
+<h3 id="custom-visual-result-and-handler">Custom visual result and handler</h3>
+<pre><code class="language-csharp">public delegate MarkdownVisualHitTestResult?
+    MarkdownVisualHitTestHandler(MarkdownVisualHitTestRequest request);
+</code></pre>
+<p><code>MarkdownVisualHitTestResult</code> has optional init-only <code>AstNode</code>, <code>ElementKind</code>, and <code>SourceSpan</code> overrides plus <code>LocalHighlightRects</code>, which defaults to an empty list. Return <code>null</code> from a handler to use normal visual mapping.</p>
+<h3 id="markdownhittestresult">MarkdownHitTestResult</h3>
+<pre><code class="language-csharp">public MarkdownHitTestResult(
+    MarkdownAstNodeInfo astNode,
+    MarkdownRenderedElementKind elementKind,
+    MarkdownParseResult parseResult,
+    int? renderedTextPosition = null,
+    Control? visual = null,
+    IReadOnlyList&lt;Rect&gt;? highlightRects = null,
+    MarkdownSourceSpan? sourceSpanOverride = null);
+</code></pre>
+<p>Read-only properties are <code>AstNode</code>, <code>ElementKind</code>, <code>ParseResult</code>, <code>RenderedTextPosition</code>, <code>Visual</code>, <code>HighlightRects</code>, and <code>SourceSpanOverride</code>. Computed properties are effective <code>SourceSpan</code>, unioned <code>HighlightBounds</code>, and <code>MatchedSourceText</code>.</p>
+
+      </div>
+  </div>
+</div>
+
+        </section>
+        <footer>
+          <hr>
+          <p>Copyright &copy; 2026, Wieslaw Soltes aka <a href="https://github.com/wieslawsoltes">wieslawsoltes</a> - Content licensed under the <a href='https://github.com/wieslawsoltes/ProMarkdown/blob/main/LICENSE'>MIT license</a> | Site generated by <a href="https://github.com/lunet-io/lunet">lunet</a> hosted on <a href="https://pages.github.com/">GitHub Pages</a></p>
+        </footer>
+      </div>
+    </div>
+
+  </body>
+</html>

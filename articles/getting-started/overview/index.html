@@ -12,13 +12,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
 <meta name="twitter:title" content="Overview | ProMarkdown">
-<meta name="twitter:description" content="Overview The solution is centered on ProMarkdown, an Avalonia and Markdig-based library for rich Markdown document surfaces. The current stack includes: Markdown parsing, rendering, layout, selection, hit testing, themes, and URI handling source-aware editing services and editor plugin contracts optional packages for alerts, custom containers, definition lists, figures, footers, math, Mermaid, syntax highlighting, and TextMate a standalone sample that composes all plugins headless rendering and Mermaid tests What to read...">
+<meta name="twitter:description" content="Overview The ProMarkdown package provides MarkdownTextBlock, a source-aware Avalonia control backed by Markdig. Use the control directly for ordinary application surfaces or compose the lower-level parsing, rendering, editing, and hit-testing services when you need custom behavior. Choose an integration level Control-first: bind Markdown to MarkdownTextBlock and use the default renderer. Configured control: provide a plugin-aware render controller, editing service, theme palette, and editor preferences. Service-first:...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta name="twitter:image:alt" content="Overview | ProMarkdown">
 <meta property="og:title" content="Overview | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Overview The solution is centered on ProMarkdown, an Avalonia and Markdig-based library for rich Markdown document surfaces. The current stack includes: Markdown parsing, rendering, layout, selection, hit testing, themes, and URI handling source-aware editing services and editor plugin contracts optional packages for alerts, custom containers, definition lists, figures, footers, math, Mermaid, syntax highlighting, and TextMate a standalone sample that composes all plugins headless rendering and Mermaid tests What to read...">
+<meta property="og:description" content="Overview The ProMarkdown package provides MarkdownTextBlock, a source-aware Avalonia control backed by Markdig. Use the control directly for ordinary application surfaces or compose the lower-level parsing, rendering, editing, and hit-testing services when you need custom behavior. Choose an integration level Control-first: bind Markdown to MarkdownTextBlock and use the default renderer. Configured control: provide a plugin-aware render controller, editing service, theme palette, and editor preferences. Service-first:...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta property="og:image:alt" content="Overview | ProMarkdown">
   </head>
@@ -102,6 +102,10 @@
             <li id='menu-item-getting_started-2' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/overview/' class='menu-link  '>Overview</a></span>  </li>
             <li id='menu-item-getting_started-3' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/installation/' class='menu-link  '>Installation</a></span>  </li>
+            <li id='menu-item-getting_started-4' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/first-document/' class='menu-link  '>Render Your First Document</a></span>  </li>
+            <li id='menu-item-getting_started-5' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/getting-started/running-the-sample/' class='menu-link  '>Running the Sample</a></span>  </li>
           </ol>
 
@@ -150,20 +154,21 @@
         </div>
 <!-- lunet:summarize -->
 <h1 id="overview">Overview</h1>
-<p>The solution is centered on <code>ProMarkdown</code>, an Avalonia and Markdig-based library for rich Markdown document surfaces.</p>
-<p>The current stack includes:</p>
+<p>The <code>ProMarkdown</code> package provides <code>MarkdownTextBlock</code>, a source-aware Avalonia control backed by Markdig. Use the control directly for ordinary application surfaces or compose the lower-level parsing, rendering, editing, and hit-testing services when you need custom behavior.</p>
+<h2 id="choose-an-integration-level">Choose an integration level</h2>
 <ul>
-<li>Markdown parsing, rendering, layout, selection, hit testing, themes, and URI handling</li>
-<li>source-aware editing services and editor plugin contracts</li>
-<li>optional packages for alerts, custom containers, definition lists, figures, footers, math, Mermaid, syntax highlighting, and TextMate</li>
-<li>a standalone sample that composes all plugins</li>
-<li>headless rendering and Mermaid tests</li>
+<li><strong>Control-first:</strong> bind Markdown to <code>MarkdownTextBlock</code> and use the default renderer.</li>
+<li><strong>Configured control:</strong> provide a plugin-aware render controller, editing service, theme palette, and editor preferences.</li>
+<li><strong>Service-first:</strong> use <code>IMarkdownParsingService</code>, <code>IMarkdownRenderController</code>, or <code>IMarkdownHitTestingService</code> in a custom document surface.</li>
+<li><strong>Extension authoring:</strong> implement parser, block renderer, inline renderer, editor, or block-template contracts and register them through <code>IMarkdownPlugin</code>.</li>
 </ul>
+<p>Optional packages add alerts, custom containers, definition lists, figures, footers, math, Mermaid, syntax highlighting, and TextMate integration without expanding the core dependency set.</p>
 <h2 id="what-to-read-next">What to read next</h2>
 <ul>
-<li><a href="/ProMarkdown/articles/getting-started/running-the-sample">Run the sample</a></li>
-<li><a href="/ProMarkdown/articles/markdown">Markdown Stack</a></li>
+<li><a href="/ProMarkdown/articles/markdown">User Guide</a></li>
 <li><a href="/ProMarkdown/articles/markdown/plugin-ecosystem">Plugin Ecosystem</a></li>
+<li><a href="/ProMarkdown/articles/reference">API Reference</a></li>
+<li><a href="/ProMarkdown/articles/getting-started/running-the-sample">Run the sample</a></li>
 </ul>
 
       </div>
