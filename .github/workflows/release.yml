@@ -57,9 +57,11 @@ jobs:
             fi
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "is-prerelease=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
-          echo "tag-name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$VERSION"
+            echo "is-prerelease=$IS_PRERELEASE"
+            echo "tag-name=$TAG_NAME"
+          } >> "$GITHUB_OUTPUT"
           echo "Building version: $VERSION (prerelease: $IS_PRERELEASE)"
 
       - name: Restore
