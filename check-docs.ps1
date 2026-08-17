@@ -40,6 +40,8 @@ $requiredFiles = @(
     (Join-Path $docRoot 'articles/index.html'),
     (Join-Path $docRoot 'articles/getting-started/index.html'),
     (Join-Path $docRoot 'articles/getting-started/overview/index.html'),
+    (Join-Path $docRoot 'articles/getting-started/installation/index.html'),
+    (Join-Path $docRoot 'articles/getting-started/first-document/index.html'),
     (Join-Path $docRoot 'articles/getting-started/running-the-sample/index.html'),
     (Join-Path $docRoot 'articles/markdown/index.html'),
     (Join-Path $docRoot 'articles/markdown/plugin-ecosystem/index.html'),

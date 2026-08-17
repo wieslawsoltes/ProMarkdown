@@ -1,4 +1,6 @@
 getting_started:
   - {path: readme.md, title: "Getting Started"}
   - {path: overview.md, title: "Overview"}
+  - {path: installation.md, title: "Installation"}
+  - {path: first-document.md, title: "Render Your First Document"}
   - {path: running-the-sample.md, title: "Running the Sample"}

@@ -13,4 +13,4 @@ ProMarkdown is a set of Avalonia controls and services for Markdown rendering, e
 3. Bind its `Markdown` property to application content.
 4. Add only the optional plugin packages your documents need.
 
-Continue with the [overview](overview/) to choose the right integration path. Repository contributors can still use [Running the Sample](running-the-sample/) to explore every feature together.
+Continue with the [overview](overview/) to choose the right integration path, then follow [Installation](installation/) and [Render Your First Document](first-document/). Repository contributors can still use [Running the Sample](running-the-sample/) to explore every feature together.
