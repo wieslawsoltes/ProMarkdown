@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/overview</loc>
-    <lastmod>2026-08-17</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/plugin-ecosystem</loc>
-    <lastmod>2026-08-17</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/running-the-sample</loc>
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
@@ -17,7 +9,11 @@
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/repository-structure</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference</loc>
+    <lastmod>2026-08-17</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/overview</loc>
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
@@ -25,11 +21,19 @@
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/running-the-sample</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown</loc>
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles</loc>
+    <lastmod>2026-08-17</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/development</loc>
+    <lastmod>2026-08-17</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/plugin-ecosystem</loc>
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
@@ -37,11 +41,7 @@
     <lastmod>2026-08-17</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference</loc>
-    <lastmod>2026-08-17</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/development</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/repository-structure</loc>
     <lastmod>2026-08-17</lastmod>
   </url>
 </urlset>
