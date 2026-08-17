@@ -1,9 +1,25 @@
 ---
-title: "Reference"
+title: "API Reference"
 ---
 
-# Reference
+# API Reference
 
-This section is the source-backed reference for ProMarkdown's public controls, services, models, extension contracts, editor identifiers, and optional packages.
+This reference covers the exported ProMarkdown API by assembly and responsibility. Signatures are source-backed and grouped for application developers and extension authors.
 
-Repository contributors can use [Repository Structure](repository-structure/) for the source layout; application developers should prefer the public API pages in this section as they are added.
+## Core assembly
+
+- [Controls API](controls-api/) — `MarkdownTextBlock`, edit operations, and control events
+- [Services and Helpers API](services-api/) — service factories, concrete implementations, theming, and rendering helpers
+
+## Contributor reference
+
+- [Repository Structure](repository-structure/) — solution projects and source layout
+
+API types use two namespaces:
+
+```csharp
+using ProMarkdown.Controls;
+using ProMarkdown.Services;
+```
+
+Each optional package adds its own `ProMarkdown.Plugin.*` namespace.

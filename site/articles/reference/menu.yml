@@ -1,3 +1,5 @@
 reference:
   - {path: readme.md, title: "Reference"}
+  - {path: controls-api.md, title: "Controls API"}
+  - {path: services-api.md, title: "Services and Helpers API"}
   - {path: repository-structure.md, title: "Repository Structure"}

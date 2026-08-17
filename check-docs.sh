@@ -54,6 +54,8 @@ test -f "${DOC_ROOT}/articles/extensions/block-templates/index.html"
 test -f "${DOC_ROOT}/articles/development/index.html"
 test -f "${DOC_ROOT}/articles/development/build-test-and-docs/index.html"
 test -f "${DOC_ROOT}/articles/reference/index.html"
+test -f "${DOC_ROOT}/articles/reference/controls-api/index.html"
+test -f "${DOC_ROOT}/articles/reference/services-api/index.html"
 test -f "${DOC_ROOT}/articles/reference/repository-structure/index.html"
 test -f "${BUNDLE_CSS}"
 
