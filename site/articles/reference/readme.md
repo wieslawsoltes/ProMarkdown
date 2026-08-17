@@ -14,6 +14,10 @@ This reference covers the exported ProMarkdown API by assembly and responsibilit
 - [Editing API](editing-api/) — editor services, sessions, preferences, templates, and UI helpers
 - [Extension API](extension-api/) — parser, block, inline, editor, template, registry, and context contracts
 
+## Optional assemblies
+
+- [Plugin Package API](package-api/) — every shipped plugin entry point and stable editor ID
+
 ## Contributor reference
 
 - [Repository Structure](repository-structure/) — solution projects and source layout
