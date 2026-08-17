@@ -4,4 +4,5 @@ reference:
   - {path: services-api.md, title: "Services and Helpers API"}
   - {path: rendering-models-api.md, title: "Rendering and Source Map API"}
   - {path: editing-api.md, title: "Editing API"}
+  - {path: extension-api.md, title: "Extension API"}
   - {path: repository-structure.md, title: "Repository Structure"}

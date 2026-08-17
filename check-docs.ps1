@@ -64,6 +64,7 @@ $requiredFiles = @(
     (Join-Path $docRoot 'articles/reference/services-api/index.html'),
     (Join-Path $docRoot 'articles/reference/rendering-models-api/index.html'),
     (Join-Path $docRoot 'articles/reference/editing-api/index.html'),
+    (Join-Path $docRoot 'articles/reference/extension-api/index.html'),
     (Join-Path $docRoot 'articles/reference/repository-structure/index.html')
 )
 

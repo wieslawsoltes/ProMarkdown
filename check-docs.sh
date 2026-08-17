@@ -58,6 +58,7 @@ test -f "${DOC_ROOT}/articles/reference/controls-api/index.html"
 test -f "${DOC_ROOT}/articles/reference/services-api/index.html"
 test -f "${DOC_ROOT}/articles/reference/rendering-models-api/index.html"
 test -f "${DOC_ROOT}/articles/reference/editing-api/index.html"
+test -f "${DOC_ROOT}/articles/reference/extension-api/index.html"
 test -f "${DOC_ROOT}/articles/reference/repository-structure/index.html"
 test -f "${BUNDLE_CSS}"
 

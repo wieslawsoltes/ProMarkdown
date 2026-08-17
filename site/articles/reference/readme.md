@@ -12,6 +12,7 @@ This reference covers the exported ProMarkdown API by assembly and responsibilit
 - [Services and Helpers API](services-api/) — service factories, concrete implementations, theming, and rendering helpers
 - [Rendering and Source Map API](rendering-models-api/) — render requests/results, AST metadata, maps, hit testing, and resource ownership
 - [Editing API](editing-api/) — editor services, sessions, preferences, templates, and UI helpers
+- [Extension API](extension-api/) — parser, block, inline, editor, template, registry, and context contracts
 
 ## Contributor reference
 
