@@ -1,8 +1,6 @@
-# CodexGui.Markdown
+# ProMarkdown
 
 Reusable Avalonia markdown rendering and editing libraries built on Markdig.
-
-This repository contains the Markdown subsystem extracted from CodexGui. The existing project, namespace, package, and solution names are intentionally unchanged during this move.
 
 ## Highlights
 
@@ -16,33 +14,33 @@ This repository contains the Markdown subsystem extracted from CodexGui. The exi
 
 | Project | Responsibility |
 | --- | --- |
-| `src/CodexGui.Markdown` | Core controls, parsing, rendering, editing, layout, selection, and theme services. |
-| `src/CodexGui.Markdown.Plugin.Alerts` | Alert block parsing, rendering, and editing. |
-| `src/CodexGui.Markdown.Plugin.CustomContainers` | Generic custom-container support. |
-| `src/CodexGui.Markdown.Plugin.DefinitionLists` | Definition-list parsing, rendering, and editing. |
-| `src/CodexGui.Markdown.Plugin.Figures` | Figure and caption support. |
-| `src/CodexGui.Markdown.Plugin.Footers` | Footer metadata blocks. |
-| `src/CodexGui.Markdown.Plugin.Math` | Inline and block math support. |
-| `src/CodexGui.Markdown.Plugin.Mermaid` | Mermaid diagram rendering. |
-| `src/CodexGui.Markdown.Plugin.SyntaxHighlighting` | Built-in code syntax highlighting. |
-| `src/CodexGui.Markdown.Plugin.TextMate` | TextMate-backed highlighting and editor integration. |
-| `src/CodexGui.Markdown.Sample` | Desktop sample that composes the library and plugins. |
-| `tests/CodexGui.Markdown.Tests` | Headless rendering and Mermaid tests. |
+| `src/ProMarkdown` | Core controls, parsing, rendering, editing, layout, selection, and theme services. |
+| `src/ProMarkdown.Plugin.Alerts` | Alert block parsing, rendering, and editing. |
+| `src/ProMarkdown.Plugin.CustomContainers` | Generic custom-container support. |
+| `src/ProMarkdown.Plugin.DefinitionLists` | Definition-list parsing, rendering, and editing. |
+| `src/ProMarkdown.Plugin.Figures` | Figure and caption support. |
+| `src/ProMarkdown.Plugin.Footers` | Footer metadata blocks. |
+| `src/ProMarkdown.Plugin.Math` | Inline and block math support. |
+| `src/ProMarkdown.Plugin.Mermaid` | Mermaid diagram rendering. |
+| `src/ProMarkdown.Plugin.SyntaxHighlighting` | Built-in code syntax highlighting. |
+| `src/ProMarkdown.Plugin.TextMate` | TextMate-backed highlighting and editor integration. |
+| `src/ProMarkdown.Sample` | Desktop sample that composes the library and plugins. |
+| `tests/ProMarkdown.Tests` | Headless rendering and Mermaid tests. |
 
 ## NuGet packages
 
-The packable projects retain their current package identities:
+Published packages:
 
-- `CodexGui.Markdown`
-- `CodexGui.Markdown.Plugin.Alerts`
-- `CodexGui.Markdown.Plugin.CustomContainers`
-- `CodexGui.Markdown.Plugin.DefinitionLists`
-- `CodexGui.Markdown.Plugin.Figures`
-- `CodexGui.Markdown.Plugin.Footers`
-- `CodexGui.Markdown.Plugin.Math`
-- `CodexGui.Markdown.Plugin.Mermaid`
-- `CodexGui.Markdown.Plugin.SyntaxHighlighting`
-- `CodexGui.Markdown.Plugin.TextMate`
+- `ProMarkdown`
+- `ProMarkdown.Plugin.Alerts`
+- `ProMarkdown.Plugin.CustomContainers`
+- `ProMarkdown.Plugin.DefinitionLists`
+- `ProMarkdown.Plugin.Figures`
+- `ProMarkdown.Plugin.Footers`
+- `ProMarkdown.Plugin.Math`
+- `ProMarkdown.Plugin.Mermaid`
+- `ProMarkdown.Plugin.SyntaxHighlighting`
+- `ProMarkdown.Plugin.TextMate`
 
 ## Prerequisites
 
@@ -51,15 +49,15 @@ The packable projects retain their current package identities:
 ## Build and test
 
 ```bash
-dotnet restore CodexGui.slnx
-dotnet build CodexGui.slnx
-dotnet test --solution CodexGui.slnx
+dotnet restore ProMarkdown.slnx
+dotnet build ProMarkdown.slnx
+dotnet test --solution ProMarkdown.slnx
 ```
 
 ## Run the sample
 
 ```bash
-dotnet run --project src/CodexGui.Markdown.Sample/CodexGui.Markdown.Sample.csproj
+dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj
 ```
 
 The sample provides an editor and preview surface with the plugin ecosystem registered together.
@@ -85,7 +83,7 @@ PowerShell equivalents are included for the build, check, and serve commands. De
 
 - `.github/workflows/build.yml` builds, tests, validates docs, and packs the Markdown projects.
 - `.github/workflows/docs.yml` publishes the Lunet site.
-- `.github/workflows/release.yml` validates and publishes the existing Markdown NuGet packages for tagged releases.
+- `.github/workflows/release.yml` validates and publishes the ProMarkdown NuGet packages for tagged releases.
 
 ## License
 

@@ -15,9 +15,7 @@ title: "Repository Structure"
 
 ## Solution projects
 
-- `CodexGui.Markdown` — core Markdown control and services
-- `CodexGui.Markdown.Plugin.*` — optional feature packages
-- `CodexGui.Markdown.Sample` — standalone sample application
-- `CodexGui.Markdown.Tests` — headless tests
-
-The CodexGui desktop application and app-server transport projects are intentionally not part of this repository.
+- `ProMarkdown` — core Markdown control and services
+- `ProMarkdown.Plugin.*` — optional feature packages
+- `ProMarkdown.Sample` — standalone sample application
+- `ProMarkdown.Tests` — headless tests

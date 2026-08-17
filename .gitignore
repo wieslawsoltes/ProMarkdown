@@ -398,6 +398,7 @@ FodyWeavers.xsd
 *.msp
 
 # JetBrains Rider
+.idea/
 *.sln.iml
 /site/.lunet/build/
 /site/.lunet/.build-lock/

@@ -2,7 +2,7 @@
 
 ## Problem
 
-`CodexGui.Markdown` currently renders `AlertBlock` nodes directly in the core renderer. The visual fallback works, but alerts still lack a dedicated semantic AST, markdown rebuild helpers, block templates, and a structured editor for switching alert kinds without manually rewriting quoted markdown.
+`ProMarkdown` currently renders `AlertBlock` nodes directly in the core renderer. The visual fallback works, but alerts still lack a dedicated semantic AST, markdown rebuild helpers, block templates, and a structured editor for switching alert kinds without manually rewriting quoted markdown.
 
 ## Current Alert Format
 
@@ -24,7 +24,7 @@
 ## Proposed Approach
 
 1. Keep Markdig responsible for markdown-level alert parsing.
-2. Add a dedicated `CodexGui.Markdown.Plugin.Alerts` project for the richer alert experience.
+2. Add a dedicated `ProMarkdown.Plugin.Alerts` project for the richer alert experience.
 3. Build an internal alert AST that captures the alert kind, normalized body markdown, source spans, and diagnostics.
 4. Extract shared callout surface helpers into core so both fallback rendering and the new plugin can reuse the same Fluent callout styling.
 5. Add alert block templates plus a structured block editor with kind selection and live preview.
@@ -55,9 +55,9 @@
 
 ## Completion
 
-- Added `src/CodexGui.Markdown.Plugin.Alerts/` with an alert AST, parser, renderer, templates, and a structured block editor plugin.
-- Extracted shared callout surface helpers into `src/CodexGui.Markdown/Services/MarkdownCalloutRendering.cs` so fallback rendering and plugin rendering reuse the same visual system.
+- Added `src/ProMarkdown.Plugin.Alerts/` with an alert AST, parser, renderer, templates, and a structured block editor plugin.
+- Extracted shared callout surface helpers into `src/ProMarkdown/Services/MarkdownCalloutRendering.cs` so fallback rendering and plugin rendering reuse the same visual system.
 - Registered the new alert plugin in the markdown sample and expanded the sample alert content to demonstrate AST-backed alert editing.
 - Validation succeeded with:
-  - `dotnet build CodexGui.slnx --nologo --verbosity minimal`
-  - `dotnet test --solution CodexGui.slnx`
+  - `dotnet build ProMarkdown.slnx --nologo --verbosity minimal`
+  - `dotnet test --solution ProMarkdown.slnx`

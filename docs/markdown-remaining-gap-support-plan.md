@@ -47,5 +47,5 @@ The markdown engine is now plugin-first for many rich block features, but a smal
 - Added built-in editor features, templates, and editor surfaces for YAML front matter, link references, footnotes, and abbreviations.
 - Updated the markdown sample to exercise the new metadata surfaces, inline typography, and reference-style link behavior.
 - Validation succeeded with:
-  - `dotnet build CodexGui.slnx --nologo --verbosity minimal`
-  - `dotnet test --solution CodexGui.slnx`
+  - `dotnet build ProMarkdown.slnx --nologo --verbosity minimal`
+  - `dotnet test --solution ProMarkdown.slnx`

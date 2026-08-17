@@ -2,7 +2,7 @@
 
 ## Problem
 
-`CodexGui.Markdown` currently renders `Figure` and `FigureCaption` nodes directly in the core renderer. The fallback view works, but figures still lack a dedicated semantic AST, markdown rebuild helpers, block templates, and a structured editor for preserving opening and closing fence captions separately from the figure body.
+`ProMarkdown` currently renders `Figure` and `FigureCaption` nodes directly in the core renderer. The fallback view works, but figures still lack a dedicated semantic AST, markdown rebuild helpers, block templates, and a structured editor for preserving opening and closing fence captions separately from the figure body.
 
 ## Current Figure Format
 
@@ -26,7 +26,7 @@
 ## Proposed Approach
 
 1. Keep Markdig responsible for markdown-level figure parsing.
-2. Add a dedicated `CodexGui.Markdown.Plugin.Figures` project for the richer figure experience.
+2. Add a dedicated `ProMarkdown.Plugin.Figures` project for the richer figure experience.
 3. Build an internal figure AST that captures the figure body markdown, leading caption, trailing caption, fence length, source spans, and diagnostics.
 4. Render figures from that AST using a richer editorial surface with caption regions and nested markdown previews.
 5. Add figure block templates plus a structured editor for lead caption, body markdown, and trailing caption.
@@ -57,9 +57,9 @@
 
 ## Completion
 
-- Added `src/CodexGui.Markdown.Plugin.Figures/` with a figure AST, parser, renderer, templates, and a structured block editor plugin.
+- Added `src/ProMarkdown.Plugin.Figures/` with a figure AST, parser, renderer, templates, and a structured block editor plugin.
 - Modeled figure syntax around Markdig's `^^^` fences, preserving opening and closing fence captions separately from the figure body markdown.
 - Registered the new figure plugin in the sample and expanded the sample markdown to demonstrate plugin-backed figure editing.
 - Validation succeeded with:
-  - `dotnet build CodexGui.slnx --nologo --verbosity minimal`
-  - `dotnet test --solution CodexGui.slnx`
+  - `dotnet build ProMarkdown.slnx --nologo --verbosity minimal`
+  - `dotnet test --solution ProMarkdown.slnx`

@@ -63,10 +63,10 @@ jobs:
           echo "Building version: $VERSION (prerelease: $IS_PRERELEASE)"
 
       - name: Restore
-        run: dotnet restore CodexGui.slnx
+        run: dotnet restore ProMarkdown.slnx
 
       - name: Build
-        run: dotnet build CodexGui.slnx -c Release --no-restore -p:Version="${{ steps.version.outputs.version }}"
+        run: dotnet build ProMarkdown.slnx -c Release --no-restore -p:Version="${{ steps.version.outputs.version }}"
 
   test:
     name: Test Release
@@ -82,13 +82,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore CodexGui.slnx
+        run: dotnet restore ProMarkdown.slnx
 
       - name: Build
-        run: dotnet build CodexGui.slnx -c Release --no-restore -p:Version="${{ needs.build.outputs.version }}"
+        run: dotnet build ProMarkdown.slnx -c Release --no-restore -p:Version="${{ needs.build.outputs.version }}"
 
       - name: Test
-        run: dotnet test --solution CodexGui.slnx --configuration Release --no-build --report-xunit-trx --results-directory artifacts/test
+        run: dotnet test --solution ProMarkdown.slnx --configuration Release --no-build --report-xunit-trx --results-directory artifacts/test
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -122,13 +122,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore CodexGui.slnx
+        run: dotnet restore ProMarkdown.slnx
 
       - name: Build
-        run: dotnet build CodexGui.slnx -c Release --no-restore -p:Version="${{ needs.build.outputs.version }}"
+        run: dotnet build ProMarkdown.slnx -c Release --no-restore -p:Version="${{ needs.build.outputs.version }}"
 
       - name: Pack
-        run: dotnet pack CodexGui.slnx -c Release --no-build -p:Version="${{ needs.build.outputs.version }}" -o artifacts/packages
+        run: dotnet pack ProMarkdown.slnx -c Release --no-build -p:Version="${{ needs.build.outputs.version }}" -o artifacts/packages
 
       - name: Upload NuGet packages
         uses: actions/upload-artifact@v4
@@ -187,7 +187,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: CodexGui.Markdown v${{ needs.build.outputs.version }}
+          name: ProMarkdown v${{ needs.build.outputs.version }}
           tag_name: ${{ needs.build.outputs.tag-name }}
           target_commitish: ${{ github.sha }}
           draft: false

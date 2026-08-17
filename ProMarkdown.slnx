@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ProMarkdown/ProMarkdown.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.Alerts/ProMarkdown.Plugin.Alerts.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.CustomContainers/ProMarkdown.Plugin.CustomContainers.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.DefinitionLists/ProMarkdown.Plugin.DefinitionLists.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.Figures/ProMarkdown.Plugin.Figures.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.Footers/ProMarkdown.Plugin.Footers.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.Math/ProMarkdown.Plugin.Math.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.Mermaid/ProMarkdown.Plugin.Mermaid.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.SyntaxHighlighting/ProMarkdown.Plugin.SyntaxHighlighting.csproj" />
+    <Project Path="src/ProMarkdown.Plugin.TextMate/ProMarkdown.Plugin.TextMate.csproj" />
+    <Project Path="src/ProMarkdown.Sample/ProMarkdown.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ProMarkdown.Tests/ProMarkdown.Tests.csproj" />
+  </Folder>
+</Solution>

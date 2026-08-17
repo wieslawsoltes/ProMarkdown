@@ -3,4 +3,4 @@ home:
   - {path: articles/readme.md, title: "<i class='bi bi-book' aria-hidden='true'></i> Docs", folder: true}
 
 home2:
-  - {url: "https://github.com/wieslawsoltes/CodexGui", title: '<i class="bi bi-github"></i> GitHub', link_class: btn btn-info}
+  - {url: "https://github.com/wieslawsoltes/ProMarkdown", title: '<i class="bi bi-github"></i> GitHub', link_class: btn btn-info}

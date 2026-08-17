@@ -4,7 +4,7 @@ title: "Documentation"
 
 # Documentation
 
-This site documents the extracted CodexGui Markdown libraries, plugins, sample, tests, and contributor workflows.
+This site documents the ProMarkdown libraries, plugins, sample, tests, and contributor workflows.
 
 ## Read by intent
 

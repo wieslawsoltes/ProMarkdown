@@ -40,7 +40,7 @@ $requiredFiles = @(
     (Join-Path $docRoot 'articles/index.html'),
     (Join-Path $docRoot 'articles/getting-started/index.html'),
     (Join-Path $docRoot 'articles/getting-started/overview/index.html'),
-    (Join-Path $docRoot 'articles/getting-started/running-the-app/index.html'),
+    (Join-Path $docRoot 'articles/getting-started/running-the-sample/index.html'),
     (Join-Path $docRoot 'articles/markdown/index.html'),
     (Join-Path $docRoot 'articles/markdown/plugin-ecosystem/index.html'),
     (Join-Path $docRoot 'articles/development/index.html'),
@@ -85,27 +85,27 @@ if (-not $mitFooter) {
     throw 'Generated site footer is missing the project MIT license text.'
 }
 
-$repoLink = Find-GeneratedMatches -Pattern 'https://github.com/wieslawsoltes/CodexGui' -Paths @((Join-Path $docRoot 'index.html')) -Fixed
+$repoLink = Find-GeneratedMatches -Pattern 'https://github.com/wieslawsoltes/ProMarkdown' -Paths @((Join-Path $docRoot 'index.html')) -Fixed
 if (-not $repoLink) {
     throw 'Generated home page is missing the repository link.'
 }
 
-$basepathLinks = Find-GeneratedMatches -Pattern '/CodexGui/articles/' -Paths @((Join-Path $docRoot 'index.html')) -Fixed
+$basepathLinks = Find-GeneratedMatches -Pattern '/ProMarkdown/articles/' -Paths @((Join-Path $docRoot 'index.html')) -Fixed
 if (-not $basepathLinks) {
     throw 'Generated home page is missing basepath-prefixed article links.'
 }
 
-$heroLead = Find-GeneratedMatches -Pattern '<p class="lead"><strong>CodexGui.Markdown</strong>' -Paths @((Join-Path $docRoot 'index.html')) -Fixed
+$heroLead = Find-GeneratedMatches -Pattern '<p class="lead"><strong>ProMarkdown</strong>' -Paths @((Join-Path $docRoot 'index.html')) -Fixed
 if (-not $heroLead) {
     throw 'Generated home page is missing the rendered hero lead paragraph.'
 }
 
-$heroSelector = Find-GeneratedMatches -Pattern '.cg-hero' -Paths @($bundleCss) -Fixed
+$heroSelector = Find-GeneratedMatches -Pattern '.pm-hero' -Paths @($bundleCss) -Fixed
 if (-not $heroSelector) {
-    throw 'Generated docs bundle is missing the .cg-hero selector.'
+    throw 'Generated docs bundle is missing the .pm-hero selector.'
 }
 
-$linkCardSelector = Find-GeneratedMatches -Pattern '.cg-link-card' -Paths @($bundleCss) -Fixed
+$linkCardSelector = Find-GeneratedMatches -Pattern '.pm-link-card' -Paths @($bundleCss) -Fixed
 if (-not $linkCardSelector) {
-    throw 'Generated docs bundle is missing the .cg-link-card selector.'
+    throw 'Generated docs bundle is missing the .pm-link-card selector.'
 }

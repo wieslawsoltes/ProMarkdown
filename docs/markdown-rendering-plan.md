@@ -2,7 +2,7 @@
 
 ## Current Engine
 
-`CodexGui.Markdown` parses markdown with `Markdig` through `MarkdownParsingService`, using `UsePreciseSourceLocation()` and `UseAdvancedExtensions()`. Rendering is handled by `MarkdownInlineRenderingService`, which walks the parsed AST and produces Avalonia `InlineCollection` content for `MarkdownTextBlock`.
+`ProMarkdown` parses markdown with `Markdig` through `MarkdownParsingService`, using `UsePreciseSourceLocation()` and `UseAdvancedExtensions()`. Rendering is handled by `MarkdownInlineRenderingService`, which walks the parsed AST and produces Avalonia `InlineCollection` content for `MarkdownTextBlock`.
 
 The renderer is already plugin-first:
 
@@ -60,16 +60,16 @@ This change will:
 
 ## File Plan
 
-- `src/CodexGui.Markdown/Services/MarkdownInlineRenderingService.cs`
+- `src/ProMarkdown/Services/MarkdownInlineRenderingService.cs`
   - add block handlers
   - add inline handlers
   - add shared helper surfaces and styling
-- `src/CodexGui.Markdown.Sample/Views/MainWindow.axaml.cs`
+- `src/ProMarkdown.Sample/Views/MainWindow.axaml.cs`
   - add showcase content for the new rendering coverage
 
 ## Validation Plan
 
-- run `dotnet test --solution CodexGui.slnx`
+- run `dotnet test --solution ProMarkdown.slnx`
 - confirm the sample markdown now demonstrates alerts, containers, math, abbreviations, and superscript/subscript rendering
 
 ## Safety and UX Constraints

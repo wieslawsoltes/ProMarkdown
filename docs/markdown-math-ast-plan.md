@@ -81,23 +81,23 @@ This requires:
 
 ## Files Expected to Change
 
-- `src/CodexGui.Markdown/Services/MarkdownRenderContracts.cs`
-- `src/CodexGui.Markdown/Services/MarkdownInlineRenderingService.cs`
-- `src/CodexGui.Markdown/Services/MarkdownBuiltInEditorPlugins.cs`
-- `src/CodexGui.Markdown/Services/MarkdownSourceEditing.cs`
-- new math parser / AST / renderer service files under `src/CodexGui.Markdown.Plugin.Math/`
-- `src/CodexGui.Markdown.Sample/Views/MainWindow.axaml.cs`
+- `src/ProMarkdown/Services/MarkdownRenderContracts.cs`
+- `src/ProMarkdown/Services/MarkdownInlineRenderingService.cs`
+- `src/ProMarkdown/Services/MarkdownBuiltInEditorPlugins.cs`
+- `src/ProMarkdown/Services/MarkdownSourceEditing.cs`
+- new math parser / AST / renderer service files under `src/ProMarkdown.Plugin.Math/`
+- `src/ProMarkdown.Sample/Views/MainWindow.axaml.cs`
 
 ## Implementation Note
 
 The completed implementation now lives in a dedicated plugin project:
 
-- `src/CodexGui.Markdown.Plugin.Math/`
+- `src/ProMarkdown.Plugin.Math/`
 
 Core markdown still owns the shared render/edit contracts and inline-editor pipeline, while math parsing, rendering, templates, and editor plugins are registered through `MathMarkdownPlugin`.
 
 ## Validation
 
-- `dotnet build CodexGui.slnx --nologo --verbosity minimal`
-- `dotnet test --solution CodexGui.slnx`
+- `dotnet build ProMarkdown.slnx --nologo --verbosity minimal`
+- `dotnet test --solution ProMarkdown.slnx`
 - ensure the sample contains inline and block formulas that exercise fractions, roots, scripts, matrices, and text operators

@@ -33,10 +33,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore CodexGui.slnx
+        run: dotnet restore ProMarkdown.slnx
 
       - name: Build
-        run: dotnet build CodexGui.slnx -c Release --no-restore
+        run: dotnet build ProMarkdown.slnx -c Release --no-restore
 
   test:
     name: Test
@@ -52,13 +52,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore CodexGui.slnx
+        run: dotnet restore ProMarkdown.slnx
 
       - name: Build
-        run: dotnet build CodexGui.slnx -c Release --no-restore
+        run: dotnet build ProMarkdown.slnx -c Release --no-restore
 
       - name: Test
-        run: dotnet test --solution CodexGui.slnx --configuration Release --no-build --report-xunit-trx --results-directory artifacts/test
+        run: dotnet test --solution ProMarkdown.slnx --configuration Release --no-build --report-xunit-trx --results-directory artifacts/test
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -119,13 +119,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore CodexGui.slnx
+        run: dotnet restore ProMarkdown.slnx
 
       - name: Build
-        run: dotnet build CodexGui.slnx -c Release --no-restore
+        run: dotnet build ProMarkdown.slnx -c Release --no-restore
 
       - name: Pack
-        run: dotnet pack CodexGui.slnx -c Release --no-build -o artifacts/packages
+        run: dotnet pack ProMarkdown.slnx -c Release --no-build -o artifacts/packages
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v4

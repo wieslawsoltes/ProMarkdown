@@ -35,7 +35,7 @@ This is functionally correct, but it is not semantic enough for rich editing or 
 
 Create a new plugin project:
 
-- `src/CodexGui.Markdown.Plugin.DefinitionLists/`
+- `src/ProMarkdown.Plugin.DefinitionLists/`
 
 This plugin will own:
 
@@ -86,25 +86,25 @@ Add full preview-editing support for the whole definition list block:
 
 ## Files Expected to Change
 
-- `src/CodexGui.Markdown/Services/MarkdownRenderContracts.cs`
-- `src/CodexGui.Markdown/Services/MarkdownInlineRenderingService.cs`
-- `src/CodexGui.Markdown.Sample/CodexGui.Markdown.Sample.csproj`
-- `src/CodexGui.Markdown.Sample/Views/MainWindow.axaml.cs`
-- `CodexGui.slnx`
-- new plugin project files under `src/CodexGui.Markdown.Plugin.DefinitionLists/`
+- `src/ProMarkdown/Services/MarkdownRenderContracts.cs`
+- `src/ProMarkdown/Services/MarkdownInlineRenderingService.cs`
+- `src/ProMarkdown.Sample/ProMarkdown.Sample.csproj`
+- `src/ProMarkdown.Sample/Views/MainWindow.axaml.cs`
+- `ProMarkdown.slnx`
+- new plugin project files under `src/ProMarkdown.Plugin.DefinitionLists/`
 
 ## Implementation Note
 
 The completed implementation lives in a dedicated plugin project:
 
-- `src/CodexGui.Markdown.Plugin.DefinitionLists/`
+- `src/ProMarkdown.Plugin.DefinitionLists/`
 
 Core markdown still keeps its simpler built-in definition-list fallback renderer, while the sample and any plugin-aware consumer can opt into the richer AST-backed rendering and editing experience by registering `DefinitionListMarkdownPlugin`.
 
 ## Validation
 
-- `dotnet build CodexGui.slnx --nologo --verbosity minimal`
-- `dotnet test --solution CodexGui.slnx`
+- `dotnet build ProMarkdown.slnx --nologo --verbosity minimal`
+- `dotnet test --solution ProMarkdown.slnx`
 - ensure the sample exercises:
   - multiple terms per entry
   - inline markdown inside terms

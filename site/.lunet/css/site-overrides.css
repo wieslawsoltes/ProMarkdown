@@ -1,32 +1,32 @@
-/* CodexGui brand polish layered on top of the Lunet template bundle. */
+/* ProMarkdown brand polish layered on top of the Lunet template bundle. */
 
 :root {
-  --cg-accent: #2459d2;
-  --cg-accent-strong: #173ea8;
-  --cg-accent-soft: #edf3ff;
-  --cg-glow: #b62cff;
-  --cg-glow-soft: rgba(182, 44, 255, 0.14);
-  --cg-highlight: #7cb8ff;
-  --cg-card-radius: 16px;
-  --cg-shadow-soft: 0 12px 30px rgba(13, 23, 48, 0.10);
-  --cg-shadow-strong: 0 18px 42px rgba(13, 23, 48, 0.16);
+  --pm-accent: #2459d2;
+  --pm-accent-strong: #173ea8;
+  --pm-accent-soft: #edf3ff;
+  --pm-glow: #b62cff;
+  --pm-glow-soft: rgba(182, 44, 255, 0.14);
+  --pm-highlight: #7cb8ff;
+  --pm-card-radius: 16px;
+  --pm-shadow-soft: 0 12px 30px rgba(13, 23, 48, 0.10);
+  --pm-shadow-strong: 0 18px 42px rgba(13, 23, 48, 0.16);
 }
 
 :root[data-bs-theme="dark"] {
-  --cg-accent: #7cb8ff;
-  --cg-accent-strong: #c9e0ff;
-  --cg-accent-soft: rgba(36, 89, 210, 0.18);
-  --cg-glow-soft: rgba(182, 44, 255, 0.22);
-  --cg-highlight: #d8e6ff;
-  --cg-shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.28);
-  --cg-shadow-strong: 0 18px 44px rgba(0, 0, 0, 0.42);
+  --pm-accent: #7cb8ff;
+  --pm-accent-strong: #c9e0ff;
+  --pm-accent-soft: rgba(36, 89, 210, 0.18);
+  --pm-glow-soft: rgba(182, 44, 255, 0.22);
+  --pm-highlight: #d8e6ff;
+  --pm-shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.28);
+  --pm-shadow-strong: 0 18px 44px rgba(0, 0, 0, 0.42);
 }
 
 body {
   min-height: 100vh;
   background-image:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--cg-accent) 10%, transparent), transparent 42%),
-    linear-gradient(180deg, color-mix(in srgb, var(--bs-body-bg) 96%, var(--cg-glow-soft)), var(--bs-body-bg) 24rem);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--pm-accent) 10%, transparent), transparent 42%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bs-body-bg) 96%, var(--pm-glow-soft)), var(--bs-body-bg) 24rem);
 }
 
 #lunet {
@@ -52,7 +52,7 @@ body {
 }
 
 #lunet .navbar .nav-link:hover {
-  background: color-mix(in srgb, var(--cg-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 14%, transparent);
 }
 
 #lunet li.nav-item.active {
@@ -60,8 +60,8 @@ body {
 }
 
 #lunet li.nav-item.active > .nav-item-row > .nav-link {
-  color: var(--cg-accent-strong);
-  background: color-mix(in srgb, var(--cg-accent) 16%, transparent);
+  color: var(--pm-accent-strong);
+  background: color-mix(in srgb, var(--pm-accent) 16%, transparent);
 }
 
 #lunet .navbar .lunet-search .input-group {
@@ -75,13 +75,13 @@ body {
 
 #lunet .navbar-right .btn-info {
   border-radius: 0.75rem;
-  border-color: color-mix(in srgb, var(--cg-accent) 45%, var(--bs-border-color));
-  background: color-mix(in srgb, var(--cg-accent) 28%, transparent);
+  border-color: color-mix(in srgb, var(--pm-accent) 45%, var(--bs-border-color));
+  background: color-mix(in srgb, var(--pm-accent) 28%, transparent);
   color: var(--bs-body-color);
 }
 
 #lunet .navbar-right .btn-info:hover {
-  background: color-mix(in srgb, var(--cg-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--pm-accent) 40%, transparent);
 }
 
 #lunet .menu,
@@ -115,7 +115,7 @@ body {
 
 #lunet .menu-item.active > .menu-item-row > .menu-link {
   font-weight: 600;
-  color: var(--cg-accent-strong);
+  color: var(--pm-accent-strong);
 }
 
 #docs-sidebar-menu.menu-sidebar,
@@ -124,13 +124,13 @@ body {
   overflow: auto;
   padding-bottom: 1rem;
   border: 1px solid color-mix(in srgb, var(--bs-border-color) 80%, transparent);
-  border-radius: var(--cg-card-radius);
-  box-shadow: var(--cg-shadow-soft);
+  border-radius: var(--pm-card-radius);
+  box-shadow: var(--pm-shadow-soft);
 }
 
 #docs-sidebar-menu .offcanvas-body,
 #docs-sidebar-toc {
-  background: color-mix(in srgb, var(--bs-body-bg) 92%, var(--cg-accent-soft));
+  background: color-mix(in srgb, var(--bs-body-bg) 92%, var(--pm-accent-soft));
 }
 
 #docs-sidebar-toc .js-toc {
@@ -150,15 +150,15 @@ body {
 
 #docs-sidebar-toc .is-active-link {
   font-weight: 700;
-  color: var(--cg-accent-strong);
+  color: var(--pm-accent-strong);
 }
 
 #lunet .lunet-articles .js-toc-content {
-  background: color-mix(in srgb, var(--bs-body-bg) 94%, var(--cg-accent-soft));
+  background: color-mix(in srgb, var(--bs-body-bg) 94%, var(--pm-accent-soft));
   border: 1px solid color-mix(in srgb, var(--bs-border-color) 80%, transparent);
-  border-radius: var(--cg-card-radius);
+  border-radius: var(--pm-card-radius);
   padding: 1.25rem 1.3rem 1.4rem;
-  box-shadow: var(--cg-shadow-soft);
+  box-shadow: var(--pm-shadow-soft);
 }
 
 #lunet h1 {
@@ -186,7 +186,7 @@ body {
 }
 
 #lunet :focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--cg-highlight) 70%, white);
+  outline: 2px solid color-mix(in srgb, var(--pm-highlight) 70%, white);
   outline-offset: 2px;
 }
 
@@ -194,7 +194,7 @@ body {
   max-width: 1120px;
 }
 
-.cg-hero {
+.pm-hero {
   position: relative;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--bs-border-color) 80%, transparent);
@@ -202,24 +202,24 @@ body {
   padding: clamp(1.5rem, 2.5vw, 2.35rem);
   margin-bottom: 1.8rem;
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--cg-glow) 20%, transparent), transparent 34%),
-    linear-gradient(140deg, color-mix(in srgb, var(--cg-accent) 22%, transparent), transparent 58%),
-    color-mix(in srgb, var(--bs-body-bg) 94%, var(--cg-accent-soft));
-  box-shadow: var(--cg-shadow-strong);
+    radial-gradient(circle at top right, color-mix(in srgb, var(--pm-glow) 20%, transparent), transparent 34%),
+    linear-gradient(140deg, color-mix(in srgb, var(--pm-accent) 22%, transparent), transparent 58%),
+    color-mix(in srgb, var(--bs-body-bg) 94%, var(--pm-accent-soft));
+  box-shadow: var(--pm-shadow-strong);
 }
 
-.cg-hero::after {
+.pm-hero::after {
   content: "";
   position: absolute;
   inset: auto -3rem -4rem auto;
   width: 11rem;
   height: 11rem;
   border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--cg-glow) 42%, transparent), transparent 68%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--pm-glow) 42%, transparent), transparent 68%);
   pointer-events: none;
 }
 
-.cg-eyebrow {
+.pm-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -228,121 +228,121 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--cg-accent-strong);
+  color: var(--pm-accent-strong);
 }
 
-.cg-hero h1 {
+.pm-hero h1 {
   margin-bottom: 0.8rem;
   letter-spacing: -0.03em;
 }
 
-.cg-hero .lead {
+.pm-hero .lead {
   max-width: 70ch;
   font-size: 1.08rem;
   margin-bottom: 1.3rem;
 }
 
-.cg-hero-actions {
+.pm-hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.cg-hero-actions .btn-primary {
-  background: var(--cg-accent);
-  border-color: var(--cg-accent);
+.pm-hero-actions .btn-primary {
+  background: var(--pm-accent);
+  border-color: var(--pm-accent);
 }
 
-.cg-hero-actions .btn-primary:hover {
-  background: var(--cg-accent-strong);
-  border-color: var(--cg-accent-strong);
+.pm-hero-actions .btn-primary:hover {
+  background: var(--pm-accent-strong);
+  border-color: var(--pm-accent-strong);
 }
 
-.cg-pill-list {
+.pm-pill-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 1.2rem;
 }
 
-.cg-pill {
+.pm-pill {
   display: inline-flex;
   align-items: center;
   min-height: 2rem;
   padding: 0.4rem 0.78rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--cg-accent) 26%, var(--bs-border-color));
-  background: color-mix(in srgb, var(--bs-body-bg) 90%, var(--cg-accent-soft));
+  border: 1px solid color-mix(in srgb, var(--pm-accent) 26%, var(--bs-border-color));
+  background: color-mix(in srgb, var(--bs-body-bg) 90%, var(--pm-accent-soft));
   font-size: 0.88rem;
   font-weight: 600;
 }
 
-.cg-link-grid {
+.pm-link-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.9rem;
   margin-top: 0.8rem;
 }
 
-.cg-link-grid--wide {
+.pm-link-grid--wide {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
-.cg-link-card {
+.pm-link-card {
   display: block;
   border: 1px solid color-mix(in srgb, var(--bs-border-color) 80%, transparent);
   border-radius: 14px;
   padding: 0.95rem 1rem;
   text-decoration: none;
   color: inherit;
-  background: color-mix(in srgb, var(--bs-body-bg) 92%, var(--cg-accent-soft));
-  box-shadow: var(--cg-shadow-soft);
+  background: color-mix(in srgb, var(--bs-body-bg) 92%, var(--pm-accent-soft));
+  box-shadow: var(--pm-shadow-soft);
   transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
-.cg-link-card:hover {
+.pm-link-card:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--cg-accent) 45%, var(--bs-border-color));
-  box-shadow: var(--cg-shadow-strong);
+  border-color: color-mix(in srgb, var(--pm-accent) 45%, var(--bs-border-color));
+  box-shadow: var(--pm-shadow-strong);
 }
 
-.cg-link-card-title {
+.pm-link-card-title {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: 700;
-  color: var(--cg-accent-strong);
+  color: var(--pm-accent-strong);
 }
 
-.cg-link-card p {
+.pm-link-card p {
   margin: 0.45rem 0 0;
   font-size: 0.94rem;
   line-height: 1.4;
   opacity: 0.92;
 }
 
-.cg-highlight-grid {
+.pm-highlight-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 0.9rem;
   margin-top: 0.8rem;
 }
 
-.cg-highlight-card {
+.pm-highlight-card {
   border: 1px solid color-mix(in srgb, var(--bs-border-color) 80%, transparent);
   border-radius: 14px;
   padding: 1rem 1.05rem;
-  background: color-mix(in srgb, var(--bs-body-bg) 95%, var(--cg-accent-soft));
-  box-shadow: var(--cg-shadow-soft);
+  background: color-mix(in srgb, var(--bs-body-bg) 95%, var(--pm-accent-soft));
+  box-shadow: var(--pm-shadow-soft);
 }
 
-.cg-highlight-card strong {
+.pm-highlight-card strong {
   display: block;
   margin-bottom: 0.45rem;
-  color: var(--cg-accent-strong);
+  color: var(--pm-accent-strong);
 }
 
-.cg-highlight-card p {
+.pm-highlight-card p {
   margin: 0;
   line-height: 1.45;
 }
@@ -362,13 +362,13 @@ body {
     margin-bottom: 0.75rem;
   }
 
-  .cg-hero {
+  .pm-hero {
     padding: 1.15rem;
   }
 
-  .cg-link-grid,
-  .cg-link-grid--wide,
-  .cg-highlight-grid {
+  .pm-link-grid,
+  .pm-link-grid--wide,
+  .pm-highlight-grid {
     grid-template-columns: 1fr;
   }
 }

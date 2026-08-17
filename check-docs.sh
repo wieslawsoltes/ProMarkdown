@@ -34,7 +34,7 @@ test -f "${DOC_ROOT}/index.html"
 test -f "${DOC_ROOT}/articles/index.html"
 test -f "${DOC_ROOT}/articles/getting-started/index.html"
 test -f "${DOC_ROOT}/articles/getting-started/overview/index.html"
-test -f "${DOC_ROOT}/articles/getting-started/running-the-app/index.html"
+test -f "${DOC_ROOT}/articles/getting-started/running-the-sample/index.html"
 test -f "${DOC_ROOT}/articles/markdown/index.html"
 test -f "${DOC_ROOT}/articles/markdown/plugin-ecosystem/index.html"
 test -f "${DOC_ROOT}/articles/development/index.html"
@@ -64,27 +64,27 @@ if ! search_generated_fixed 'MIT license' "${DOC_ROOT}/index.html" >/dev/null; t
     exit 1
 fi
 
-if ! search_generated_fixed 'https://github.com/wieslawsoltes/CodexGui' "${DOC_ROOT}/index.html" >/dev/null; then
+if ! search_generated_fixed 'https://github.com/wieslawsoltes/ProMarkdown' "${DOC_ROOT}/index.html" >/dev/null; then
     echo "Generated home page is missing the repository link."
     exit 1
 fi
 
-if ! search_generated_fixed '/CodexGui/articles/' "${DOC_ROOT}/index.html" >/dev/null; then
+if ! search_generated_fixed '/ProMarkdown/articles/' "${DOC_ROOT}/index.html" >/dev/null; then
     echo "Generated home page is missing basepath-prefixed article links."
     exit 1
 fi
 
-if ! search_generated_fixed '<p class="lead"><strong>CodexGui.Markdown</strong>' "${DOC_ROOT}/index.html" >/dev/null; then
+if ! search_generated_fixed '<p class="lead"><strong>ProMarkdown</strong>' "${DOC_ROOT}/index.html" >/dev/null; then
     echo "Generated home page is missing the rendered hero lead paragraph."
     exit 1
 fi
 
-if ! search_generated_fixed '.cg-hero' "${BUNDLE_CSS}" >/dev/null; then
-    echo "Generated docs bundle is missing the .cg-hero selector."
+if ! search_generated_fixed '.pm-hero' "${BUNDLE_CSS}" >/dev/null; then
+    echo "Generated docs bundle is missing the .pm-hero selector."
     exit 1
 fi
 
-if ! search_generated_fixed '.cg-link-card' "${BUNDLE_CSS}" >/dev/null; then
-    echo "Generated docs bundle is missing the .cg-link-card selector."
+if ! search_generated_fixed '.pm-link-card' "${BUNDLE_CSS}" >/dev/null; then
+    echo "Generated docs bundle is missing the .pm-link-card selector."
     exit 1
 fi

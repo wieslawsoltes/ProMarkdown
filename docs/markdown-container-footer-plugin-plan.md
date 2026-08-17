@@ -2,7 +2,7 @@
 
 ## Problem
 
-`CodexGui.Markdown` still contains feature-specific rendering logic for generic custom containers and footers inside the core markdown renderer. These blocks already work, but they do not yet follow the richer plugin-backed architecture used by Mermaid, Math, Definition Lists, Alerts, and Figures.
+`ProMarkdown` still contains feature-specific rendering logic for generic custom containers and footers inside the core markdown renderer. These blocks already work, but they do not yet follow the richer plugin-backed architecture used by Mermaid, Math, Definition Lists, Alerts, and Figures.
 
 ## Current Remaining Core Features
 
@@ -17,13 +17,13 @@
 ## Proposed Approach
 
 1. Keep Markdig responsible for markdown-level parsing for both features.
-2. Add a dedicated `CodexGui.Markdown.Plugin.CustomContainers` project with:
+2. Add a dedicated `ProMarkdown.Plugin.CustomContainers` project with:
    - internal AST
    - parser
    - richer rendering
    - block templates
    - structured editor
-3. Add a dedicated `CodexGui.Markdown.Plugin.Footers` project with:
+3. Add a dedicated `ProMarkdown.Plugin.Footers` project with:
    - internal AST
    - parser
    - footer rendering
@@ -47,9 +47,9 @@
 
 ## Completion
 
-- Added `src/CodexGui.Markdown.Plugin.CustomContainers/` with a custom-container AST, parser, renderer, templates, and a structured block editor plugin.
-- Added `src/CodexGui.Markdown.Plugin.Footers/` with a footer AST, parser, renderer, templates, and a structured block editor plugin.
+- Added `src/ProMarkdown.Plugin.CustomContainers/` with a custom-container AST, parser, renderer, templates, and a structured block editor plugin.
+- Added `src/ProMarkdown.Plugin.Footers/` with a footer AST, parser, renderer, templates, and a structured block editor plugin.
 - Registered the new plugins in the sample and expanded the sample markdown to demonstrate plugin-backed custom-container and footer editing.
 - Validation succeeded with:
-  - `dotnet build CodexGui.slnx --nologo --verbosity minimal`
-  - `dotnet test --solution CodexGui.slnx`
+  - `dotnet build ProMarkdown.slnx --nologo --verbosity minimal`
+  - `dotnet test --solution ProMarkdown.slnx`

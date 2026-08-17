@@ -4,7 +4,7 @@ title: "Overview"
 
 # Overview
 
-The solution is centered on `CodexGui.Markdown`, an Avalonia and Markdig-based library for rich Markdown document surfaces.
+The solution is centered on `ProMarkdown`, an Avalonia and Markdig-based library for rich Markdown document surfaces.
 
 The current stack includes:
 
@@ -14,10 +14,8 @@ The current stack includes:
 - a standalone sample that composes all plugins
 - headless rendering and Mermaid tests
 
-The project and package names still use the existing `CodexGui.Markdown` identity during this migration.
-
 ## What to read next
 
-- [Run the sample](running-the-app/)
+- [Run the sample](running-the-sample/)
 - [Markdown Stack](../markdown/)
 - [Plugin Ecosystem](../markdown/plugin-ecosystem/)
