@@ -11,8 +11,8 @@ description: "Reusable Avalonia markdown rendering, editing, and plugin librarie
   <p class="lead"><strong>ProMarkdown</strong> provides reusable controls and services for parsing, rendering, editing, selecting, and extending Markdown documents in Avalonia applications.</p>
 
   <div class="pm-actions">
-    <a class="btn btn-primary btn-lg" href="articles/getting-started/overview"><i class="bi bi-rocket-takeoff" aria-hidden="true"></i> Start with the overview</a>
-    <a class="btn btn-outline-secondary btn-lg" href="articles/getting-started/running-the-sample"><i class="bi bi-play-circle" aria-hidden="true"></i> Run the sample</a>
+    <a class="btn btn-primary btn-lg" href="articles/getting-started"><i class="bi bi-rocket-takeoff" aria-hidden="true"></i> Get started</a>
+    <a class="btn btn-outline-secondary btn-lg" href="articles/markdown"><i class="bi bi-book" aria-hidden="true"></i> Read the user guide</a>
     <a class="btn btn-outline-secondary btn-lg" href="https://github.com/wieslawsoltes/ProMarkdown"><i class="bi bi-github" aria-hidden="true"></i> GitHub repository</a>
   </div>
 
@@ -29,19 +29,19 @@ description: "Reusable Avalonia markdown rendering, editing, and plugin librarie
 <div class="pm-link-grid">
   <a class="pm-link-card" href="articles/getting-started">
     <span class="pm-link-card-title"><i class="bi bi-signpost-split" aria-hidden="true"></i> Getting Started</span>
-    <p>Build the solution and run the standalone sample.</p>
+    <p>Install the package and render Markdown in an Avalonia view.</p>
   </a>
   <a class="pm-link-card" href="articles/markdown">
-    <span class="pm-link-card-title"><i class="bi bi-file-earmark-richtext" aria-hidden="true"></i> Markdown Stack</span>
-    <p>Explore the core library and its plugin ecosystem.</p>
-  </a>
-  <a class="pm-link-card" href="articles/development">
-    <span class="pm-link-card-title"><i class="bi bi-tools" aria-hidden="true"></i> Development</span>
-    <p>Build, test, pack, and validate the documentation site.</p>
+    <span class="pm-link-card-title"><i class="bi bi-file-earmark-richtext" aria-hidden="true"></i> User Guide</span>
+    <p>Configure rendering, editing, themes, source mapping, and plugins.</p>
   </a>
   <a class="pm-link-card" href="articles/reference">
     <span class="pm-link-card-title"><i class="bi bi-collection" aria-hidden="true"></i> Reference</span>
-    <p>See the Markdown-only repository structure.</p>
+    <p>Look up public controls, services, contracts, models, and packages.</p>
+  </a>
+  <a class="pm-link-card" href="articles/development">
+    <span class="pm-link-card-title"><i class="bi bi-tools" aria-hidden="true"></i> Development</span>
+    <p>Contribute to the source, tests, packages, and documentation.</p>
   </a>
 </div>
 

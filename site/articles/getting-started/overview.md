@@ -4,18 +4,20 @@ title: "Overview"
 
 # Overview
 
-The solution is centered on `ProMarkdown`, an Avalonia and Markdig-based library for rich Markdown document surfaces.
+The `ProMarkdown` package provides `MarkdownTextBlock`, a source-aware Avalonia control backed by Markdig. Use the control directly for ordinary application surfaces or compose the lower-level parsing, rendering, editing, and hit-testing services when you need custom behavior.
 
-The current stack includes:
+## Choose an integration level
 
-- Markdown parsing, rendering, layout, selection, hit testing, themes, and URI handling
-- source-aware editing services and editor plugin contracts
-- optional packages for alerts, custom containers, definition lists, figures, footers, math, Mermaid, syntax highlighting, and TextMate
-- a standalone sample that composes all plugins
-- headless rendering and Mermaid tests
+- **Control-first:** bind Markdown to `MarkdownTextBlock` and use the default renderer.
+- **Configured control:** provide a plugin-aware render controller, editing service, theme palette, and editor preferences.
+- **Service-first:** use `IMarkdownParsingService`, `IMarkdownRenderController`, or `IMarkdownHitTestingService` in a custom document surface.
+- **Extension authoring:** implement parser, block renderer, inline renderer, editor, or block-template contracts and register them through `IMarkdownPlugin`.
+
+Optional packages add alerts, custom containers, definition lists, figures, footers, math, Mermaid, syntax highlighting, and TextMate integration without expanding the core dependency set.
 
 ## What to read next
 
-- [Run the sample](running-the-sample/)
-- [Markdown Stack](../markdown/)
+- [User Guide](../markdown/)
 - [Plugin Ecosystem](../markdown/plugin-ecosystem/)
+- [API Reference](../reference/)
+- [Run the sample](running-the-sample/)

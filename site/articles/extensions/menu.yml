@@ -1,0 +1,7 @@
+extensions:
+  - {path: readme.md, title: "Extending ProMarkdown"}
+  - {path: plugin-model.md, title: "Plugin Model and Registration"}
+  - {path: parser-plugins.md, title: "Parser Plugins"}
+  - {path: rendering-plugins.md, title: "Rendering Plugins"}
+  - {path: editor-plugins.md, title: "Editor Plugins"}
+  - {path: block-templates.md, title: "Block Templates"}

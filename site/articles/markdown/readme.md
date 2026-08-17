@@ -1,21 +1,29 @@
 ---
-title: "Markdown Stack"
+title: "User Guide"
 ---
 
-# Markdown Stack
+# User Guide
 
-The repository contains a reusable Markdown subsystem for Avalonia applications.
+This guide explains how application developers consume ProMarkdown. It starts with the `MarkdownTextBlock` control, then moves through rendering configuration, source-aware editing, hit testing, theming, and extension points.
 
-## Base library
+## Core package
 
-`src/ProMarkdown` contains the core control, rendering, editing, parsing, selection, layout, theme, and hit-testing services.
+Install `ProMarkdown` for the control and the core parsing, rendering, editing, selection, layout, theme, and hit-testing services. The default control configuration is enough for common Markdown documents.
 
-## Separate plugin projects
+## Optional features
 
-Optional features live in dedicated plugin packages instead of growing the core library indefinitely. Registration remains explicit, and consumers can choose only the features they need.
+Plugin packages are opt-in. Registration is explicit so applications control syntax, rendering behavior, editor selection, startup cost, and transitive dependencies.
 
-## Sample
+## Advanced composition
 
-`src/ProMarkdown.Sample` demonstrates editor integration, preview rendering, and plugin registration in one isolated executable.
+The public service contracts let applications render outside the stock control, map rendered content back to source, provide custom editor surfaces, or introduce new Markdown syntax and visuals.
 
-Continue with [Plugin Ecosystem](plugin-ecosystem/) for the project breakdown.
+## Guide map
+
+- [MarkdownTextBlock](markdown-text-block/) covers the primary control and its lifecycle.
+- [Rendering Services](rendering-services/) configures core and plugin-aware pipelines.
+- [Source-Aware Editing](editing/) explains editor sessions and persisted updates.
+- [Source Mapping and Hit Testing](source-mapping/) connects rendered content to source.
+- [Theming](theming/) configures semantic light, dark, and custom palettes.
+- [Interactive Task Lists](task-lists/) persists checkbox changes safely.
+- [Plugin Ecosystem](plugin-ecosystem/) introduces optional packages and extension points.
