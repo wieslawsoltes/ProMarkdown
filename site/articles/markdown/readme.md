@@ -18,4 +18,12 @@ Plugin packages are opt-in. Registration is explicit so applications control syn
 
 The public service contracts let applications render outside the stock control, map rendered content back to source, provide custom editor surfaces, or introduce new Markdown syntax and visuals.
 
-Continue with [Plugin Ecosystem](plugin-ecosystem/) for the project breakdown.
+## Guide map
+
+- [MarkdownTextBlock](markdown-text-block/) covers the primary control and its lifecycle.
+- [Rendering Services](rendering-services/) configures core and plugin-aware pipelines.
+- [Source-Aware Editing](editing/) explains editor sessions and persisted updates.
+- [Source Mapping and Hit Testing](source-mapping/) connects rendered content to source.
+- [Theming](theming/) configures semantic light, dark, and custom palettes.
+- [Interactive Task Lists](task-lists/) persists checkbox changes safely.
+- [Plugin Ecosystem](plugin-ecosystem/) introduces optional packages and extension points.

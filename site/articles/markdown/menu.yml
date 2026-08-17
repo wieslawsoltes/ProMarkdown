@@ -1,3 +1,9 @@
 markdown:
   - {path: readme.md, title: "User Guide"}
+  - {path: markdown-text-block.md, title: "MarkdownTextBlock"}
+  - {path: rendering-services.md, title: "Rendering Services"}
+  - {path: editing.md, title: "Source-Aware Editing"}
+  - {path: source-mapping.md, title: "Source Mapping and Hit Testing"}
+  - {path: theming.md, title: "Theming"}
+  - {path: task-lists.md, title: "Interactive Task Lists"}
   - {path: plugin-ecosystem.md, title: "Plugin Ecosystem"}
