@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>CodexGui.Markdown.Plugin.TextMate</PackageId>
+    <Title>CodexGui Markdown TextMate Plugin</Title>
+    <Description>TextMate-backed highlighting and editor integration support for CodexGui.Markdown.</Description>
+    <PackageTags>$(PackageTags);avalonia;markdown;plugin;textmate;highlighting;editor</PackageTags>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+    <PackageReference Include="AvaloniaEdit.TextMate" />
+    <PackageReference Include="TextMateSharp.Grammars" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodexGui.Markdown\CodexGui.Markdown.csproj" />
+  </ItemGroup>
+</Project>

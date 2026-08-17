@@ -1,0 +1,3 @@
+markdown:
+  - {path: readme.md, title: "Markdown Stack"}
+  - {path: plugin-ecosystem.md, title: "Plugin Ecosystem"}

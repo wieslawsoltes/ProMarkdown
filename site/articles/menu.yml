@@ -1,0 +1,6 @@
+articles:
+  - {path: readme.md, title: "Documentation"}
+  - {path: getting-started/readme.md, title: "Getting Started", folder: true}
+  - {path: markdown/readme.md, title: "Markdown Stack", folder: true}
+  - {path: development/readme.md, title: "Development", folder: true}
+  - {path: reference/readme.md, title: "Reference", folder: true}

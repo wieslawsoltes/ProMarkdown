@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodexGui.Markdown/CodexGui.Markdown.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.Alerts/CodexGui.Markdown.Plugin.Alerts.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.CustomContainers/CodexGui.Markdown.Plugin.CustomContainers.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.DefinitionLists/CodexGui.Markdown.Plugin.DefinitionLists.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.Figures/CodexGui.Markdown.Plugin.Figures.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.Footers/CodexGui.Markdown.Plugin.Footers.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.Math/CodexGui.Markdown.Plugin.Math.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.Mermaid/CodexGui.Markdown.Plugin.Mermaid.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.SyntaxHighlighting/CodexGui.Markdown.Plugin.SyntaxHighlighting.csproj" />
+    <Project Path="src/CodexGui.Markdown.Plugin.TextMate/CodexGui.Markdown.Plugin.TextMate.csproj" />
+    <Project Path="src/CodexGui.Markdown.Sample/CodexGui.Markdown.Sample.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CodexGui.Markdown.Tests/CodexGui.Markdown.Tests.csproj" />
+  </Folder>
+</Solution>

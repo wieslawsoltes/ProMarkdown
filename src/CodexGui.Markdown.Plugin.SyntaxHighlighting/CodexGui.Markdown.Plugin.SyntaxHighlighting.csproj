@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>CodexGui.Markdown.Plugin.SyntaxHighlighting</PackageId>
+    <Title>CodexGui Markdown Syntax Highlighting Plugin</Title>
+    <Description>Built-in syntax highlighting support for CodexGui.Markdown code blocks.</Description>
+    <PackageTags>$(PackageTags);avalonia;markdown;plugin;syntax-highlighting;code</PackageTags>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Markdig" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CodexGui.Markdown\CodexGui.Markdown.csproj" />
+  </ItemGroup>
+</Project>

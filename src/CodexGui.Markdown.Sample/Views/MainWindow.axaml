@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:avaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+        xmlns:markdown="using:CodexGui.Markdown.Controls"
+        xmlns:sampleControls="using:CodexGui.Markdown.Sample.Controls"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        x:Class="CodexGui.Markdown.Sample.Views.MainWindow"
+        Title="CodexGui Markdown Sample"
+        Width="1500"
+        Height="900"
+        MinWidth="960"
+        MinHeight="620"
+        mc:Ignorable="d"
+        d:DesignWidth="1500"
+        d:DesignHeight="900">
+    <Grid ColumnDefinitions="*,6,*">
+        <Border Grid.Column="0"
+                Padding="16">
+            <Grid RowDefinitions="Auto,*"
+                  RowSpacing="10">
+                <TextBlock Text="Markdown editor (AvaloniaEdit + TextMate)"
+                           FontWeight="SemiBold"
+                           FontSize="14" />
+                <avaloniaEdit:TextEditor x:Name="Editor"
+                                         Grid.Row="1"
+                                         ShowLineNumbers="True"
+                                         WordWrap="True"
+                                         FontSize="14"
+                                         FontFamily="Cascadia Mono, Consolas, Courier New"
+                                         Background="#FFFFFFFF"
+                                         Foreground="#1F2328"
+                                         HorizontalAlignment="Stretch"
+                                         VerticalAlignment="Stretch" />
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1"
+                      Background="#22000000"
+                      HorizontalAlignment="Stretch" />
+
+        <Border Grid.Column="2"
+                Padding="16,16,20,16"
+                Background="#08000000">
+            <Grid RowDefinitions="Auto,Auto,*"
+                  RowSpacing="10">
+                <TextBlock Text="Rendered preview (CodexGui.Markdown)"
+                           FontWeight="SemiBold"
+                           FontSize="14" />
+
+                <StackPanel Grid.Row="1"
+                            Orientation="Horizontal"
+                            Spacing="12"
+                            VerticalAlignment="Center">
+                    <CheckBox x:Name="PreviewEditToggle"
+                              Content="Enable true inline preview editing" />
+                    <TextBlock Text="Code editor:"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="CodeEditorSelector"
+                              Width="220" />
+                    <TextBlock Text="Click a preview block to edit in place, then use the formatting toolbar or block actions. Esc cancels and Ctrl/⌘+Enter applies."
+                               VerticalAlignment="Center"
+                               Foreground="#667085" />
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="2"
+                               x:Name="PreviewScrollViewer"
+                               VerticalScrollBarVisibility="Auto"
+                               HorizontalScrollBarVisibility="Disabled">
+                    <Grid x:Name="PreviewHost">
+                        <markdown:MarkdownTextBlock x:Name="Preview"
+                                                    EditorPresentationMode="Inline"
+                                                    FontSize="14"
+                                                    TextWrapping="Wrap" />
+                        <sampleControls:MarkdownHighlightOverlay x:Name="PreviewOverlay"
+                                                                 IsHitTestVisible="False" />
+                    </Grid>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

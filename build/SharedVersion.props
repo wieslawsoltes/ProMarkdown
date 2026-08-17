@@ -1,0 +1,24 @@
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Product>CodexGui</Product>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionSuffix></VersionSuffix>
+    <Authors>Wieslaw Soltes</Authors>
+    <Company>Wieslaw Soltes</Company>
+    <Copyright>Copyright © Wieslaw Soltes 2026</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/wieslawsoltes/CodexGui</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/wieslawsoltes/CodexGui</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageIcon>Icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>codexgui;avalonia;markdown</PackageTags>
+    <Description>Reusable Avalonia markdown rendering, editing, and plugin libraries.</Description>
+  </PropertyGroup>
+
+  <ItemGroup Label="PackageAssets">
+    <None Include="$(MSBuildThisFileDirectory)/../README.md" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)/Assets/Icon.png" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+</Project>

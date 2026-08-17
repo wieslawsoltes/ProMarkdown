@@ -1,0 +1,138 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - develop
+      - "feature/**"
+      - "release/**"
+  pull_request:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore CodexGui.slnx
+
+      - name: Build
+        run: dotnet build CodexGui.slnx -c Release --no-restore
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore CodexGui.slnx
+
+      - name: Build
+        run: dotnet build CodexGui.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test --solution CodexGui.slnx --configuration Release --no-build --report-xunit-trx --results-directory artifacts/test
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/test/**/*.trx
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: artifacts/test/**/*.trx
+          reporter: dotnet-trx
+          fail-on-empty: false
+
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDKs
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Check docs
+        run: bash ./check-docs.sh
+
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-site
+          path: site/.lunet/build/www
+          if-no-files-found: error
+          retention-days: 14
+
+  pack:
+    name: Pack
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore CodexGui.slnx
+
+      - name: Build
+        run: dotnet build CodexGui.slnx -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack CodexGui.slnx -c Release --no-build -o artifacts/packages
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: package-artifacts
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          if-no-files-found: error
+          retention-days: 14

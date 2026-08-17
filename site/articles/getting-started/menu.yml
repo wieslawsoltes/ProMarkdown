@@ -1,0 +1,4 @@
+getting_started:
+  - {path: readme.md, title: "Getting Started"}
+  - {path: overview.md, title: "Overview"}
+  - {path: running-the-app.md, title: "Running the Sample"}

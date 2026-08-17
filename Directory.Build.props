@@ -1,0 +1,9 @@
+<Project>
+  <Import Project="build\SharedVersion.props" Condition="Exists('build\SharedVersion.props')" />
+  <Import Project="build\SourceLink.props" Condition="'$(DisableSourceLink)' == '' and Exists('build\SourceLink.props')" />
+
+  <PropertyGroup>
+    <AddSyntheticProjectReferencesForSolutionDependencies>false</AddSyntheticProjectReferencesForSolutionDependencies>
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+  </PropertyGroup>
+</Project>
