@@ -2,5 +2,6 @@ articles:
   - {path: readme.md, title: "Documentation"}
   - {path: getting-started/readme.md, title: "Getting Started", folder: true}
   - {path: markdown/readme.md, title: "User Guide", folder: true}
+  - {path: extensions/readme.md, title: "Extending ProMarkdown", folder: true}
   - {path: reference/readme.md, title: "Reference", folder: true}
   - {path: development/readme.md, title: "Development", folder: true}

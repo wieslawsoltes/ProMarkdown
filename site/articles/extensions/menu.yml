@@ -1,0 +1,2 @@
+extensions:
+  - {path: readme.md, title: "Extending ProMarkdown"}

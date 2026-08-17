@@ -51,6 +51,7 @@ $requiredFiles = @(
     (Join-Path $docRoot 'articles/markdown/theming/index.html'),
     (Join-Path $docRoot 'articles/markdown/task-lists/index.html'),
     (Join-Path $docRoot 'articles/markdown/plugin-ecosystem/index.html'),
+    (Join-Path $docRoot 'articles/extensions/index.html'),
     (Join-Path $docRoot 'articles/development/index.html'),
     (Join-Path $docRoot 'articles/development/build-test-and-docs/index.html'),
     (Join-Path $docRoot 'articles/reference/index.html'),
