@@ -4,13 +4,13 @@ title: "Getting Started"
 
 # Getting Started
 
-ProMarkdown is a .NET 10 solution containing reusable Avalonia Markdown libraries and a standalone sample.
+ProMarkdown is a set of Avalonia controls and services for Markdown rendering, editing, selection, hit testing, and extension.
 
 ## Fast path
 
-1. Install the .NET 10 SDK.
-2. Build and test `ProMarkdown.slnx`.
-3. Run `src/ProMarkdown.Sample`.
-4. Explore the core library and optional plugin projects under `src/`.
+1. Add the `ProMarkdown` package to an Avalonia application.
+2. Add `MarkdownTextBlock` to a view.
+3. Bind its `Markdown` property to application content.
+4. Add only the optional plugin packages your documents need.
 
-Continue with the [overview](overview/) or go directly to [running the sample](running-the-sample/).
+Continue with the [overview](overview/) to choose the right integration path. Repository contributors can still use [Running the Sample](running-the-sample/) to explore every feature together.
