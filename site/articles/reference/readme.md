@@ -10,6 +10,7 @@ This reference covers the exported ProMarkdown API by assembly and responsibilit
 
 - [Controls API](controls-api/) — `MarkdownTextBlock`, edit operations, and control events
 - [Services and Helpers API](services-api/) — service factories, concrete implementations, theming, and rendering helpers
+- [Rendering and Source Map API](rendering-models-api/) — render requests/results, AST metadata, maps, hit testing, and resource ownership
 
 ## Contributor reference
 
