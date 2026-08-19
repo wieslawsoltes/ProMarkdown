@@ -4,7 +4,7 @@ title: "Theming"
 
 # Theming
 
-`MarkdownThemePalette` centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, and syntax-highlighted tokens.
+`MarkdownThemePalette` centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, syntax-highlighted tokens, math, and Mermaid diagrams.
 
 ## Built-in palettes
 
@@ -58,8 +58,14 @@ Any property you do not initialize keeps its light-palette default. For a fully 
 - **Alerts:** Note, Tip, Important, Warning, and Caution accent/background pairs
 - **Syntax tokens:** keyword, type, string, comment, number, property, tag, attribute, and punctuation foregrounds
 
-Changing the palette rerenders the document so plugin controls and normalized built-in content receive the new semantic brushes.
+`Foreground` is the ordinary document color and is also used for neutral Mermaid strokes and arrows. `Accent` is for emphasized UI and semantic accents. Hyperlinks use `HyperlinkForeground`, so applications that expect links to follow their accent should assign both roles to the same brush.
+
+Changing the palette rerenders the document. Core rendering, math, syntax highlighting, Mermaid, and the other official plugins consume the palette directly while constructing their controls. ProMarkdown does not walk the completed visual tree to replace arbitrary colors, so controls created by third-party plugins retain the brushes selected by those plugins.
+
+This direct palette model also means official plugin controls receive the correct colors before they are attached, avoiding a visible post-render color correction.
 
 ## Avalonia theme integration
 
 Expose the current `MarkdownThemePalette` from your theme service or view model and bind it like any other view state. Keep palette construction in shared theme infrastructure rather than scattering brushes across individual Markdown views.
+
+When an application changes theme at runtime, replace the palette instance or assign the appropriate themed resource. `MarkdownTextBlock` rerenders for the new palette, and Mermaid regenerates its SVG using the new semantic colors. A custom `IMermaidSvgRenderer` receives a background-thread-safe palette snapshot in each `MermaidSvgRenderRequest`.

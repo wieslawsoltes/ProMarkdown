@@ -60,7 +60,7 @@ public MarkdownRenderController(
 public MarkdownRenderResult Render(MarkdownRenderRequest request);
 ```
 
-Implements `IMarkdownRenderController` and applies the post-render theme, borders, tasks, block quotes, and selection normalizers.
+Implements `IMarkdownRenderController` and applies the post-render rich-border, task-list, block-quote, and document-selection normalizers. Core and official plugin colors are assigned directly from `MarkdownThemePalette` during rendering rather than rewritten afterward.
 
 ### MarkdownHitTestingService
 
@@ -95,6 +95,7 @@ Semantic brush collection used by core and plugin renderers.
 public static MarkdownThemePalette Light { get; }
 public static MarkdownThemePalette Dark { get; }
 public static MarkdownThemePalette Resolve(IBrush? foreground);
+public MarkdownThemePalette WithForeground(IBrush foreground);
 ```
 
 All instance properties are init-only:
@@ -109,6 +110,70 @@ All instance properties are init-only:
 | Syntax | `CodeKeywordForeground`, `CodeTypeForeground`, `CodeStringForeground`, `CodeCommentForeground`, `CodeNumberForeground`, `CodePropertyForeground`, `CodeTagForeground`, `CodeAttributeForeground`, `CodePunctuationForeground` |
 
 See [Theming](../markdown/theming/) for examples.
+
+## Image loading
+
+### MarkdownImageSourceKinds
+
+Flags enum with `None`, `Data`, `File`, `Remote`, and `All` values.
+
+### MarkdownImageOptions
+
+```csharp
+public const long DefaultMaximumBytes;
+public const long DefaultMaximumPixelCount;
+public static readonly TimeSpan DefaultRemoteTimeout;
+
+public static MarkdownImageOptions Default { get; }
+public static MarkdownImageOptions BlockRemote { get; }
+public static MarkdownImageOptions EmbeddedOnly { get; }
+
+public MarkdownImageSourceKinds AllowedSourceKinds { get; init; }
+public long MaximumBytes { get; init; }
+public long MaximumPixelCount { get; init; }
+public TimeSpan RemoteTimeout { get; init; }
+```
+
+The defaults are 8 MiB, 64 × 1024 × 1024 decoded pixels, and 15 seconds. `Default` allows data, file, HTTP, and HTTPS sources; `BlockRemote` allows data and files; `EmbeddedOnly` allows only data URIs.
+
+### Loader contracts
+
+```csharp
+public sealed class MarkdownImageLoadRequest
+{
+    public required Uri Source { get; init; }
+    public required MarkdownImageOptions Options { get; init; }
+}
+
+public interface IMarkdownImageLoader
+{
+    Task<Bitmap> LoadAsync(
+        MarkdownImageLoadRequest request,
+        CancellationToken cancellationToken);
+}
+
+public sealed class DefaultMarkdownImageLoader : IMarkdownImageLoader
+{
+    public static DefaultMarkdownImageLoader Instance { get; }
+}
+```
+
+The default loader validates the policy, encoded byte count, and decoded pixel count. Custom loaders should honor the request options and cancellation token. See [Image Loading and Security](../markdown/image-loading/) for integration guidance.
+
+## MarkdownSelection
+
+Document-wide selection and clipboard helpers:
+
+```csharp
+public static bool CanCopy(MarkdownTextBlock? control);
+public static Task CopyAsync(MarkdownTextBlock? control);
+public static void SelectAll(MarkdownTextBlock? control);
+public static string GetSelectedText(MarkdownTextBlock? control);
+public static string GetDocumentText(MarkdownTextBlock? control);
+public static Task CopyDocumentTextAsync(MarkdownTextBlock? control);
+```
+
+The complete-document operations do not modify the active selection.
 
 ## MarkdownCodeBlockRendering
 
@@ -140,7 +205,7 @@ Shared callout presentation helpers:
 ```csharp
 public static MarkdownCalloutPresentation ResolvePresentation(
     string? kind,
-    string? fallbackTitle = null);
+    string fallbackTitle);
 
 public static Control CreateCalloutSurface(
     string title,
@@ -149,7 +214,22 @@ public static Control CreateCalloutSurface(
     IBrush accentBrush,
     IBrush background);
 
-public static string FormatLabel(string? value);
+public static Control CreateCalloutSurface(
+    string title,
+    string? subtitle,
+    Control body,
+    IBrush accentBrush,
+    IBrush background,
+    MarkdownThemePalette palette);
+
+public static MarkdownCalloutPresentation ResolvePresentation(
+    string? kind,
+    string fallbackTitle,
+    MarkdownThemePalette palette);
+
+public static string FormatLabel(string value);
 ```
+
+The overloads without a palette remain available for compatibility and use the built-in light palette. Official plugins pass the active render palette so borders, muted text, and semantic callout colors remain theme-correct.
 
 `MarkdownCalloutPresentation` is a positional record struct with `Title`, `AccentBrush`, and `Background`, including value equality and deconstruction.

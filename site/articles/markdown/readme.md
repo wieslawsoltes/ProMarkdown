@@ -21,6 +21,7 @@ The public service contracts let applications render outside the stock control, 
 ## Guide map
 
 - [MarkdownTextBlock](markdown-text-block/) covers the primary control and its lifecycle.
+- [Image Loading and Security](image-loading/) configures source policies, resource limits, cancellation, and custom loaders.
 - [Rendering Services](rendering-services/) configures core and plugin-aware pipelines.
 - [Source-Aware Editing](editing/) explains editor sessions and persisted updates.
 - [Source Mapping and Hit Testing](source-mapping/) connects rendered content to source.

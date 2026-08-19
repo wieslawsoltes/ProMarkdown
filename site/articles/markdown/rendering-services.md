@@ -64,8 +64,30 @@ For custom composition, instantiate `MarkdownParsingService`, `MarkdownInlineRen
 
 ## Render requests and resource ownership
 
-Lower-level consumers call `IMarkdownRenderController.Render` with a `MarkdownRenderRequest` containing source and a `MarkdownRenderContext`. The context supplies typography, width, base URI, theme, render generation, resource tracking, and optional editor state.
+Lower-level consumers call `IMarkdownRenderController.Render` with a `MarkdownRenderRequest` containing source and a `MarkdownRenderContext`. The context supplies typography, width, base URI, theme, image policy and loading, render generation, cancellation, resource tracking, and optional editor state.
 
 Each render owns a `MarkdownRenderResourceTracker`. Dispose the previous result's tracker when replacing or removing a render; plugins use the same tracker for subscriptions, asynchronous image resources, and other disposable state. `MarkdownTextBlock` performs this lifecycle automatically.
 
-`RenderGeneration` and `IsCurrentRender` let delayed plugin work verify that its originating render is still current before mutating a control.
+`RenderGeneration` and `IsCurrentRender` let delayed plugin work verify that its originating render is still current before mutating a control. `CancellationToken` signals replacement or teardown of the generation.
+
+## Asynchronous plugin work
+
+Plugins that outlive the synchronous `Render` call must register their activity:
+
+```csharp
+var operation = context.RenderContext.BeginAsyncOperation();
+try
+{
+    await RenderContentAsync(context.RenderContext.CancellationToken);
+}
+finally
+{
+    operation.Dispose();
+}
+```
+
+The completion lease keeps `MarkdownTextBlock.IsRendering` true until it is disposed. Activity is generation-scoped: cancellation or late disposal from an obsolete generation cannot alter the active generation. Continue to use `ResourceTracker` for subscriptions, controls, bitmaps, and other resources that must be disposed with the render.
+
+When a plugin embeds another `MarkdownTextBlock`, call `context.RenderContext.TrackNestedRendering(nestedControl)`. The parent remains active until the nested render completes or is canceled, and the tracking subscription is owned by the parent resource tracker.
+
+Image loading and the Mermaid plugin use this mechanism, so their downloads and diagram renders are included in `IsRendering` and `RenderCompleted` automatically.
