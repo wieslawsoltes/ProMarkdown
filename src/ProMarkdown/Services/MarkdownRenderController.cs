@@ -19,8 +19,6 @@ public sealed class MarkdownRenderController(IMarkdownParsingService parsingServ
 
         var parseResult = _parsingService.Parse(request.Markdown);
         var result = _inlineRenderingService.Render(parseResult, request.Context);
-        var palette = request.Context.ThemePalette ?? MarkdownThemePalette.Resolve(request.Context.Foreground);
-        MarkdownThemeNormalizer.Apply(result.Inlines, palette);
         MarkdownRichBlockBorderNormalizer.PreserveRoundedBorders(result.Inlines);
         MarkdownTaskListNormalizer.Normalize(result.Inlines, parseResult, request.Context);
         MarkdownBlockQuoteNormalizer.Normalize(result.Inlines, parseResult, request.Context);

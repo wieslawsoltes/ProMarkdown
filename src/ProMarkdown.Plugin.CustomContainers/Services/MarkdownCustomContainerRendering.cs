@@ -9,10 +9,6 @@ namespace ProMarkdown.Plugin.CustomContainers;
 
 internal static class MarkdownCustomContainerRendering
 {
-    private static readonly IBrush DiagnosticBorderBrush = new SolidColorBrush(Color.Parse("#FECACA"));
-    private static readonly IBrush DiagnosticBackground = new SolidColorBrush(Color.Parse("#FEF2F2"));
-    private static readonly IBrush DiagnosticForeground = new SolidColorBrush(Color.Parse("#B42318"));
-    private static readonly IBrush PlaceholderForeground = new SolidColorBrush(Color.Parse("#6E6E6E"));
     private static readonly IReadOnlyList<IMarkdownPlugin> NestedPlugins =
     [
         new CustomContainersMarkdownPlugin()
@@ -36,13 +32,14 @@ internal static class MarkdownCustomContainerRendering
 
         if (document.Diagnostics.Count > 0)
         {
-            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics));
+            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics, ResolvePalette(renderContext)));
         }
 
         var label = string.IsNullOrWhiteSpace(document.Info)
             ? "Container"
             : MarkdownCalloutRendering.FormatLabel(document.Info);
-        var presentation = MarkdownCalloutRendering.ResolvePresentation(document.Info, fallbackTitle: label);
+        var palette = ResolvePalette(renderContext);
+        var presentation = MarkdownCalloutRendering.ResolvePresentation(document.Info, fallbackTitle: label, palette);
         var subtitle = string.IsNullOrWhiteSpace(document.Arguments) ? null : document.Arguments;
 
         return MarkdownCalloutRendering.CreateCalloutSurface(
@@ -50,7 +47,8 @@ internal static class MarkdownCustomContainerRendering
             subtitle,
             content,
             presentation.AccentBrush,
-            presentation.Background);
+            presentation.Background,
+            palette);
     }
 
     private static Control CreateBodyView(string markdown, MarkdownRenderContext renderContext)
@@ -60,12 +58,12 @@ internal static class MarkdownCustomContainerRendering
             return new TextBlock
             {
                 Text = "Add custom-container body content to render a preview.",
-                Foreground = PlaceholderForeground,
+                Foreground = ResolvePalette(renderContext).MutedForeground,
                 TextWrapping = TextWrapping.Wrap
             };
         }
 
-        return new MarkdownTextBlock
+        var control = new MarkdownTextBlock
         {
             BaseUri = renderContext.BaseUri,
             RenderController = NestedRenderController,
@@ -74,15 +72,21 @@ internal static class MarkdownCustomContainerRendering
             EditorPresentationMode = MarkdownEditorPresentationMode.Inline,
             FontSize = renderContext.FontSize,
             FontFamily = renderContext.FontFamily,
-            Foreground = renderContext.Foreground,
+            Foreground = ResolvePalette(renderContext).Foreground,
             ThemePalette = renderContext.ThemePalette,
+            ImageOptions = renderContext.ImageOptions,
+            ImageLoader = renderContext.ImageLoader,
             TextWrapping = renderContext.TextWrapping,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Markdown = markdown
         };
+        renderContext.TrackNestedRendering(control);
+        return control;
     }
 
-    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownCustomContainerDiagnostic> diagnostics)
+    private static Control CreateDiagnosticsPanel(
+        IReadOnlyList<MarkdownCustomContainerDiagnostic> diagnostics,
+        MarkdownThemePalette palette)
     {
         var panel = new StackPanel
         {
@@ -94,7 +98,7 @@ internal static class MarkdownCustomContainerRendering
             panel.Children.Add(new TextBlock
             {
                 Text = diagnostic.Message,
-                Foreground = DiagnosticForeground,
+                Foreground = palette.CautionAccent,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -102,12 +106,15 @@ internal static class MarkdownCustomContainerRendering
 
         return new Border
         {
-            Background = DiagnosticBackground,
-            BorderBrush = DiagnosticBorderBrush,
+            Background = palette.CautionBackground,
+            BorderBrush = palette.CautionAccent,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10, 8),
             Child = panel
         };
     }
+
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
 }

@@ -4,9 +4,11 @@ using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Avalonia;
 using Avalonia.Controls.Primitives;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Markdig;
 using Markdig.Syntax;
+using ProMarkdown.Controls;
 using MarkdownInline = Markdig.Syntax.Inlines.Inline;
 
 namespace ProMarkdown.Services;
@@ -172,6 +174,15 @@ public sealed class MarkdownRenderContext
     /// <summary>Gets the semantic palette used to theme rendered Markdown content.</summary>
     public MarkdownThemePalette? ThemePalette { get; init; }
 
+    /// <summary>Gets the image-loading policy for this render generation.</summary>
+    public MarkdownImageOptions ImageOptions { get; init; } = MarkdownImageOptions.Default;
+
+    /// <summary>Gets the image loader used by this render generation.</summary>
+    public IMarkdownImageLoader ImageLoader { get; init; } = DefaultMarkdownImageLoader.Instance;
+
+    /// <summary>Gets a token canceled when this render generation becomes stale.</summary>
+    public CancellationToken CancellationToken { get; init; }
+
     public required double AvailableWidth { get; init; }
 
     public required int RenderGeneration { get; init; }
@@ -181,6 +192,125 @@ public sealed class MarkdownRenderContext
     public required Func<int, bool> IsCurrentRender { get; init; }
 
     public MarkdownEditorState? EditorState { get; init; }
+
+    internal Func<IDisposable>? BeginAsyncOperationCallback { get; init; }
+
+    /// <summary>Begins asynchronous work that contributes to the host control's rendering state.</summary>
+    public IDisposable BeginAsyncOperation() =>
+        BeginAsyncOperationCallback?.Invoke() ?? EmptyAsyncOperation.Instance;
+
+    /// <summary>
+    /// Keeps this render generation active until a nested Markdown control completes its current render.
+    /// </summary>
+    /// <param name="control">The nested Markdown control to observe.</param>
+    public void TrackNestedRendering(MarkdownTextBlock control)
+    {
+        ArgumentNullException.ThrowIfNull(control);
+        ResourceTracker.Track(new NestedRenderLifetime(
+            control,
+            BeginAsyncOperation(),
+            CancellationToken));
+    }
+
+    private sealed class NestedRenderLifetime : IDisposable
+    {
+        private MarkdownTextBlock? _control;
+        private IDisposable? _operation;
+        private CancellationTokenRegistration _parentCancellationRegistration;
+        private int _completionScheduled;
+
+        public NestedRenderLifetime(
+            MarkdownTextBlock control,
+            IDisposable operation,
+            CancellationToken parentCancellationToken)
+        {
+            _control = control;
+            _operation = operation;
+            control.RenderCompleted += OnRenderCompleted;
+            control.AttachedToVisualTree += OnAttachedToVisualTree;
+            control.DetachedFromVisualTree += OnDetachedFromVisualTree;
+            _parentCancellationRegistration = parentCancellationToken.Register(
+                static state => ((NestedRenderLifetime)state!).CancelNestedRender(),
+                this);
+
+            TryCompleteActivity();
+        }
+
+        public void Dispose()
+        {
+            _parentCancellationRegistration.Dispose();
+            var control = Interlocked.Exchange(ref _control, null);
+            if (control is not null)
+            {
+                control.RenderCompleted -= OnRenderCompleted;
+                control.AttachedToVisualTree -= OnAttachedToVisualTree;
+                control.DetachedFromVisualTree -= OnDetachedFromVisualTree;
+                control.ReleaseNestedRenderGeneration();
+            }
+
+            Interlocked.Exchange(ref _operation, null)?.Dispose();
+        }
+
+        private void OnRenderCompleted(object? sender, EventArgs eventArgs) => TryCompleteActivity();
+
+        private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs eventArgs) =>
+            TryCompleteActivity();
+
+        private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs eventArgs) =>
+            TryCompleteActivity();
+
+        private void TryCompleteActivity()
+        {
+            var control = _control;
+            if (control is null || _operation is null || control.IsRendering)
+                return;
+
+            // Completion is deferred because an attach handler can synchronously finish one
+            // generation before a later handler starts the generation that will be displayed.
+            if (Interlocked.Exchange(ref _completionScheduled, 1) == 0)
+                Dispatcher.UIThread.Post(CompleteDeferredActivity, DispatcherPriority.Loaded);
+        }
+
+        private void CompleteDeferredActivity()
+        {
+            Interlocked.Exchange(ref _completionScheduled, 0);
+            var control = _control;
+            if (control is null || _operation is null || control.IsRendering)
+                return;
+
+            CompleteActivity();
+        }
+
+        private void CompleteActivity()
+        {
+            var control = _control;
+            if (control is not null)
+            {
+                control.RenderCompleted -= OnRenderCompleted;
+                control.AttachedToVisualTree -= OnAttachedToVisualTree;
+                control.DetachedFromVisualTree -= OnDetachedFromVisualTree;
+            }
+            Interlocked.Exchange(ref _operation, null)?.Dispose();
+        }
+
+        private void CancelNestedRender()
+        {
+            var control = Interlocked.Exchange(ref _control, null);
+            if (control is null)
+                return;
+            control.RenderCompleted -= OnRenderCompleted;
+            control.AttachedToVisualTree -= OnAttachedToVisualTree;
+            control.DetachedFromVisualTree -= OnDetachedFromVisualTree;
+            control.ReleaseNestedRenderGeneration();
+            Interlocked.Exchange(ref _operation, null)?.Dispose();
+        }
+    }
+
+    private sealed class EmptyAsyncOperation : IDisposable
+    {
+        public static EmptyAsyncOperation Instance { get; } = new();
+        public void Dispose() { }
+    }
 }
 
 public sealed class MarkdownBlockRenderingPluginContext

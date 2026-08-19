@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -170,9 +171,6 @@ internal sealed class ParagraphMarkdownEditorPlugin : MarkdownEditorPluginBase<P
             minHeight: Math.Max(context.RenderContext.FontSize * 6, 140));
         paragraphEditor.FontSize = context.RenderContext.FontSize;
         paragraphEditor.FontFamily = context.RenderContext.FontFamily;
-        paragraphEditor.Foreground = context.RenderContext.Foreground ?? MarkdownEditorUiFactory.EditorForeground;
-        paragraphEditor.Background = MarkdownEditorUiFactory.InputBackground;
-        paragraphEditor.BorderBrush = MarkdownEditorUiFactory.BorderBrush;
         paragraphEditor.BorderThickness = new Thickness(1);
         paragraphEditor.CornerRadius = new CornerRadius(10);
         paragraphEditor.Padding = new Thickness(12, 10);
@@ -229,6 +227,7 @@ internal sealed class HeadingMarkdownEditorPlugin : MarkdownEditorPluginBase<Hea
             SelectedItem = headingLevel,
             MinWidth = 140
         };
+        MarkdownEditorUiFactory.ApplyInputPalette(levelComboBox);
         var headingEditor = MarkdownEditorUiFactory.CreateTextEditor(
             MarkdownSourceEditing.ExtractHeadingText(context.SourceText, node.Level),
             acceptsReturn: false,
@@ -300,6 +299,8 @@ internal sealed class ListMarkdownEditorPlugin : MarkdownEditorPluginBase<ListBl
 
     protected override Control CreateEditor(ListBlock node, MarkdownEditorPluginContext context)
     {
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         var listKind = ResolveListKind(node);
         var orderedStart = TryParseOrderedStart(node.OrderedStart ?? string.Empty);
         TextBox? activeTextBox = null;
@@ -320,6 +321,7 @@ internal sealed class ListMarkdownEditorPlugin : MarkdownEditorPluginBase<ListBl
             SelectedItem = listKind,
             MinWidth = 140
         };
+        MarkdownEditorUiFactory.ApplyInputPalette(kindComboBox);
 
         var orderedStartTextBox = MarkdownEditorUiFactory.CreateTextEditor(
             orderedStart.ToString(CultureInfo.InvariantCulture),
@@ -360,17 +362,14 @@ internal sealed class ListMarkdownEditorPlugin : MarkdownEditorPluginBase<ListBl
                     VerticalAlignment = VerticalAlignment.Center
                 };
 
-                rowHeader.Children.Add(new TextBlock
+                var rowLabel = MarkdownEditorUiFactory.CreateFieldLabel(currentKind switch
                 {
-                    Text = currentKind switch
-                    {
-                        EditableListKind.Ordered => $"{orderedStart + index}.",
-                        EditableListKind.Task => "Task",
-                        _ => "Item"
-                    },
-                    FontWeight = FontWeight.SemiBold,
-                    VerticalAlignment = VerticalAlignment.Center
+                    EditableListKind.Ordered => $"{orderedStart + index}.",
+                    EditableListKind.Task => "Task",
+                    _ => "Item"
                 });
+                rowLabel.FontWeight = FontWeight.SemiBold;
+                rowHeader.Children.Add(rowLabel);
 
                 if (currentKind == EditableListKind.Task)
                 {
@@ -379,6 +378,7 @@ internal sealed class ListMarkdownEditorPlugin : MarkdownEditorPluginBase<ListBl
                         IsChecked = item.IsChecked,
                         VerticalAlignment = VerticalAlignment.Center
                     };
+                    MarkdownEditorUiFactory.ApplyInputPalette(checkBox);
                     checkBox.IsCheckedChanged += (_, _) => item.IsChecked = checkBox.IsChecked == true;
                     rowHeader.Children.Add(checkBox);
                 }
@@ -401,8 +401,8 @@ internal sealed class ListMarkdownEditorPlugin : MarkdownEditorPluginBase<ListBl
 
                 itemsHost.Children.Add(new Border
                 {
-                    Background = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? Brushes.Transparent : MarkdownEditorUiFactory.SectionBackground,
-                    BorderBrush = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? Brushes.Transparent : MarkdownEditorUiFactory.BorderBrush,
+                    Background = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? Brushes.Transparent : palette.SurfaceRaised,
+                    BorderBrush = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? Brushes.Transparent : palette.Border,
                     BorderThickness = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? new Thickness(0) : new Thickness(1),
                     CornerRadius = new CornerRadius(8),
                     Padding = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? new Thickness(0) : new Thickness(10),
@@ -608,6 +608,8 @@ internal sealed class TableMarkdownEditorPlugin : MarkdownEditorPluginBase<Table
 
     protected override Control CreateEditor(Table node, MarkdownEditorPluginContext context)
     {
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         var rows = BuildRows(node, context.Markdown);
         if (rows.Count == 0)
         {
@@ -676,8 +678,8 @@ internal sealed class TableMarkdownEditorPlugin : MarkdownEditorPluginBase<Table
 
                     var cellHost = new Border
                     {
-                        Background = rowIndex == 0 ? MarkdownEditorUiFactory.HeaderBackground : MarkdownEditorUiFactory.EditorBackground,
-                        BorderBrush = MarkdownEditorUiFactory.BorderBrush,
+                        Background = rowIndex == 0 ? palette.TableHeaderBackground : palette.Surface,
+                        BorderBrush = palette.Border,
                         BorderThickness = new Thickness(1),
                         CornerRadius = new CornerRadius(6),
                         Padding = new Thickness(6),
@@ -957,67 +959,30 @@ internal sealed class PlainCodeMarkdownEditorPlugin : MarkdownEditorPluginBase<C
 public static class MarkdownEditorUiFactory
 {
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private static readonly IBrush LightEditorBackground = new SolidColorBrush(Color.Parse("#FFFFFF"));
-    private static readonly IBrush DarkEditorBackground = new SolidColorBrush(Color.Parse("#111827"));
-    private static readonly IBrush LightInputBackground = new SolidColorBrush(Color.Parse("#FFFFFF"));
-    private static readonly IBrush DarkInputBackground = new SolidColorBrush(Color.Parse("#0F172A"));
-    private static readonly IBrush LightBorderBrush = new SolidColorBrush(Color.Parse("#CBD5E1"));
-    private static readonly IBrush DarkBorderBrush = new SolidColorBrush(Color.Parse("#475569"));
-    private static readonly IBrush LightHeaderBackground = new SolidColorBrush(Color.Parse("#EEF2FF"));
-    private static readonly IBrush DarkHeaderBackground = new SolidColorBrush(Color.Parse("#1E293B"));
-    private static readonly IBrush LightSectionBackground = new SolidColorBrush(Color.Parse("#F8FAFC"));
-    private static readonly IBrush DarkSectionBackground = new SolidColorBrush(Color.Parse("#0F172A"));
-    private static readonly IBrush LightEditorForeground = new SolidColorBrush(Color.Parse("#0F172A"));
-    private static readonly IBrush DarkEditorForeground = new SolidColorBrush(Color.Parse("#E5E7EB"));
-    private static readonly IBrush LightSecondaryTextBrush = new SolidColorBrush(Color.Parse("#64748B"));
-    private static readonly IBrush DarkSecondaryTextBrush = new SolidColorBrush(Color.Parse("#94A3B8"));
-    private static readonly IBrush LightPrimaryButtonBackground = new SolidColorBrush(Color.Parse("#2563EB"));
-    private static readonly IBrush DarkPrimaryButtonBackground = new SolidColorBrush(Color.Parse("#3B82F6"));
-    private static readonly IBrush PrimaryButtonForeground = Brushes.White;
-    private static readonly IBrush LightToolbarButtonBackground = new SolidColorBrush(Color.Parse("#E2E8F0"));
-    private static readonly IBrush DarkToolbarButtonBackground = new SolidColorBrush(Color.Parse("#1F2937"));
-    private static readonly IBrush LightToolbarButtonForeground = new SolidColorBrush(Color.Parse("#0F172A"));
-    private static readonly IBrush DarkToolbarButtonForeground = new SolidColorBrush(Color.Parse("#E5E7EB"));
-    private static readonly IBrush LightInlineAccentBrush = new SolidColorBrush(Color.Parse("#93C5FD"));
-    private static readonly IBrush DarkInlineAccentBrush = new SolidColorBrush(Color.Parse("#60A5FA"));
-    private static readonly IBrush LightInlineToolbarBackground = new SolidColorBrush(Color.Parse("#EFF6FF"));
-    private static readonly IBrush DarkInlineToolbarBackground = new SolidColorBrush(Color.Parse("#1E293B"));
-    private static readonly IBrush LightInlineSecondaryButtonBackground = new SolidColorBrush(Color.Parse("#F1F5F9"));
-    private static readonly IBrush DarkInlineSecondaryButtonBackground = new SolidColorBrush(Color.Parse("#334155"));
-    private static readonly IBrush LightInlineSecondaryButtonForeground = new SolidColorBrush(Color.Parse("#334155"));
-    private static readonly IBrush DarkInlineSecondaryButtonForeground = new SolidColorBrush(Color.Parse("#E5E7EB"));
-    private static readonly IBrush LightDestructiveForeground = new SolidColorBrush(Color.Parse("#B42318"));
-    private static readonly IBrush DarkDestructiveForeground = new SolidColorBrush(Color.Parse("#FCA5A5"));
+    private static readonly object InputBackgroundResourceKey = new();
+    private static readonly object BorderBrushResourceKey = new();
+    private static readonly object EditorForegroundResourceKey = new();
+    private static readonly object SecondaryTextResourceKey = new();
+    private static readonly object PrimaryButtonBackgroundResourceKey = new();
+    private static readonly object PrimaryButtonForegroundResourceKey = new();
+    private static readonly object ToolbarButtonBackgroundResourceKey = new();
+    private static readonly object ToolbarButtonForegroundResourceKey = new();
+    private static readonly object InlineToolbarBackgroundResourceKey = new();
+    private static readonly object InlineSecondaryButtonBackgroundResourceKey = new();
+    private static readonly object InlineSecondaryButtonForegroundResourceKey = new();
+    private static readonly object DestructiveForegroundResourceKey = new();
 
-    public static IBrush EditorBackground => SelectThemeBrush(LightEditorBackground, DarkEditorBackground);
+    public static IBrush EditorBackground => ResolveDefaultPalette().Surface;
 
-    public static IBrush InputBackground => SelectThemeBrush(LightInputBackground, DarkInputBackground);
+    public static IBrush InputBackground => ResolveDefaultPalette().SurfaceRaised;
 
-    public static IBrush BorderBrush => SelectThemeBrush(LightBorderBrush, DarkBorderBrush);
+    public static IBrush BorderBrush => ResolveDefaultPalette().Border;
 
-    public static IBrush HeaderBackground => SelectThemeBrush(LightHeaderBackground, DarkHeaderBackground);
+    public static IBrush HeaderBackground => ResolveDefaultPalette().CodeHeaderBackground;
 
-    public static IBrush SectionBackground => SelectThemeBrush(LightSectionBackground, DarkSectionBackground);
+    public static IBrush SectionBackground => ResolveDefaultPalette().SurfaceRaised;
 
-    public static IBrush EditorForeground => SelectThemeBrush(LightEditorForeground, DarkEditorForeground);
-
-    private static IBrush SecondaryTextBrush => SelectThemeBrush(LightSecondaryTextBrush, DarkSecondaryTextBrush);
-
-    private static IBrush PrimaryButtonBackground => SelectThemeBrush(LightPrimaryButtonBackground, DarkPrimaryButtonBackground);
-
-    private static IBrush ToolbarButtonBackground => SelectThemeBrush(LightToolbarButtonBackground, DarkToolbarButtonBackground);
-
-    private static IBrush ToolbarButtonForeground => SelectThemeBrush(LightToolbarButtonForeground, DarkToolbarButtonForeground);
-
-    private static IBrush InlineAccentBrush => SelectThemeBrush(LightInlineAccentBrush, DarkInlineAccentBrush);
-
-    private static IBrush InlineToolbarBackground => SelectThemeBrush(LightInlineToolbarBackground, DarkInlineToolbarBackground);
-
-    private static IBrush InlineSecondaryButtonBackground => SelectThemeBrush(LightInlineSecondaryButtonBackground, DarkInlineSecondaryButtonBackground);
-
-    private static IBrush InlineSecondaryButtonForeground => SelectThemeBrush(LightInlineSecondaryButtonForeground, DarkInlineSecondaryButtonForeground);
-
-    private static IBrush DestructiveForeground => SelectThemeBrush(LightDestructiveForeground, DarkDestructiveForeground);
+    public static IBrush EditorForeground => ResolveDefaultPalette().Foreground;
 
     public static Control CreateEditorSurface(
         MarkdownEditorPluginContext context,
@@ -1051,6 +1016,7 @@ public static class MarkdownEditorUiFactory
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(apply);
         ArgumentNullException.ThrowIfNull(cancel);
+        var palette = ResolvePalette(context.RenderContext);
 
         var applyButton = CreatePrimaryButton("Apply", apply);
         var cancelButton = CreateSecondaryButton("Cancel", cancel);
@@ -1070,8 +1036,8 @@ public static class MarkdownEditorUiFactory
 
         var root = new Border
         {
-            Background = EditorBackground,
-            BorderBrush = BorderBrush,
+            Background = palette.Surface,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1.5),
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14),
@@ -1082,7 +1048,7 @@ public static class MarkdownEditorUiFactory
                 {
                     new Border
                     {
-                        Background = HeaderBackground,
+                        Background = palette.CodeHeaderBackground,
                         CornerRadius = new CornerRadius(8),
                         Padding = new Thickness(12, 10),
                         Child = new StackPanel
@@ -1094,12 +1060,13 @@ public static class MarkdownEditorUiFactory
                                 {
                                     Text = title,
                                     FontWeight = FontWeight.SemiBold,
-                                    FontSize = 15
+                                    FontSize = 15,
+                                    Foreground = palette.Foreground
                                 },
                                 new TextBlock
                                 {
                                     Text = subtitle,
-                                    Foreground = SecondaryTextBrush
+                                    Foreground = palette.MutedForeground
                                 }
                             }
                         }
@@ -1122,6 +1089,7 @@ public static class MarkdownEditorUiFactory
         }
 
         AttachEditorShortcuts(root, apply, cancel);
+        ApplyPaletteResources(root, palette);
 
         return root;
     }
@@ -1160,9 +1128,9 @@ public static class MarkdownEditorUiFactory
     {
         ArgumentNullException.ThrowIfNull(textBox);
         textBox.FontSize = Math.Max(fontSize - 1, 12);
-        textBox.Background = InputBackground;
-        textBox.Foreground = EditorForeground;
-        textBox.BorderBrush = BorderBrush;
+        BindBrush(textBox, TextBox.BackgroundProperty, InputBackgroundResourceKey);
+        BindBrush(textBox, TextBox.ForegroundProperty, EditorForegroundResourceKey);
+        BindBrush(textBox, TextBox.BorderBrushProperty, BorderBrushResourceKey);
         textBox.BorderThickness = new Thickness(1);
         textBox.CornerRadius = new CornerRadius(6);
         textBox.Padding = new Thickness(8, 6);
@@ -1175,28 +1143,32 @@ public static class MarkdownEditorUiFactory
         textBox.FontSize = Math.Max(fontSize - 1, 12);
         textBox.Background = Brushes.Transparent;
         textBox.BorderBrush = Brushes.Transparent;
+        BindBrush(textBox, TextBox.ForegroundProperty, EditorForegroundResourceKey);
         textBox.BorderThickness = new Thickness(0);
         textBox.Padding = new Thickness(0);
     }
 
     public static TextBlock CreateInfoText(string text)
     {
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = text,
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = SecondaryTextBrush
+            TextWrapping = TextWrapping.Wrap
         };
+        BindBrush(textBlock, TextBlock.ForegroundProperty, SecondaryTextResourceKey);
+        return textBlock;
     }
 
     public static TextBlock CreateFieldLabel(string text)
     {
-        return new TextBlock
+        var textBlock = new TextBlock
         {
             Text = text,
             VerticalAlignment = VerticalAlignment.Center,
             FontWeight = FontWeight.Medium
         };
+        BindBrush(textBlock, TextBlock.ForegroundProperty, EditorForegroundResourceKey);
+        return textBlock;
     }
 
     public static TextBox CreateTextEditor(string? text, bool acceptsReturn, double minHeight)
@@ -1209,13 +1181,13 @@ public static class MarkdownEditorUiFactory
             MinHeight = minHeight,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
-
+        ApplyInputPalette(textBox);
         return textBox;
     }
 
     public static TextBox CreateCodeEditor(string? text)
     {
-        return new TextBox
+        var textBox = new TextBox
         {
             Text = MarkdownSourceEditing.NormalizeBlockText(text),
             AcceptsReturn = true,
@@ -1224,6 +1196,8 @@ public static class MarkdownEditorUiFactory
             FontFamily = MonospaceFamily,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
+        ApplyInputPalette(textBox);
+        return textBox;
     }
 
     public static Button CreatePrimaryButton(string text, Action onClick)
@@ -1231,10 +1205,11 @@ public static class MarkdownEditorUiFactory
         var button = new Button
         {
             Content = text,
-            Background = PrimaryButtonBackground,
-            Foreground = PrimaryButtonForeground,
             Padding = new Thickness(14, 8)
         };
+        BindBrush(button, Button.BackgroundProperty, PrimaryButtonBackgroundResourceKey);
+        BindBrush(button, Button.ForegroundProperty, PrimaryButtonForegroundResourceKey);
+        BindBrush(button, Button.BorderBrushProperty, PrimaryButtonBackgroundResourceKey);
         button.Click += (_, _) => onClick();
         return button;
     }
@@ -1246,6 +1221,9 @@ public static class MarkdownEditorUiFactory
             Content = text,
             Padding = new Thickness(14, 8)
         };
+        BindBrush(button, Button.BackgroundProperty, InlineSecondaryButtonBackgroundResourceKey);
+        BindBrush(button, Button.ForegroundProperty, InlineSecondaryButtonForegroundResourceKey);
+        BindBrush(button, Button.BorderBrushProperty, BorderBrushResourceKey);
         button.Click += (_, _) => onClick();
         return button;
     }
@@ -1296,12 +1274,15 @@ public static class MarkdownEditorUiFactory
             Margin = compact ? new Thickness(0, 0, 6, 6) : new Thickness(0, 0, 8, 8),
             Padding = compact ? new Thickness(8, 4) : new Thickness(10, 6),
             MinWidth = compact ? 0 : double.NaN,
-            Background = compact ? InlineToolbarBackground : ToolbarButtonBackground,
-            Foreground = ToolbarButtonForeground,
-            BorderBrush = BorderBrush,
             BorderThickness = new Thickness(1),
             Focusable = false
         };
+        BindBrush(
+            button,
+            Button.BackgroundProperty,
+            compact ? InlineToolbarBackgroundResourceKey : ToolbarButtonBackgroundResourceKey);
+        BindBrush(button, Button.ForegroundProperty, ToolbarButtonForegroundResourceKey);
+        BindBrush(button, Button.BorderBrushProperty, BorderBrushResourceKey);
         button.Click += (_, _) => onClick();
         return button;
     }
@@ -1317,6 +1298,7 @@ public static class MarkdownEditorUiFactory
         bool preferInlineTextLayout,
         Func<string>? buildBlockMarkdownForActions)
     {
+        var palette = ResolvePalette(context.RenderContext);
         var applyButton = CreateInlineActionButton("Apply", apply, primary: true);
         var cancelButton = CreateInlineActionButton("Cancel", cancel, primary: false);
         var blockActions = CreateBlockActionPanel(context, buildBlockMarkdownForActions, compact: true);
@@ -1331,7 +1313,7 @@ public static class MarkdownEditorUiFactory
                     Text = title,
                     FontWeight = FontWeight.SemiBold,
                     FontSize = preferInlineTextLayout ? 12 : 13,
-                    Foreground = preferInlineTextLayout ? SecondaryTextBrush : null
+                    Foreground = preferInlineTextLayout ? palette.MutedForeground : palette.Foreground
                 }
             }
         };
@@ -1341,7 +1323,7 @@ public static class MarkdownEditorUiFactory
             titlePanel.Children.Add(new TextBlock
             {
                 Text = subtitle,
-                Foreground = SecondaryTextBrush,
+                Foreground = palette.MutedForeground,
                 FontSize = 11
             });
         }
@@ -1362,7 +1344,7 @@ public static class MarkdownEditorUiFactory
         var shortcutHint = new TextBlock
         {
             Text = "Esc cancel • Ctrl/⌘+Enter apply",
-            Foreground = SecondaryTextBrush,
+            Foreground = palette.MutedForeground,
             FontSize = 11,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
@@ -1386,8 +1368,8 @@ public static class MarkdownEditorUiFactory
 
         var root = new Border
         {
-            Background = preferInlineTextLayout ? Brushes.Transparent : EditorBackground,
-            BorderBrush = preferInlineTextLayout ? InlineAccentBrush : BorderBrush,
+            Background = preferInlineTextLayout ? Brushes.Transparent : palette.Surface,
+            BorderBrush = preferInlineTextLayout ? palette.Accent : palette.Border,
             BorderThickness = preferInlineTextLayout ? new Thickness(0, 0, 0, 1.5) : new Thickness(1.25),
             CornerRadius = preferInlineTextLayout ? new CornerRadius(0) : new CornerRadius(10),
             Padding = preferInlineTextLayout ? new Thickness(0, 0, 0, 6) : new Thickness(10),
@@ -1415,6 +1397,7 @@ public static class MarkdownEditorUiFactory
             root.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => inputElement.Focus());
         }
 
+        ApplyPaletteResources(root, palette);
         return root;
     }
 
@@ -1425,11 +1408,20 @@ public static class MarkdownEditorUiFactory
             Content = text,
             Padding = new Thickness(10, 4),
             FontSize = 11,
-            Background = primary ? PrimaryButtonBackground : InlineSecondaryButtonBackground,
-            Foreground = primary ? PrimaryButtonForeground : InlineSecondaryButtonForeground,
-            BorderBrush = primary ? PrimaryButtonBackground : BorderBrush,
             BorderThickness = new Thickness(1)
         };
+        BindBrush(
+            button,
+            Button.BackgroundProperty,
+            primary ? PrimaryButtonBackgroundResourceKey : InlineSecondaryButtonBackgroundResourceKey);
+        BindBrush(
+            button,
+            Button.ForegroundProperty,
+            primary ? PrimaryButtonForegroundResourceKey : InlineSecondaryButtonForegroundResourceKey);
+        BindBrush(
+            button,
+            Button.BorderBrushProperty,
+            primary ? PrimaryButtonBackgroundResourceKey : BorderBrushResourceKey);
         button.Click += (_, _) => onClick();
         return button;
     }
@@ -1476,7 +1468,7 @@ public static class MarkdownEditorUiFactory
             ? CreateInlineActionButton("Remove block", context.RemoveBlock, primary: false)
             : CreateSecondaryButton("Remove block", context.RemoveBlock);
         button.Margin = compact ? new Thickness(0, 0, 6, 6) : new Thickness(0, 0, 8, 8);
-        button.Foreground = DestructiveForeground;
+        BindBrush(button, Button.ForegroundProperty, DestructiveForegroundResourceKey);
         return button;
     }
 
@@ -1503,6 +1495,7 @@ public static class MarkdownEditorUiFactory
             MinWidth = compact ? 150 : 180,
             Margin = compact ? new Thickness(0, 0, 6, 6) : new Thickness(0, 0, 8, 8)
         };
+        ApplyInputPalette(comboBox);
         comboBox.SelectionChanged += (_, _) =>
         {
             if (comboBox.SelectedItem is not BlockTemplateActionOption { Template: { } template })
@@ -1559,6 +1552,7 @@ public static class MarkdownEditorUiFactory
         textBox.MinHeight = minHeight;
         textBox.Background = Brushes.Transparent;
         textBox.BorderBrush = Brushes.Transparent;
+        BindBrush(textBox, TextBox.ForegroundProperty, EditorForegroundResourceKey);
         textBox.BorderThickness = new Thickness(0);
         textBox.Padding = new Thickness(0);
     }
@@ -1576,10 +1570,42 @@ public static class MarkdownEditorUiFactory
         };
     }
 
-    private static IBrush SelectThemeBrush(IBrush light, IBrush dark)
+    internal static void ApplyPaletteResources(Control root, MarkdownThemePalette palette)
     {
-        return Application.Current?.ActualThemeVariant == ThemeVariant.Dark ? dark : light;
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(palette);
+        root.Resources[InputBackgroundResourceKey] = palette.SurfaceRaised;
+        root.Resources[BorderBrushResourceKey] = palette.Border;
+        root.Resources[EditorForegroundResourceKey] = palette.Foreground;
+        root.Resources[SecondaryTextResourceKey] = palette.MutedForeground;
+        root.Resources[PrimaryButtonBackgroundResourceKey] = palette.Accent;
+        root.Resources[PrimaryButtonForegroundResourceKey] = palette.Surface;
+        root.Resources[ToolbarButtonBackgroundResourceKey] = palette.CodeHeaderBackground;
+        root.Resources[ToolbarButtonForegroundResourceKey] = palette.Foreground;
+        root.Resources[InlineToolbarBackgroundResourceKey] = palette.SurfaceRaised;
+        root.Resources[InlineSecondaryButtonBackgroundResourceKey] = palette.SurfaceRaised;
+        root.Resources[InlineSecondaryButtonForegroundResourceKey] = palette.Foreground;
+        root.Resources[DestructiveForegroundResourceKey] = palette.CautionAccent;
     }
+
+    internal static void ApplyInputPalette(TemplatedControl control)
+    {
+        ArgumentNullException.ThrowIfNull(control);
+        BindBrush(control, TemplatedControl.BackgroundProperty, InputBackgroundResourceKey);
+        BindBrush(control, TemplatedControl.ForegroundProperty, EditorForegroundResourceKey);
+        BindBrush(control, TemplatedControl.BorderBrushProperty, BorderBrushResourceKey);
+    }
+
+    private static void BindBrush(AvaloniaObject target, AvaloniaProperty property, object resourceKey) =>
+        target.Bind(property, new DynamicResourceExtension(resourceKey));
+
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
+
+    private static MarkdownThemePalette ResolveDefaultPalette() =>
+        Application.Current?.ActualThemeVariant == ThemeVariant.Dark
+            ? MarkdownThemePalette.Dark
+            : MarkdownThemePalette.Light;
 
     private static (int Start, int End) ResolveFormattingRange(TextBox textBox, string text)
     {

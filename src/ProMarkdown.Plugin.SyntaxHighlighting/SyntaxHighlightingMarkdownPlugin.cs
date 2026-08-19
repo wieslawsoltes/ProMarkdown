@@ -29,7 +29,9 @@ internal sealed class SyntaxHighlightingCodeBlockRenderingPlugin : IMarkdownBloc
 
         var languageHint = codeBlock is FencedCodeBlock fencedCode ? fencedCode.Info : null;
         var code = MarkdownCodeBlockRendering.NormalizeCode(codeBlock.Lines.ToString());
-        var inlines = MarkdownBuiltInSyntaxHighlighting.CreateHighlightedInlines(code, languageHint);
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
+        var inlines = MarkdownBuiltInSyntaxHighlighting.CreateHighlightedInlines(code, languageHint, palette);
         var lineCount = string.IsNullOrEmpty(code) ? 0 : code.Split('\n', StringSplitOptions.None).Length;
         var metaText = lineCount == 1 ? "1 line • Built-in" : $"{lineCount} lines • Built-in";
         var surface = MarkdownCodeBlockRendering.CreateSurface(
@@ -39,7 +41,8 @@ internal sealed class SyntaxHighlightingCodeBlockRenderingPlugin : IMarkdownBloc
             languageHint,
             metaText,
             context.RenderContext,
-            textForeground: MarkdownCodeBlockRendering.DefaultCodeTextForeground);
+            textForeground: palette.Foreground,
+            metaForeground: palette.MutedForeground);
 
         context.AddBlockControl(surface.Control, surface.HitTestHandler);
         return true;

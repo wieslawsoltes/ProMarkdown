@@ -1,5 +1,6 @@
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
+using ProMarkdown.Services;
 
 namespace ProMarkdown.Plugin.SyntaxHighlighting;
 
@@ -47,15 +48,19 @@ internal static class MarkdownBuiltInSyntaxHighlighting
         "values", "when", "where"
     };
 
-    public static InlineCollection CreateHighlightedInlines(string code, string? languageHint)
+    public static InlineCollection CreateHighlightedInlines(
+        string code,
+        string? languageHint,
+        MarkdownThemePalette palette)
     {
+        ArgumentNullException.ThrowIfNull(palette);
         var inlines = new InlineCollection();
         var highlightedLines = HighlightCode(code, languageHint);
         for (var lineIndex = 0; lineIndex < highlightedLines.Count; lineIndex++)
         {
             foreach (var span in highlightedLines[lineIndex].Spans)
             {
-                inlines.Add(CreateRun(span));
+                inlines.Add(CreateRun(span, palette));
             }
 
             if (lineIndex < highlightedLines.Count - 1)
@@ -67,12 +72,12 @@ internal static class MarkdownBuiltInSyntaxHighlighting
         return inlines;
     }
 
-    private static Run CreateRun(HighlightedCodeSpan span)
+    private static Run CreateRun(HighlightedCodeSpan span, MarkdownThemePalette palette)
     {
         var run = new Run(span.Text);
         if (span.Foreground is not null)
         {
-            run.Foreground = span.Foreground;
+            run.Foreground = ResolveBrush(span.Foreground, palette);
         }
 
         if (span.FontWeight.HasValue)
@@ -81,6 +86,20 @@ internal static class MarkdownBuiltInSyntaxHighlighting
         }
 
         return run;
+    }
+
+    private static IBrush ResolveBrush(IBrush brush, MarkdownThemePalette palette)
+    {
+        if (ReferenceEquals(brush, CodeKeywordForeground)) return palette.CodeKeywordForeground;
+        if (ReferenceEquals(brush, CodeTypeForeground)) return palette.CodeTypeForeground;
+        if (ReferenceEquals(brush, CodeStringForeground)) return palette.CodeStringForeground;
+        if (ReferenceEquals(brush, CodeCommentForeground)) return palette.CodeCommentForeground;
+        if (ReferenceEquals(brush, CodeNumberForeground)) return palette.CodeNumberForeground;
+        if (ReferenceEquals(brush, CodePropertyForeground)) return palette.CodePropertyForeground;
+        if (ReferenceEquals(brush, CodeTagForeground)) return palette.CodeTagForeground;
+        if (ReferenceEquals(brush, CodeAttributeForeground)) return palette.CodeAttributeForeground;
+        if (ReferenceEquals(brush, CodePunctuationForeground)) return palette.CodePunctuationForeground;
+        return brush;
     }
 
     private static List<HighlightedCodeLine> HighlightCode(string code, string? languageHint)

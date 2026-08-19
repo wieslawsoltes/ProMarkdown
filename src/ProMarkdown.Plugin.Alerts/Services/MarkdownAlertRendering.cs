@@ -16,11 +16,6 @@ internal static class MarkdownAlertRendering
 
     private static readonly IMarkdownRenderController NestedRenderController = MarkdownRenderingServices.CreateController(NestedPlugins);
     private static readonly IMarkdownEditingService NestedEditingService = MarkdownRenderingServices.CreateEditingService(NestedPlugins);
-    private static readonly IBrush DiagnosticBorderBrush = new SolidColorBrush(Color.Parse("#FECACA"));
-    private static readonly IBrush DiagnosticBackground = new SolidColorBrush(Color.Parse("#FEF2F2"));
-    private static readonly IBrush DiagnosticForeground = new SolidColorBrush(Color.Parse("#B42318"));
-    private static readonly IBrush PlaceholderForeground = new SolidColorBrush(Color.Parse("#6E6E6E"));
-
     public static Control CreateBlockView(MarkdownAlertDocument document, MarkdownRenderContext renderContext)
     {
         ArgumentNullException.ThrowIfNull(document);
@@ -37,17 +32,19 @@ internal static class MarkdownAlertRendering
 
         if (document.Diagnostics.Count > 0)
         {
-            body.Children.Add(CreateDiagnosticsPanel(document.Diagnostics));
+            body.Children.Add(CreateDiagnosticsPanel(document.Diagnostics, ResolvePalette(renderContext)));
         }
 
         var kindOption = MarkdownAlertSyntax.ResolveKindOption(document.Kind);
-        var presentation = MarkdownCalloutRendering.ResolvePresentation(kindOption.Value, fallbackTitle: "Alert");
+        var palette = ResolvePalette(renderContext);
+        var presentation = MarkdownCalloutRendering.ResolvePresentation(kindOption.Value, fallbackTitle: "Alert", palette);
         return MarkdownCalloutRendering.CreateCalloutSurface(
             presentation.Title,
             subtitle: kindOption.Description,
             body,
             presentation.AccentBrush,
-            presentation.Background);
+            presentation.Background,
+            palette);
     }
 
     private static Control CreateBodyView(string markdown, MarkdownRenderContext renderContext)
@@ -57,28 +54,34 @@ internal static class MarkdownAlertRendering
             return new TextBlock
             {
                 Text = "Add alert body content to render a preview.",
-                Foreground = PlaceholderForeground,
+                Foreground = ResolvePalette(renderContext).MutedForeground,
                 TextWrapping = TextWrapping.Wrap
             };
         }
 
-        return new MarkdownTextBlock
+        var control = new MarkdownTextBlock
         {
             BaseUri = renderContext.BaseUri,
             RenderController = NestedRenderController,
             EditingService = NestedEditingService,
             FontFamily = renderContext.FontFamily,
             FontSize = renderContext.FontSize,
-            Foreground = renderContext.Foreground,
+            Foreground = ResolvePalette(renderContext).Foreground,
             ThemePalette = renderContext.ThemePalette,
+            ImageOptions = renderContext.ImageOptions,
+            ImageLoader = renderContext.ImageLoader,
             TextWrapping = renderContext.TextWrapping,
             IsEditingEnabled = false,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Markdown = markdown
         };
+        renderContext.TrackNestedRendering(control);
+        return control;
     }
 
-    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownAlertDiagnostic> diagnostics)
+    private static Control CreateDiagnosticsPanel(
+        IReadOnlyList<MarkdownAlertDiagnostic> diagnostics,
+        MarkdownThemePalette palette)
     {
         var panel = new StackPanel
         {
@@ -90,7 +93,7 @@ internal static class MarkdownAlertRendering
             panel.Children.Add(new TextBlock
             {
                 Text = diagnostic.Message,
-                Foreground = DiagnosticForeground,
+                Foreground = palette.CautionAccent,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -98,12 +101,15 @@ internal static class MarkdownAlertRendering
 
         return new Border
         {
-            Background = DiagnosticBackground,
-            BorderBrush = DiagnosticBorderBrush,
+            Background = palette.CautionBackground,
+            BorderBrush = palette.CautionAccent,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10, 8),
             Child = panel
         };
     }
+
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
 }

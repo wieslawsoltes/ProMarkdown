@@ -9,13 +9,6 @@ namespace ProMarkdown.Plugin.DefinitionLists;
 
 internal static class MarkdownDefinitionListRendering
 {
-    private static readonly IBrush SurfaceBackground = new SolidColorBrush(Color.Parse("#F8FAFC"));
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush TermPanelBackground = new SolidColorBrush(Color.Parse("#EFF6FF"));
-    private static readonly IBrush TermPanelBorder = new SolidColorBrush(Color.Parse("#BFDBFE"));
-    private static readonly IBrush EntryBorderBrush = new SolidColorBrush(Color.Parse("#E2E8F0"));
-    private static readonly IBrush AccentBrush = new SolidColorBrush(Color.Parse("#2563EB"));
-    private static readonly IBrush DiagnosticBrush = new SolidColorBrush(Color.Parse("#B42318"));
     private static readonly IReadOnlyList<IMarkdownPlugin> NestedPlugins =
     [
         new DefinitionListMarkdownPlugin()
@@ -38,7 +31,7 @@ internal static class MarkdownDefinitionListRendering
             content.Children.Add(new TextBlock
             {
                 Text = "Definition list is empty.",
-                Foreground = renderContext.Foreground,
+                Foreground = ResolvePalette(renderContext).Foreground,
                 FontStyle = FontStyle.Italic
             });
         }
@@ -52,13 +45,13 @@ internal static class MarkdownDefinitionListRendering
 
         if (document.HasDiagnostics)
         {
-            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics));
+            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics, ResolvePalette(renderContext)));
         }
 
         return new Border
         {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
+            Background = ResolvePalette(renderContext).SurfaceRaised,
+            BorderBrush = ResolvePalette(renderContext).Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(14),
@@ -71,7 +64,7 @@ internal static class MarkdownDefinitionListRendering
                     {
                         Text = "Definition list",
                         FontWeight = FontWeight.SemiBold,
-                        Foreground = AccentBrush
+                        Foreground = ResolvePalette(renderContext).Accent
                     },
                     content
                 }
@@ -100,8 +93,8 @@ internal static class MarkdownDefinitionListRendering
         {
             termsPanel.Children.Add(new Border
             {
-                Background = TermPanelBackground,
-                BorderBrush = TermPanelBorder,
+                Background = ResolvePalette(renderContext).NoteBackground,
+                BorderBrush = ResolvePalette(renderContext).NoteAccent,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(10, 8),
@@ -111,7 +104,7 @@ internal static class MarkdownDefinitionListRendering
 
         var definitionPanel = new Border
         {
-            BorderBrush = EntryBorderBrush,
+            BorderBrush = ResolvePalette(renderContext).Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12, 10),
@@ -124,7 +117,7 @@ internal static class MarkdownDefinitionListRendering
 
         return new Border
         {
-            BorderBrush = EntryBorderBrush,
+            BorderBrush = ResolvePalette(renderContext).Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12),
@@ -132,7 +125,7 @@ internal static class MarkdownDefinitionListRendering
         };
     }
 
-    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownDefinitionListDiagnostic> diagnostics)
+    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownDefinitionListDiagnostic> diagnostics, MarkdownThemePalette palette)
     {
         var panel = new StackPanel
         {
@@ -144,7 +137,7 @@ internal static class MarkdownDefinitionListRendering
             panel.Children.Add(new TextBlock
             {
                 Text = diagnostic.Message,
-                Foreground = DiagnosticBrush,
+                Foreground = palette.CautionAccent,
                 FontSize = 11,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -158,7 +151,7 @@ internal static class MarkdownDefinitionListRendering
         MarkdownRenderContext renderContext,
         FontWeight? fontWeight = null)
     {
-        return new MarkdownTextBlock
+        var control = new MarkdownTextBlock
         {
             BaseUri = renderContext.BaseUri,
             RenderController = NestedRenderController,
@@ -168,11 +161,18 @@ internal static class MarkdownDefinitionListRendering
             FontSize = renderContext.FontSize,
             FontFamily = renderContext.FontFamily,
             FontWeight = fontWeight ?? FontWeight.Normal,
-            Foreground = renderContext.Foreground,
+            Foreground = ResolvePalette(renderContext).Foreground,
             ThemePalette = renderContext.ThemePalette,
+            ImageOptions = renderContext.ImageOptions,
+            ImageLoader = renderContext.ImageLoader,
             TextWrapping = renderContext.TextWrapping,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Markdown = markdown
         };
+        renderContext.TrackNestedRendering(control);
+        return control;
     }
+
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
 }

@@ -2,7 +2,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Styling;
 using ProMarkdown.Services;
 using SystemMath = System.Math;
 
@@ -13,28 +12,20 @@ internal static class MarkdownMathRendering
     private static readonly FontFamily MathFontFamily = new("Cambria Math, STIX Two Math, Times New Roman");
     private static readonly FontFamily SansSerifFamily = new("Inter, Segoe UI, Arial");
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private static readonly IBrush LightFormulaForeground = new SolidColorBrush(Color.Parse("#312E81"));
-    private static readonly IBrush DarkFormulaForeground = new SolidColorBrush(Color.Parse("#C7D2FE"));
-    private static readonly IBrush LightFormulaBackground = new SolidColorBrush(Color.Parse("#F5F3FF"));
-    private static readonly IBrush DarkFormulaBackground = new SolidColorBrush(Color.Parse("#111827"));
-    private static readonly IBrush LightFormulaBorder = new SolidColorBrush(Color.Parse("#C4B5FD"));
-    private static readonly IBrush DarkFormulaBorder = new SolidColorBrush(Color.Parse("#6366F1"));
-    private static readonly IBrush LightDiagnosticForeground = new SolidColorBrush(Color.Parse("#B42318"));
-    private static readonly IBrush DarkDiagnosticForeground = new SolidColorBrush(Color.Parse("#FCA5A5"));
-
     public static Control CreateInlineView(MarkdownMathDocument document, MarkdownRenderContext renderContext)
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(renderContext);
 
+        var context = CreateContext(renderContext, MarkdownMathDisplayMode.Inline);
         var view = new Border
         {
-            Background = FormulaBackground,
-            BorderBrush = FormulaBorder,
+            Background = context.FormulaBackground,
+            BorderBrush = context.FormulaBorder,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(5),
             Padding = new Thickness(6, 2),
-            Child = RenderExpression(document.Root, CreateContext(renderContext, MarkdownMathDisplayMode.Inline))
+            Child = RenderExpression(document.Root, context)
         };
 
         if (document.HasDiagnostics)
@@ -50,6 +41,7 @@ internal static class MarkdownMathRendering
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(renderContext);
 
+        var context = CreateContext(renderContext, MarkdownMathDisplayMode.Block);
         var content = new StackPanel
         {
             Spacing = 8,
@@ -57,8 +49,8 @@ internal static class MarkdownMathRendering
             {
                 new Border
                 {
-                    Background = FormulaBackground,
-                    BorderBrush = FormulaBorder,
+                    Background = context.FormulaBackground,
+                    BorderBrush = context.FormulaBorder,
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(8),
                     Padding = new Thickness(16, 12),
@@ -68,7 +60,7 @@ internal static class MarkdownMathRendering
                         StretchDirection = StretchDirection.DownOnly,
                         Stretch = Stretch.Uniform,
                         HorizontalAlignment = HorizontalAlignment.Center,
-                        Child = RenderExpression(document.Root, CreateContext(renderContext, MarkdownMathDisplayMode.Block))
+                        Child = RenderExpression(document.Root, context)
                     }
                 }
             }
@@ -76,13 +68,15 @@ internal static class MarkdownMathRendering
 
         if (document.HasDiagnostics)
         {
-            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics));
+            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics, context));
         }
 
         return content;
     }
 
-    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownMathDiagnostic> diagnostics)
+    private static Control CreateDiagnosticsPanel(
+        IReadOnlyList<MarkdownMathDiagnostic> diagnostics,
+        MathRenderContext context)
     {
         var panel = new StackPanel
         {
@@ -94,7 +88,7 @@ internal static class MarkdownMathRendering
             panel.Children.Add(new TextBlock
             {
                 Text = diagnostic.Message,
-                Foreground = DiagnosticForeground,
+                Foreground = context.DiagnosticForeground,
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = 11
             });
@@ -149,7 +143,7 @@ internal static class MarkdownMathRendering
                     ? context.FontSize * 1.2
                     : context.FontSize,
                 italic: !symbol.IsLargeOperator),
-            MarkdownMathCommand command => CreateText($"\\{command.Name}", context, foreground: DiagnosticForeground),
+            MarkdownMathCommand command => CreateText($"\\{command.Name}", context, foreground: context.DiagnosticForeground),
             MarkdownMathStyledExpression styled => RenderExpression(styled.Content, context.WithStyle(styled.Style)),
             MarkdownMathFraction fraction => RenderFraction(fraction, context),
             MarkdownMathRoot root => RenderRoot(root, context),
@@ -157,7 +151,7 @@ internal static class MarkdownMathRendering
             MarkdownMathDelimited delimited => RenderDelimited(delimited, context),
             MarkdownMathAccent accent => RenderAccent(accent, context),
             MarkdownMathEnvironment environment => RenderEnvironment(environment, context),
-            MarkdownMathError error => CreateText(error.Text, context, foreground: DiagnosticForeground),
+            MarkdownMathError error => CreateText(error.Text, context, foreground: context.DiagnosticForeground),
             _ => CreateText(node.ToString() ?? string.Empty, context)
         };
     }
@@ -183,7 +177,7 @@ internal static class MarkdownMathRendering
                 {
                     Height = 1,
                     MinWidth = SystemMath.Max(context.FontSize * 1.8, 18),
-                    Background = FormulaForeground
+                    Background = context.FormulaForeground
                 },
                 new Border
                 {
@@ -199,7 +193,7 @@ internal static class MarkdownMathRendering
         var radicand = new Border
         {
             BorderThickness = new Thickness(0, 1, 0, 0),
-            BorderBrush = FormulaForeground,
+            BorderBrush = context.FormulaForeground,
             Padding = new Thickness(4, 3, 1, 0),
             Child = RenderExpression(root.Radicand, context)
         };
@@ -209,7 +203,7 @@ internal static class MarkdownMathRendering
             Text = "√",
             FontFamily = MathFontFamily,
             FontSize = context.FontSize * 1.25,
-            Foreground = FormulaForeground,
+            Foreground = context.FormulaForeground,
             VerticalAlignment = VerticalAlignment.Bottom
         };
 
@@ -379,7 +373,7 @@ internal static class MarkdownMathRendering
             {
                 Height = 1,
                 MinWidth = SystemMath.Max(context.FontSize * 0.7, 10),
-                Background = FormulaForeground,
+                Background = context.FormulaForeground,
                 Margin = new Thickness(0, 1, 0, 0)
             }
             : (Control)new TextBlock
@@ -387,7 +381,7 @@ internal static class MarkdownMathRendering
                 Text = accent.AccentText,
                 FontFamily = MathFontFamily,
                 FontSize = SystemMath.Max(context.FontSize - 1, 10),
-                Foreground = FormulaForeground,
+                Foreground = context.FormulaForeground,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
@@ -515,7 +509,7 @@ internal static class MarkdownMathRendering
             FontStyle = italic.HasValue
                 ? italic.Value ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal
                 : fontStyle,
-            Foreground = foreground ?? FormulaForeground,
+            Foreground = foreground ?? context.FormulaForeground,
             VerticalAlignment = VerticalAlignment.Center
         };
 
@@ -536,19 +530,6 @@ internal static class MarkdownMathRendering
         };
     }
 
-    private static IBrush FormulaForeground => SelectThemeBrush(LightFormulaForeground, DarkFormulaForeground);
-
-    private static IBrush FormulaBackground => SelectThemeBrush(LightFormulaBackground, DarkFormulaBackground);
-
-    private static IBrush FormulaBorder => SelectThemeBrush(LightFormulaBorder, DarkFormulaBorder);
-
-    private static IBrush DiagnosticForeground => SelectThemeBrush(LightDiagnosticForeground, DarkDiagnosticForeground);
-
-    private static IBrush SelectThemeBrush(IBrush light, IBrush dark)
-    {
-        return Application.Current?.ActualThemeVariant == ThemeVariant.Dark ? dark : light;
-    }
-
     private sealed class MathRenderContext(
         MarkdownRenderContext markdownContext,
         MarkdownMathDisplayMode displayMode,
@@ -557,6 +538,17 @@ internal static class MarkdownMathRendering
         int scriptDepth)
     {
         public MarkdownRenderContext MarkdownContext { get; } = markdownContext;
+
+        public MarkdownThemePalette Palette { get; } =
+            markdownContext.ThemePalette ?? MarkdownThemePalette.Resolve(markdownContext.Foreground);
+
+        public IBrush FormulaForeground => Palette.ImportantAccent;
+
+        public IBrush FormulaBackground => Palette.ImportantBackground;
+
+        public IBrush FormulaBorder => Palette.ImportantAccent;
+
+        public IBrush DiagnosticForeground => Palette.CautionAccent;
 
         public MarkdownMathDisplayMode DisplayMode { get; } = displayMode;
 

@@ -204,10 +204,12 @@ internal static class MarkdownMathEditorUiFactory
 
     private static Border CreatePreviewHost(MarkdownEditorPluginContext context)
     {
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         return new Border
         {
-            Background = MarkdownEditorUiFactory.SectionBackground,
-            BorderBrush = MarkdownEditorUiFactory.BorderBrush,
+            Background = palette.SurfaceRaised,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? new Thickness(8, 6) : new Thickness(10)

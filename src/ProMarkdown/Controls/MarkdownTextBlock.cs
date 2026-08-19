@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 using ProMarkdown.Services;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
+using System.Diagnostics;
 using System.Windows.Input;
 
 namespace ProMarkdown.Controls;
@@ -32,6 +33,22 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     public static readonly StyledProperty<MarkdownThemePalette?> ThemePaletteProperty =
         AvaloniaProperty.Register<MarkdownTextBlock, MarkdownThemePalette?>(nameof(ThemePalette));
 
+    /// <summary>Identifies the <see cref="ImageOptions"/> property.</summary>
+    public static readonly StyledProperty<MarkdownImageOptions> ImageOptionsProperty =
+        AvaloniaProperty.Register<MarkdownTextBlock, MarkdownImageOptions>(
+            nameof(ImageOptions),
+            MarkdownImageOptions.Default);
+
+    /// <summary>Identifies the read-only <see cref="CanCopyDocumentSelection"/> property.</summary>
+    public static readonly DirectProperty<MarkdownTextBlock, bool> CanCopyDocumentSelectionProperty =
+        AvaloniaProperty.RegisterDirect<MarkdownTextBlock, bool>(
+            nameof(CanCopyDocumentSelection),
+            control => control._canCopyDocumentSelection);
+
+    /// <summary>Identifies the read-only <see cref="IsRendering"/> property.</summary>
+    public static readonly DirectProperty<MarkdownTextBlock, bool> IsRenderingProperty =
+        AvaloniaProperty.RegisterDirect<MarkdownTextBlock, bool>(nameof(IsRendering), control => control._isRendering);
+
     /// <summary>Identifies the <see cref="IsTaskListInteractive"/> property.</summary>
     public static readonly StyledProperty<bool> IsTaskListInteractiveProperty =
         AvaloniaProperty.Register<MarkdownTextBlock, bool>(nameof(IsTaskListInteractive));
@@ -43,11 +60,16 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     private const double LinkClickDragThreshold = 4d;
     private static readonly Cursor LinkCursor = new(StandardCursorType.Hand);
     private readonly TaskListToggleForwardingCommandImpl _taskListToggleForwardingCommand;
+    private readonly MarkdownControlCommand _copySelectionCommand;
+    private readonly MarkdownControlCommand _selectAllCommand;
     private IMarkdownRenderController _renderController = MarkdownRenderingServices.DefaultController;
     private IMarkdownHitTestingService _hitTestingService = MarkdownRenderingServices.DefaultHitTestingService;
     private IMarkdownEditingService _editingService = MarkdownRenderingServices.DefaultEditingService;
     private MarkdownEditorPreferences _editorPreferences = new();
+    private IMarkdownImageLoader _imageLoader = DefaultMarkdownImageLoader.Instance;
     private MarkdownRenderResourceTracker? _renderResources;
+    private CancellationTokenSource? _renderCancellation;
+    private MarkdownRenderActivity? _renderActivity;
     private MarkdownRenderResult? _lastRenderResult;
     private MarkdownEditorSession? _activeEditorSession;
     private int _renderGeneration;
@@ -56,6 +78,9 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     private Point? _pendingLinkPointerOrigin;
     private Uri? _pendingLinkUri;
     private bool _isAttachedToVisualTree;
+    private bool _canCopyDocumentSelection;
+    private bool _canSelectAll;
+    private bool _isRendering;
 
     static MarkdownTextBlock()
     {
@@ -69,6 +94,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         ForegroundProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.RebuildMarkdown());
         TextWrappingProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.RebuildMarkdown());
         ThemePaletteProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.RebuildMarkdown());
+        ImageOptionsProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.RebuildMarkdown());
         IsTaskListInteractiveProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.ConfigureTaskListCheckBoxes());
         TaskListToggleCommandProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.HandleTaskListToggleCommandChanged());
         BoundsProperty.Changed.AddClassHandler<MarkdownTextBlock>((control, _) => control.HandleBoundsChanged());
@@ -104,6 +130,39 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         get => GetValue(ThemePaletteProperty);
         set => SetValue(ThemePaletteProperty, value);
     }
+
+    /// <summary>Gets or sets the image-loading policy used by rendered Markdown images.</summary>
+    public MarkdownImageOptions ImageOptions
+    {
+        get => GetValue(ImageOptionsProperty);
+        set => SetValue(ImageOptionsProperty, value);
+    }
+
+    /// <summary>Gets or sets the loader used by rendered Markdown images.</summary>
+    public IMarkdownImageLoader ImageLoader
+    {
+        get => _imageLoader;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            if (ReferenceEquals(_imageLoader, value))
+                return;
+            _imageLoader = value;
+            RebuildMarkdown();
+        }
+    }
+
+    /// <summary>Gets whether the document-wide rendered-text selection can be copied.</summary>
+    public bool CanCopyDocumentSelection => _canCopyDocumentSelection;
+
+    /// <summary>Gets whether the current render generation has pending work.</summary>
+    public bool IsRendering => _isRendering;
+
+    /// <summary>Gets the command that copies the active rendered-text selection.</summary>
+    public ICommand CopySelectionCommand => _copySelectionCommand;
+
+    /// <summary>Gets the command that selects all rendered document text.</summary>
+    public ICommand SelectAllCommand => _selectAllCommand;
 
     /// <summary>Gets or sets whether task-list checkboxes accept pointer and keyboard input.</summary>
     public bool IsTaskListInteractive
@@ -184,9 +243,21 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     public event EventHandler<MarkdownEditCanceledEventArgs>? MarkdownEditCanceled;
 
+    /// <summary>Occurs when the document-wide rendered-text selection changes.</summary>
+    public event EventHandler? SelectionChanged;
+
+    /// <summary>Occurs when all work for the current render generation completes.</summary>
+    public event EventHandler? RenderCompleted;
+
     public MarkdownTextBlock()
     {
         _taskListToggleForwardingCommand = new TaskListToggleForwardingCommandImpl(this);
+        _copySelectionCommand = new MarkdownControlCommand(
+            () => CanCopyDocumentSelection,
+            CopySelection);
+        _selectAllCommand = new MarkdownControlCommand(
+            () => _canSelectAll,
+            () => MarkdownSelection.SelectAll(this));
         MarkdownDocumentSelection.SetEnabled(this, true);
         MarkdownDocumentLayout.SetEnabled(this, true);
         AttachedToVisualTree += OnAttachedToVisualTree;
@@ -212,7 +283,9 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         _activeEditorSession = null;
         ClearPendingLinkInteraction();
         ClearValue(CursorProperty);
+        CancelRenderGeneration();
         DisposeRenderResources();
+        MarkdownDocumentSelection.Reset(this);
     }
 
     private void HandleMarkdownChanged()
@@ -345,7 +418,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
                 StringComparison.OrdinalIgnoreCase) == 0)
         {
             e.Handled = true;
-            _ = LaunchUriAsync(releasedLinkUri);
+            ObserveLinkActivation(releasedLinkUri);
         }
 
         ClearPendingLinkInteraction();
@@ -432,6 +505,30 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
             : Task.CompletedTask;
     }
 
+    private async Task LaunchUriSafelyAsync(Uri navigateUri)
+    {
+        try
+        {
+            await LaunchUriAsync(navigateUri);
+        }
+        catch (Exception exception) when (MarkdownAsyncExceptionBoundary.IsRecoverable(exception))
+        {
+            Trace.TraceWarning("The Markdown link could not be activated: {0}", exception);
+        }
+    }
+
+    private async void ObserveLinkActivation(Uri navigateUri)
+    {
+        try
+        {
+            await LaunchUriSafelyAsync(navigateUri);
+        }
+        catch (Exception exception)
+        {
+            MarkdownAsyncExceptionBoundary.ReportNonRecoverable(exception);
+        }
+    }
+
     private void ClearPendingLinkInteraction()
     {
         _pendingLinkPointerOrigin = null;
@@ -450,9 +547,17 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     {
         ClearPendingLinkInteraction();
         ClearValue(CursorProperty);
+        CancelRenderGeneration();
         var previousResources = _renderResources;
         var resourceTracker = new MarkdownRenderResourceTracker();
         var renderGeneration = unchecked(++_renderGeneration);
+        var renderCancellation = new CancellationTokenSource();
+        MarkdownRenderActivity? activity = null;
+        activity = new MarkdownRenderActivity(
+            () => CompleteRenderGeneration(renderGeneration, activity));
+        _renderCancellation = renderCancellation;
+        _renderActivity = activity;
+        SetIsRendering(true);
 
         if (string.IsNullOrWhiteSpace(Markdown))
         {
@@ -463,6 +568,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
             previousResources?.Dispose();
             MarkdownDocumentLayout.Refresh(this);
             MarkdownDocumentSelection.Reset(this);
+            activity.Complete();
             return;
         }
 
@@ -477,10 +583,14 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
                 Foreground = Foreground,
                 TextWrapping = TextWrapping,
                 ThemePalette = ThemePalette ?? MarkdownThemePalette.Resolve(Foreground),
+                ImageOptions = ImageOptions,
+                ImageLoader = ImageLoader,
+                CancellationToken = renderCancellation.Token,
                 AvailableWidth = ResolveAvailableWidth(),
                 RenderGeneration = renderGeneration,
                 ResourceTracker = resourceTracker,
                 IsCurrentRender = IsCurrentRender,
+                BeginAsyncOperationCallback = activity.Begin,
                 EditorState = CreateEditorState()
             }
         };
@@ -492,6 +602,15 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         }
         catch
         {
+            activity.Dispose();
+            renderCancellation.Cancel();
+            renderCancellation.Dispose();
+            if (ReferenceEquals(_renderActivity, activity))
+            {
+                _renderActivity = null;
+                _renderCancellation = null;
+                SetIsRendering(false);
+            }
             resourceTracker.Dispose();
             throw;
         }
@@ -507,6 +626,89 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         ConfigureTaskListCheckBoxes();
         MarkdownDocumentLayout.Refresh(this);
         MarkdownDocumentSelection.Reset(this);
+        activity.Complete();
+    }
+
+    internal void NotifySelectionChanged()
+    {
+        RefreshSelectionState(selectionChanged: true);
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void NotifySelectionDocumentChanged() => RefreshSelectionState(selectionChanged: false);
+
+    private void RefreshSelectionState(bool selectionChanged)
+    {
+        var canCopyChanged = UpdateCanCopy(MarkdownDocumentSelection.CanCopy(this));
+        var canSelectAll = MarkdownDocumentSelection.HasDocumentText(this);
+        var canSelectAllChanged = _canSelectAll != canSelectAll;
+        _canSelectAll = canSelectAll;
+
+        if (selectionChanged || canCopyChanged)
+            _copySelectionCommand.RaiseCanExecuteChanged();
+        if (selectionChanged || canSelectAllChanged)
+            _selectAllCommand.RaiseCanExecuteChanged();
+    }
+
+    private bool UpdateCanCopy(bool value)
+    {
+        if (_canCopyDocumentSelection == value)
+            return false;
+        SetAndRaise(
+            CanCopyDocumentSelectionProperty,
+            ref _canCopyDocumentSelection,
+            value);
+        return true;
+    }
+
+    private void SetIsRendering(bool value)
+    {
+        if (_isRendering == value)
+            return;
+        SetAndRaise(IsRenderingProperty, ref _isRendering, value);
+    }
+
+    private void CompleteRenderGeneration(int generation, MarkdownRenderActivity? activity)
+    {
+        if (activity is null || generation != _renderGeneration || !ReferenceEquals(_renderActivity, activity))
+            return;
+        SetIsRendering(false);
+        RenderCompleted?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void CancelRenderGeneration()
+    {
+        var activity = _renderActivity;
+        _renderActivity = null;
+        activity?.Dispose();
+
+        var cancellation = _renderCancellation;
+        _renderCancellation = null;
+        if (cancellation is not null)
+        {
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            cancellation.Dispose();
+        }
+
+        SetIsRendering(false);
+    }
+
+    private async void CopySelection()
+    {
+        try
+        {
+            await MarkdownSelection.CopyAsync(this);
+        }
+        catch (Exception exception) when (MarkdownAsyncExceptionBoundary.IsRecoverable(exception))
+        {
+            Trace.TraceWarning("The Markdown selection could not be copied: {0}", exception);
+        }
     }
 
     internal void ConfigureTaskListCheckBox(CheckBox checkBox)
@@ -599,6 +801,22 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     private bool IsCurrentRender(int renderGeneration)
     {
         return renderGeneration == _renderGeneration;
+    }
+
+    internal void ReleaseNestedRenderGeneration()
+    {
+        if (!Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(ReleaseNestedRenderGeneration);
+            return;
+        }
+
+        _renderGeneration = unchecked(_renderGeneration + 1);
+        _lastRenderResult = null;
+        _activeEditorSession = null;
+        CancelRenderGeneration();
+        DisposeRenderResources();
+        MarkdownDocumentSelection.Reset(this);
     }
 
     private MarkdownEditorState? CreateEditorState()
@@ -760,6 +978,21 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     {
         _renderResources?.Dispose();
         _renderResources = null;
+    }
+
+    private sealed class MarkdownControlCommand(Func<bool> canExecute, Action execute) : ICommand
+    {
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter) => canExecute();
+
+        public void Execute(object? parameter)
+        {
+            if (canExecute())
+                execute();
+        }
+
+        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private sealed class TaskListToggleForwardingCommandImpl(MarkdownTextBlock owner) : ICommand

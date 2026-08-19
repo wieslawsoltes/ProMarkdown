@@ -17,7 +17,7 @@ internal delegate Task MermaidSvgRenderDelegate(
     RenderOptions options,
     CancellationToken cancellationToken);
 
-internal sealed class MermaiderSvgRenderer
+internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
 {
     internal const int MaximumSourceCharacters = 256 * 1024;
     internal const int MaximumSvgCharacters = 8 * 1024 * 1024;
@@ -208,6 +208,19 @@ internal sealed class MermaiderSvgRenderer
         }
     }
 
+    public Task<string> RenderAsync(
+        MermaidSvgRenderRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return RenderAsync(
+            request.Source,
+            request.Palette,
+            request.FontFamily,
+            request.FontSize,
+            cancellationToken);
+    }
+
     private async Task<string> RenderUncachedAsync(
         string source,
         MarkdownThemePalette palette,
@@ -274,11 +287,15 @@ internal sealed class MermaiderSvgRenderer
         {
             await renderOperation.ConfigureAwait(false);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (MermaidDiagramControl.IsRecoverableAsyncException(exception))
         {
             Trace.TraceError(
                 "The Mermaid renderer faulted after its initiating request ended: {0}",
                 exception);
+        }
+        catch (Exception exception)
+        {
+            MermaidDiagramControl.ReportNonRecoverableAsyncException(exception);
         }
         finally
         {
@@ -303,12 +320,21 @@ internal sealed class MermaiderSvgRenderer
                 evictedCancellations = TrimCache();
             }
         }
-        catch
+        catch (Exception exception)
         {
             lock (_gate)
             {
                 if (_cache.TryGetValue(key, out var entry) && ReferenceEquals(entry, observedEntry))
                     RemoveEntry(key, entry);
+            }
+
+            // Faults from the shared render task are surfaced by its active or abandoned waiter.
+            // A failure after a successful render originated in this cache observer and has no
+            // other boundary, so explicitly report nonrecoverable failures here.
+            if (observedEntry.RenderTask.IsCompletedSuccessfully &&
+                !MermaidDiagramControl.IsRecoverableAsyncException(exception))
+            {
+                MermaidDiagramControl.ReportNonRecoverableAsyncException(exception);
             }
         }
         finally
@@ -331,8 +357,8 @@ internal sealed class MermaiderSvgRenderer
             Surface = ToCss(palette.SurfaceRaised, fallback.SurfaceRaised),
             Muted = ToCss(palette.MutedForeground, fallback.MutedForeground),
             Accent = ToCss(palette.Foreground, fallback.Foreground),
-            Border = ToCss(palette.Foreground, fallback.Foreground),
-            Line = ToCss(palette.MutedForeground, fallback.MutedForeground),
+            Border = ToCss(palette.Border, fallback.Border),
+            Line = ToCss(palette.Foreground, fallback.Foreground),
             DataPalette = CreateDataPalette(palette, fallback),
             Font = fontFamily,
             FontSize = string.Create(CultureInfo.InvariantCulture, $"{fontSize:0.###}px"),
@@ -553,6 +579,7 @@ internal sealed class MermaiderSvgRenderer
         string Foreground,
         string MutedForeground,
         string Accent,
+        string Border,
         string FontFamily,
         double FontSize)
     {
@@ -568,6 +595,7 @@ internal sealed class MermaiderSvgRenderer
                 ToCss(palette.Foreground, palette.IsDark ? MarkdownThemePalette.Dark.Foreground : MarkdownThemePalette.Light.Foreground),
                 ToCss(palette.MutedForeground, palette.IsDark ? MarkdownThemePalette.Dark.MutedForeground : MarkdownThemePalette.Light.MutedForeground),
                 ToCss(palette.Accent, palette.IsDark ? MarkdownThemePalette.Dark.Accent : MarkdownThemePalette.Light.Accent),
+                ToCss(palette.Border, palette.IsDark ? MarkdownThemePalette.Dark.Border : MarkdownThemePalette.Light.Border),
                 fontFamily,
                 fontSize);
 

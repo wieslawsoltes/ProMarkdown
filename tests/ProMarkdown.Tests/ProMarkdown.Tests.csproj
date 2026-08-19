@@ -19,6 +19,13 @@
   <ItemGroup>
     <ProjectReference Include="../../src/ProMarkdown/ProMarkdown.csproj" />
     <ProjectReference Include="../../src/ProMarkdown.Plugin.Alerts/ProMarkdown.Plugin.Alerts.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.CustomContainers/ProMarkdown.Plugin.CustomContainers.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.DefinitionLists/ProMarkdown.Plugin.DefinitionLists.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.Figures/ProMarkdown.Plugin.Figures.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.Footers/ProMarkdown.Plugin.Footers.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.Math/ProMarkdown.Plugin.Math.csproj" />
     <ProjectReference Include="../../src/ProMarkdown.Plugin.Mermaid/ProMarkdown.Plugin.Mermaid.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.SyntaxHighlighting/ProMarkdown.Plugin.SyntaxHighlighting.csproj" />
+    <ProjectReference Include="../../src/ProMarkdown.Plugin.TextMate/ProMarkdown.Plugin.TextMate.csproj" />
   </ItemGroup>
 </Project>

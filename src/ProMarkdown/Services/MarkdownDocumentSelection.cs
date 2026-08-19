@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -85,6 +86,16 @@ internal sealed class MarkdownDocumentSelection
             await clipboard.SetTextAsync(text);
     }
 
+    public static async Task CopyDocumentTextAsync(MarkdownTextBlock? control)
+    {
+        if (control is null || !States.TryGetValue(control, out var state))
+            return;
+
+        var text = state.GetDocumentText();
+        if (!string.IsNullOrEmpty(text) && TopLevel.GetTopLevel(control)?.Clipboard is { } clipboard)
+            await clipboard.SetTextAsync(text);
+    }
+
     public static void SelectAll(MarkdownTextBlock? control)
     {
         if (control is not null && States.TryGetValue(control, out var state))
@@ -108,6 +119,9 @@ internal sealed class MarkdownDocumentSelection
     internal static IReadOnlyList<SelectableTextBlock> GetSegmentControls(MarkdownTextBlock control) =>
         States.TryGetValue(control, out var state) ? state.GetSegmentControls() : [];
 
+    internal static int GetSegmentSnapshotVersion(MarkdownTextBlock control) =>
+        States.TryGetValue(control, out var state) ? state.SegmentSnapshotVersion : 0;
+
     internal static void SelectWord(MarkdownTextBlock control, SelectableTextBlock segment, int offset)
     {
         if (States.TryGetValue(control, out var state))
@@ -122,6 +136,12 @@ internal sealed class MarkdownDocumentSelection
 
     internal static string GetSelectedText(MarkdownTextBlock control) =>
         States.TryGetValue(control, out var state) ? state.GetSelectedText() : string.Empty;
+
+    internal static string GetDocumentText(MarkdownTextBlock control) =>
+        States.TryGetValue(control, out var state) ? state.GetDocumentText() : string.Empty;
+
+    internal static bool HasDocumentText(MarkdownTextBlock control) =>
+        States.TryGetValue(control, out var state) && state.HasDocumentText();
 
     internal static bool TryGetSegmentBounds(
         MarkdownTextBlock control,
@@ -160,7 +180,7 @@ internal sealed class MarkdownDocumentSelection
              current is not null && !ReferenceEquals(current, owner);
              current = current.GetVisualParent())
         {
-            if (current is Button or TextBox ||
+            if (current is IMarkdownInputBoundary or Button or TextBox ||
                 current is Control { Focusable: true } and not SelectableTextBlock)
                 return true;
         }
@@ -412,10 +432,18 @@ internal sealed class MarkdownDocumentSelection
         private bool _isDragging;
         private IBrush? _synchronizedSelectionBrush;
         private IBrush? _synchronizedSelectionForegroundBrush;
-        private Dictionary<SelectableTextBlock, int>? _segmentLengths;
+        private readonly HashSet<AvaloniaObject> _observedObjects = new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<INotifyCollectionChanged> _observedCollections = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<Visual, Transform> _observedTransforms = new(ReferenceEqualityComparer.Instance);
+        private readonly List<SelectableTextBlock> _selectedControls = [];
         private IReadOnlyList<Segment>? _segments;
         private SelectionPoint? _lastSelectionStart;
         private SelectionPoint? _lastSelectionEnd;
+        private SelectableTextBlock? _lastSelectionStartControl;
+        private SelectableTextBlock? _lastSelectionEndControl;
+        private int _segmentSnapshotVersion;
+        private bool _layoutUpdatePending;
+        private bool _topologyInvalidated = true;
 
         public SelectionState(MarkdownTextBlock owner)
         {
@@ -456,6 +484,8 @@ internal sealed class MarkdownDocumentSelection
 
         public bool CanCopy => GetSegments().Any(segment => segment.Control.SelectionStart != segment.Control.SelectionEnd);
 
+        public int SegmentSnapshotVersion => _segmentSnapshotVersion;
+
         public IReadOnlyList<SelectableTextBlock> GetSegmentControls() =>
             GetSegments().Select(segment => segment.Control).ToArray();
 
@@ -476,18 +506,23 @@ internal sealed class MarkdownDocumentSelection
             _lastPointerEvent = null;
             _press = null;
             _isDragging = false;
+            _segments = null;
+            ClearTopologySubscriptions();
+            ClearActiveSelectionCoordinates();
         }
 
         public void Reset()
         {
+            var hadSelection = _owner.CanCopyDocumentSelection;
             StopAutoScroll();
             if (_press?.Pointer.Captured == _owner)
                 _press.Pointer.Capture(null);
 
-            _segmentLengths = null;
+            ClearTopologySubscriptions();
+            _topologyInvalidated = true;
+            _layoutUpdatePending = false;
             _segments = null;
-            _lastSelectionStart = null;
-            _lastSelectionEnd = null;
+            ClearActiveSelectionCoordinates();
             _owner.ClearSelection();
             SynchronizeSelectionBrushes();
             foreach (var segment in GetSegments())
@@ -496,10 +531,17 @@ internal sealed class MarkdownDocumentSelection
             _press = null;
             _isDragging = false;
             _lastPointerEvent = null;
-
+            if (hadSelection)
+                _owner.NotifySelectionChanged();
+            else
+                _owner.NotifySelectionDocumentChanged();
         }
 
-        public void InvalidateLayout() => _segments = null;
+        public void InvalidateLayout()
+        {
+            _segments = null;
+            _layoutUpdatePending = true;
+        }
 
         public bool TryGetSegmentBounds(SelectableTextBlock control, out Rect bounds)
         {
@@ -535,30 +577,37 @@ internal sealed class MarkdownDocumentSelection
             var segment = segments[index];
             control = segment.Control;
             segmentBounds = segment.Bounds;
-            localPoint = new Point(
-                point.X - segment.Bounds.X,
-                point.Y - segment.Bounds.Y);
+            localPoint = GetLocalPosition(segment, point);
             return true;
         }
 
         public void SelectAll()
         {
+            var segments = GetSegments();
+            if (segments.Count == 0)
+            {
+                if (!HasActiveSelection())
+                    return;
+
+                ClearActiveSelectionCoordinates();
+                _owner.NotifySelectionChanged();
+                return;
+            }
+
+            var start = new SelectionPoint(0, 0);
+            var end = new SelectionPoint(segments.Count - 1, segments[^1].Length);
+            var selectionChanged = !IsSameActiveSelection(start, end);
             _owner.ClearSelection();
             SynchronizeSelectionBrushes();
-            foreach (var segment in GetSegments())
+            foreach (var segment in segments)
             {
                 segment.Control.SelectionStart = 0;
                 segment.Control.SelectionEnd = segment.Length;
             }
 
-            var segments = GetSegments();
-            if (segments.Count > 0)
-            {
-                _lastSelectionStart = new SelectionPoint(0, 0);
-                _lastSelectionEnd = new SelectionPoint(segments.Count - 1, segments[^1].Length);
-            }
-
-
+            SetActiveSelectionCoordinates(segments, start, end);
+            if (selectionChanged)
+                _owner.NotifySelectionChanged();
         }
 
         public void SynchronizeSelectionBrushes()
@@ -614,6 +663,43 @@ internal sealed class MarkdownDocumentSelection
             }
 
             return builder.ToString();
+        }
+
+        public string GetDocumentText()
+        {
+            var segments = GetSegments();
+            if (segments.Count == 0)
+                return string.Empty;
+
+            var builder = new StringBuilder();
+            Segment? previous = null;
+            foreach (var segment in segments)
+            {
+                var text = GetSourceText(segment.Control).Replace("\uFFFC", string.Empty, StringComparison.Ordinal);
+                if (text.Length == 0)
+                    continue;
+                if (previous is { } preceding)
+                    builder.Append(GetSeparator(preceding, segment).Replace(Environment.NewLine, "\n", StringComparison.Ordinal));
+                builder.Append(text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n'));
+                previous = segment;
+            }
+
+            var result = builder.ToString();
+            return Environment.NewLine == "\n"
+                ? result
+                : result.Replace("\n", Environment.NewLine, StringComparison.Ordinal);
+        }
+
+        public bool HasDocumentText()
+        {
+            var segments = GetSegments();
+            for (var index = 0; index < segments.Count; index++)
+            {
+                if (HasSourceText(segments[index].Control))
+                    return true;
+            }
+
+            return false;
         }
 
         public void SelectRange(
@@ -676,15 +762,16 @@ internal sealed class MarkdownDocumentSelection
             var segments = GetSegments();
             var position = args.GetPosition(_owner);
             var segmentIndex = FindSegmentAt(segments, position, allowNearest: true);
+            var hadSelection = HasActiveSelection();
             _owner.ClearSelection();
 
             if (segmentIndex < 0)
             {
                 ClearSegments(segments, exceptIndex: -1);
-                _lastSelectionStart = null;
-                _lastSelectionEnd = null;
+                ClearActiveSelectionCoordinates();
                 _press = null;
-
+                if (hadSelection)
+                    _owner.NotifySelectionChanged();
                 return;
             }
 
@@ -703,8 +790,6 @@ internal sealed class MarkdownDocumentSelection
             };
             _owner.Focus(NavigationMethod.Pointer);
             ClearSegments(segments, exceptIndex: -1);
-            _lastSelectionStart = null;
-            _lastSelectionEnd = null;
             _press = new PressState(
                 args.Pointer,
                 position,
@@ -725,7 +810,9 @@ internal sealed class MarkdownDocumentSelection
                 return;
             }
 
-
+            ClearActiveSelectionCoordinates();
+            if (hadSelection)
+                _owner.NotifySelectionChanged();
         }
 
         public void OnPointerMoved(object? sender, PointerEventArgs args)
@@ -792,7 +879,50 @@ internal sealed class MarkdownDocumentSelection
             _isDragging = false;
         }
 
-        private void OnLayoutUpdated(object? sender, EventArgs args) => _segments = null;
+        private void OnLayoutUpdated(object? sender, EventArgs args)
+        {
+            if (!_layoutUpdatePending)
+                return;
+
+            var documentChanged = _topologyInvalidated;
+            _layoutUpdatePending = false;
+            var previousSegments = _segments;
+            _segments = null;
+            if (!HasActiveSelection())
+            {
+                if (documentChanged)
+                    _owner.NotifySelectionDocumentChanged();
+                return;
+            }
+
+            var currentSegments = GetSegments();
+            if (TryRemapActiveSelection(
+                    currentSegments,
+                    out var start,
+                    out var end,
+                    out var selectionTopologyChanged))
+            {
+                if (selectionTopologyChanged || !IsSelectionApplied(currentSegments, start, end))
+                {
+                    ClearTrackedSelectionControls();
+                    ClearSegments(currentSegments, exceptIndex: -1);
+                    ApplySelectionToSegments(currentSegments, start, end);
+                }
+
+                SetActiveSelectionCoordinates(currentSegments, start, end);
+                if (selectionTopologyChanged)
+                    _owner.NotifySelectionChanged();
+                return;
+            }
+
+            ClearTrackedSelectionControls();
+            if (previousSegments is not null)
+                ClearSegments(previousSegments, exceptIndex: -1);
+            ClearSegments(currentSegments, exceptIndex: -1);
+            _owner.ClearSelection();
+            ClearActiveSelectionCoordinates();
+            _owner.NotifySelectionChanged();
+        }
 
         private async void OnKeyDown(object? sender, KeyEventArgs args)
         {
@@ -831,7 +961,7 @@ internal sealed class MarkdownDocumentSelection
             {
                 await CopyAsync(_owner);
             }
-            catch (Exception exception)
+            catch (Exception exception) when (MarkdownAsyncExceptionBoundary.IsRecoverable(exception))
             {
                 Trace.TraceWarning("Markdown selection could not be copied to the clipboard: {0}", exception);
             }
@@ -846,8 +976,36 @@ internal sealed class MarkdownDocumentSelection
         {
             _owner.ClearSelection();
             _owner.Focus(NavigationMethod.Pointer);
+            var selectionTopologyChanged = false;
+            if (HasActiveSelection())
+            {
+                if (TryRemapActiveSelection(
+                        segments,
+                        out var remappedStart,
+                        out var remappedEnd,
+                        out selectionTopologyChanged))
+                {
+                    if (selectionTopologyChanged)
+                    {
+                        ClearTrackedSelectionControls();
+                        ClearSegments(segments, exceptIndex: -1);
+                    }
+
+                    SetActiveSelectionCoordinates(segments, remappedStart, remappedEnd);
+                }
+                else
+                {
+                    selectionTopologyChanged = true;
+                    ClearTrackedSelectionControls();
+                    ClearSegments(segments, exceptIndex: -1);
+                    ClearActiveSelectionCoordinates();
+                }
+            }
             var start = Compare(anchor, focus) <= 0 ? anchor : focus;
             var end = Compare(anchor, focus) <= 0 ? focus : anchor;
+            var selectionChanged = selectionTopologyChanged || (HasActiveSelection()
+                ? !IsSameActiveSelection(start, end)
+                : Compare(start, end) != 0);
 
             var updateStart = start.SegmentIndex;
             var updateEnd = end.SegmentIndex;
@@ -872,10 +1030,129 @@ internal sealed class MarkdownDocumentSelection
                 segment.Control.SelectionEnd = endOffset;
             }
 
+            SetActiveSelectionCoordinates(segments, start, end);
+            if (selectionChanged)
+                _owner.NotifySelectionChanged();
+        }
+
+        private bool HasActiveSelection() =>
+            _lastSelectionStart is { } start &&
+            _lastSelectionEnd is { } end &&
+            Compare(start, end) != 0;
+
+        private bool IsSameActiveSelection(SelectionPoint start, SelectionPoint end) =>
+            HasActiveSelection() &&
+            _lastSelectionStart == start &&
+            _lastSelectionEnd == end;
+
+        private void SetActiveSelectionCoordinates(
+            IReadOnlyList<Segment> segments,
+            SelectionPoint start,
+            SelectionPoint end)
+        {
             _lastSelectionStart = start;
             _lastSelectionEnd = end;
+            _lastSelectionStartControl = segments[start.SegmentIndex].Control;
+            _lastSelectionEndControl = segments[end.SegmentIndex].Control;
+            _selectedControls.Clear();
+            for (var index = start.SegmentIndex; index <= end.SegmentIndex; index++)
+                _selectedControls.Add(segments[index].Control);
+        }
 
+        private void ClearActiveSelectionCoordinates()
+        {
+            _lastSelectionStart = null;
+            _lastSelectionEnd = null;
+            _lastSelectionStartControl = null;
+            _lastSelectionEndControl = null;
+            _selectedControls.Clear();
+        }
 
+        private bool TryRemapActiveSelection(
+            IReadOnlyList<Segment> segments,
+            out SelectionPoint start,
+            out SelectionPoint end,
+            out bool selectionTopologyChanged)
+        {
+            start = default;
+            end = default;
+            selectionTopologyChanged = false;
+            if (_lastSelectionStart is not { } previousStart ||
+                _lastSelectionEnd is not { } previousEnd ||
+                _lastSelectionStartControl is null ||
+                _lastSelectionEndControl is null)
+            {
+                return false;
+            }
+
+            var startIndex = FindSegmentIndex(segments, _lastSelectionStartControl);
+            var endIndex = FindSegmentIndex(segments, _lastSelectionEndControl);
+            if (startIndex < 0 || endIndex < 0)
+                return false;
+
+            start = new SelectionPoint(
+                startIndex,
+                Math.Clamp(previousStart.Offset, 0, segments[startIndex].Length));
+            end = new SelectionPoint(
+                endIndex,
+                Math.Clamp(previousEnd.Offset, 0, segments[endIndex].Length));
+            if (Compare(start, end) > 0)
+                (start, end) = (end, start);
+            if (Compare(start, end) == 0)
+                return false;
+
+            selectionTopologyChanged = previousStart.Offset != start.Offset ||
+                                       previousEnd.Offset != end.Offset ||
+                                       _selectedControls.Count != end.SegmentIndex - start.SegmentIndex + 1;
+            if (!selectionTopologyChanged)
+            {
+                for (var index = start.SegmentIndex; index <= end.SegmentIndex; index++)
+                {
+                    if (ReferenceEquals(_selectedControls[index - start.SegmentIndex], segments[index].Control))
+                        continue;
+
+                    selectionTopologyChanged = true;
+                    break;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool IsSelectionApplied(
+            IReadOnlyList<Segment> segments,
+            SelectionPoint start,
+            SelectionPoint end)
+        {
+            for (var index = start.SegmentIndex; index <= end.SegmentIndex; index++)
+            {
+                var segment = segments[index];
+                var expectedStart = index == start.SegmentIndex ? start.Offset : 0;
+                var expectedEnd = index == end.SegmentIndex ? end.Offset : segment.Length;
+                if (segment.Control.SelectionStart != expectedStart || segment.Control.SelectionEnd != expectedEnd)
+                    return false;
+            }
+
+            return true;
+        }
+
+        private static void ApplySelectionToSegments(
+            IReadOnlyList<Segment> segments,
+            SelectionPoint start,
+            SelectionPoint end)
+        {
+            for (var index = start.SegmentIndex; index <= end.SegmentIndex; index++)
+            {
+                var segment = segments[index];
+                segment.Control.SelectionStart = index == start.SegmentIndex ? start.Offset : 0;
+                segment.Control.SelectionEnd = index == end.SegmentIndex ? end.Offset : segment.Length;
+            }
+        }
+
+        private void ClearTrackedSelectionControls()
+        {
+            for (var index = 0; index < _selectedControls.Count; index++)
+                _selectedControls[index].ClearSelection();
         }
 
         private void UpdateSelection(Point position)
@@ -920,9 +1197,12 @@ internal sealed class MarkdownDocumentSelection
             ApplySelection(segments, anchor, focus);
         }
 
-        private static Point GetLocalPosition(Segment segment, Point ownerPosition) => new(
-            ownerPosition.X - segment.Bounds.X,
-            ownerPosition.Y - segment.Bounds.Y);
+        private static Point GetLocalPosition(Segment segment, Point ownerPosition) =>
+            segment.OwnerToLocalTransform is { } transform
+                ? transform.Transform(ownerPosition)
+                : new Point(
+                    ownerPosition.X - segment.Bounds.X,
+                    ownerPosition.Y - segment.Bounds.Y);
 
         private void UpdateAutoScroll(PointerEventArgs args)
         {
@@ -1018,9 +1298,11 @@ internal sealed class MarkdownDocumentSelection
             if (_segments is not null)
                 return _segments;
 
-            _segmentLengths ??= new Dictionary<SelectableTextBlock, int>();
+            if (_topologyInvalidated)
+                ClearTopologySubscriptions();
+
             var candidates = new List<SegmentCandidate>();
-            AppendInlineSegmentControls(_owner, _owner.Inlines, default, candidates);
+            AppendInlineSegmentControls(_owner, _owner.Inlines, default, candidates, _owner.IsVisible);
             var seen = new HashSet<SelectableTextBlock>();
             var segments = new List<Segment>();
 
@@ -1031,16 +1313,36 @@ internal sealed class MarkdownDocumentSelection
                     continue;
 
                 RegisterSegment(control);
-                if (!_segmentLengths.TryGetValue(control, out var length))
-                {
-                    length = GetTextLength(control);
-                    _segmentLengths.Add(control, length);
-                }
+                var length = GetTextLength(control);
 
                 if (length > 0)
-                    segments.Add(new Segment(control, new Rect(candidate.Origin, ResolveSegmentSize(control)), length));
+                {
+                    var localBounds = new Rect(ResolveSegmentSize(control));
+                    var localToOwnerTransform = control.TransformToVisual(_owner);
+                    if (localToOwnerTransform is { } transform && transform.TryInvert(out var ownerToLocalTransform))
+                    {
+                        segments.Add(new Segment(
+                            control,
+                            localBounds.TransformToAABB(transform),
+                            localBounds,
+                            ownerToLocalTransform,
+                            length));
+                    }
+                    else
+                    {
+                        var origin = control.TranslatePoint(default, _owner) ?? candidate.Origin;
+                        segments.Add(new Segment(
+                            control,
+                            new Rect(origin, localBounds.Size),
+                            localBounds,
+                            null,
+                            length));
+                    }
+                }
             }
 
+            _topologyInvalidated = false;
+            _segmentSnapshotVersion++;
             _segments = segments;
             return _segments;
         }
@@ -1058,33 +1360,39 @@ internal sealed class MarkdownDocumentSelection
                 Math.Max(control.Bounds.Height, Math.Max(control.DesiredSize.Height, layoutHeight)));
         }
 
-        private static void AppendInlineSegmentControls(
+        private void AppendInlineSegmentControls(
             TextBlock textBlock,
             InlineCollection? inlines,
             Point textBlockOrigin,
-            ICollection<SegmentCandidate> candidates)
+            ICollection<SegmentCandidate> candidates,
+            bool ancestorsVisible)
         {
+            ObserveObject(textBlock);
             if (inlines is null)
                 return;
 
+            ObserveCollection(inlines);
             var textPosition = 0;
             AppendInlineSegmentControls(
                 textBlock,
                 inlines,
                 textBlockOrigin,
                 candidates,
+                ancestorsVisible,
                 ref textPosition);
         }
 
-        private static void AppendInlineSegmentControls(
+        private void AppendInlineSegmentControls(
             TextBlock textBlock,
             InlineCollection inlines,
             Point textBlockOrigin,
             ICollection<SegmentCandidate> candidates,
+            bool ancestorsVisible,
             ref int textPosition)
         {
             foreach (var inline in inlines)
             {
+                ObserveObject(inline);
                 switch (inline)
                 {
                     case Run run:
@@ -1099,6 +1407,7 @@ internal sealed class MarkdownDocumentSelection
                             span.Inlines,
                             textBlockOrigin,
                             candidates,
+                            ancestorsVisible,
                             ref textPosition);
                         break;
                     case InlineUIContainer { Child: { } child }:
@@ -1106,49 +1415,143 @@ internal sealed class MarkdownDocumentSelection
                         var childOrigin = textBlockOrigin + new Vector(
                             textBlock.Padding.Left + inlineBounds.X,
                             textBlock.Padding.Top + inlineBounds.Y);
-                        AppendSegmentControls(child, childOrigin, candidates);
+                        AppendSegmentControls(child, childOrigin, candidates, ancestorsVisible);
                         textPosition++;
                         break;
                 }
             }
         }
 
-        private static void AppendSegmentControls(
+        private void AppendSegmentControls(
             Control control,
             Point origin,
-            ICollection<SegmentCandidate> candidates)
+            ICollection<SegmentCandidate> candidates,
+            bool ancestorsVisible)
         {
-            if (!control.IsVisible)
-                return;
+            ObserveObject(control);
+            var isVisible = ancestorsVisible && control.IsVisible;
 
-            if (control is SelectableTextBlock selectable and not MarkdownTextBlock)
+            if (isVisible && control is SelectableTextBlock selectable and not MarkdownTextBlock)
                 candidates.Add(new SegmentCandidate(selectable, origin));
 
             if (control is TextBlock { Inlines: { } inlines })
-                AppendInlineSegmentControls((TextBlock)control, inlines, origin, candidates);
+                AppendInlineSegmentControls((TextBlock)control, inlines, origin, candidates, isVisible);
 
             switch (control)
             {
                 case Panel panel:
+                    ObserveCollection(panel.Children);
                     foreach (var child in panel.Children)
                         AppendSegmentControls(
                             child,
                             origin + (Vector)child.Bounds.Position,
-                            candidates);
+                            candidates,
+                            isVisible);
                     break;
                 case Decorator { Child: { } child }:
                     AppendSegmentControls(
                         child,
                         origin + (Vector)child.Bounds.Position,
-                        candidates);
+                        candidates,
+                        isVisible);
                     break;
                 case ContentControl { Content: Control child }:
                     AppendSegmentControls(
                         child,
                         origin + (Vector)child.Bounds.Position,
-                        candidates);
+                        candidates,
+                        isVisible);
                     break;
             }
+        }
+
+        private void ObserveObject(AvaloniaObject item)
+        {
+            if (_observedObjects.Add(item))
+                item.PropertyChanged += OnObservedPropertyChanged;
+
+            if (item is Visual visual)
+                SynchronizeTransformSubscription(visual);
+        }
+
+        private void ObserveCollection(object collection)
+        {
+            if (collection is not INotifyCollectionChanged observable || !_observedCollections.Add(observable))
+                return;
+
+            observable.CollectionChanged += OnObservedCollectionChanged;
+        }
+
+        private void OnObservedPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs args)
+        {
+            if (args.Property == Visual.IsVisibleProperty ||
+                args.Property == TextBlock.TextProperty ||
+                args.Property == TextBlock.InlinesProperty ||
+                args.Property == Decorator.ChildProperty ||
+                args.Property == ContentControl.ContentProperty ||
+                args.Property == Run.TextProperty ||
+                args.Property == Span.InlinesProperty ||
+                args.Property == InlineUIContainer.ChildProperty)
+            {
+                InvalidateTopology();
+                return;
+            }
+
+            if (args.Property == Visual.RenderTransformProperty && sender is Visual visual)
+                SynchronizeTransformSubscription(visual);
+
+            if (args.Property == Visual.BoundsProperty ||
+                args.Property == Visual.RenderTransformProperty ||
+                args.Property == Visual.RenderTransformOriginProperty)
+            {
+                InvalidateLayout();
+            }
+        }
+
+        private void SynchronizeTransformSubscription(Visual visual)
+        {
+            var transform = visual.RenderTransform as Transform;
+            if (_observedTransforms.TryGetValue(visual, out var observed))
+            {
+                if (ReferenceEquals(observed, transform))
+                    return;
+
+                observed.Changed -= OnObservedTransformChanged;
+                _observedTransforms.Remove(visual);
+            }
+
+            if (transform is null)
+                return;
+
+            transform.Changed += OnObservedTransformChanged;
+            _observedTransforms.Add(visual, transform);
+        }
+
+        private void OnObservedTransformChanged(object? sender, EventArgs args) => InvalidateLayout();
+
+        private void OnObservedCollectionChanged(object? sender, NotifyCollectionChangedEventArgs args) =>
+            InvalidateTopology();
+
+        private void InvalidateTopology()
+        {
+            ClearTopologySubscriptions();
+            _topologyInvalidated = true;
+            InvalidateLayout();
+        }
+
+        private void ClearTopologySubscriptions()
+        {
+            foreach (var transform in _observedTransforms.Values)
+                transform.Changed -= OnObservedTransformChanged;
+            _observedTransforms.Clear();
+
+            foreach (var item in _observedObjects)
+                item.PropertyChanged -= OnObservedPropertyChanged;
+            _observedObjects.Clear();
+
+            foreach (var collection in _observedCollections)
+                collection.CollectionChanged -= OnObservedCollectionChanged;
+            _observedCollections.Clear();
         }
 
         private bool IsDuplicatePointerEvent(RoutedEventArgs args)
@@ -1247,6 +1650,42 @@ internal sealed class MarkdownDocumentSelection
         private static string GetSourceText(SelectableTextBlock control) =>
             control.Text ?? GetInlineText(control.Inlines);
 
+        private static bool HasSourceText(SelectableTextBlock control)
+        {
+            if (control.Text is { Length: > 0 } text)
+            {
+                foreach (var character in text)
+                {
+                    if (character != '\uFFFC')
+                        return true;
+                }
+
+                return false;
+            }
+
+            return HasInlineText(control.Inlines);
+        }
+
+        private static bool HasInlineText(InlineCollection? inlines)
+        {
+            if (inlines is null)
+                return false;
+
+            foreach (var inline in inlines)
+            {
+                switch (inline)
+                {
+                    case Run { Text.Length: > 0 }:
+                    case LineBreak:
+                        return true;
+                    case Span span when HasInlineText(span.Inlines):
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
         private static string GetSelectedText(SelectableTextBlock control)
         {
             var source = GetSourceText(control);
@@ -1337,9 +1776,17 @@ internal sealed class MarkdownDocumentSelection
             var nearestHorizontalDistance = double.MaxValue;
             for (var index = 0; index < segments.Count; index++)
             {
-                var bounds = segments[index].Bounds;
+                var segment = segments[index];
+                var bounds = segment.Bounds;
                 if (bounds.Contains(point))
-                    return index;
+                {
+                    if (segment.LocalBounds.Contains(GetLocalPosition(segment, point)))
+                        return index;
+
+                    // A transformed rectangle may leave empty space inside its axis-aligned bounds.
+                    // Do not reinterpret that visual hole as a zero-distance nearest hit.
+                    continue;
+                }
 
                 if (!allowNearest)
                     continue;
@@ -1463,7 +1910,12 @@ internal sealed class MarkdownDocumentSelection
             return horizontal * horizontal + vertical * vertical;
         }
 
-        private readonly record struct Segment(SelectableTextBlock Control, Rect Bounds, int Length);
+        private readonly record struct Segment(
+            SelectableTextBlock Control,
+            Rect Bounds,
+            Rect LocalBounds,
+            Matrix? OwnerToLocalTransform,
+            int Length);
 
         private readonly record struct SegmentCandidate(SelectableTextBlock Control, Point Origin);
 

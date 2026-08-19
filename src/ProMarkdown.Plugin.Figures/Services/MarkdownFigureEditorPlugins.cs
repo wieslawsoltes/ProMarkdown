@@ -190,10 +190,12 @@ internal static class MarkdownFigureEditorUiFactory
 
     private static Border CreatePreviewHost(MarkdownEditorPluginContext context)
     {
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         return new Border
         {
-            Background = MarkdownEditorUiFactory.SectionBackground,
-            BorderBrush = MarkdownEditorUiFactory.BorderBrush,
+            Background = palette.SurfaceRaised,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? new Thickness(8, 6) : new Thickness(10)
@@ -215,11 +217,13 @@ internal static class MarkdownFigureEditorUiFactory
 
     private static void ApplyCardEditorStyle(TextBox textBox, MarkdownEditorPluginContext context, bool metadata)
     {
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         textBox.FontSize = metadata ? Math.Max(context.RenderContext.FontSize - 1, 12) : context.RenderContext.FontSize;
         textBox.FontFamily = context.RenderContext.FontFamily;
-        textBox.Foreground = context.RenderContext.Foreground ?? MarkdownEditorUiFactory.EditorForeground;
-        textBox.Background = MarkdownEditorUiFactory.InputBackground;
-        textBox.BorderBrush = MarkdownEditorUiFactory.BorderBrush;
+        textBox.Foreground = palette.Foreground;
+        textBox.Background = palette.SurfaceRaised;
+        textBox.BorderBrush = palette.Border;
         textBox.BorderThickness = new Thickness(1);
         textBox.CornerRadius = new CornerRadius(metadata ? 6 : 10);
         textBox.Padding = metadata ? new Thickness(8, 6) : new Thickness(12, 10);

@@ -95,6 +95,8 @@ internal static class MarkdownAlertEditorUiFactory
     public static Control CreateEditor(MarkdownEditorPluginContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
 
         var draft = CreateDraft(context.SourceText);
         var kindComboBox = new ComboBox
@@ -103,8 +105,9 @@ internal static class MarkdownAlertEditorUiFactory
             SelectedItem = MarkdownAlertSyntax.ResolveKindOption(draft.Kind),
             MinWidth = 180,
             HorizontalAlignment = HorizontalAlignment.Left,
-            Background = MarkdownEditorUiFactory.InputBackground,
-            BorderBrush = MarkdownEditorUiFactory.BorderBrush,
+            Background = palette.SurfaceRaised,
+            Foreground = palette.Foreground,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             Padding = new Thickness(8, 6)
         };
@@ -120,9 +123,9 @@ internal static class MarkdownAlertEditorUiFactory
         {
             bodyEditor.FontSize = context.RenderContext.FontSize;
             bodyEditor.FontFamily = context.RenderContext.FontFamily;
-            bodyEditor.Foreground = context.RenderContext.Foreground ?? MarkdownEditorUiFactory.EditorForeground;
-            bodyEditor.Background = MarkdownEditorUiFactory.InputBackground;
-            bodyEditor.BorderBrush = MarkdownEditorUiFactory.BorderBrush;
+            bodyEditor.Foreground = palette.Foreground;
+            bodyEditor.Background = palette.SurfaceRaised;
+            bodyEditor.BorderBrush = palette.Border;
             bodyEditor.BorderThickness = new Thickness(1);
             bodyEditor.CornerRadius = new CornerRadius(10);
             bodyEditor.Padding = new Thickness(12, 10);
@@ -187,10 +190,12 @@ internal static class MarkdownAlertEditorUiFactory
 
     private static Border CreatePreviewHost(MarkdownEditorPluginContext context)
     {
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         return new Border
         {
-            Background = MarkdownEditorUiFactory.SectionBackground,
-            BorderBrush = MarkdownEditorUiFactory.BorderBrush,
+            Background = palette.SurfaceRaised,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = context.PresentationMode == MarkdownEditorPresentationMode.Inline ? new Thickness(8, 6) : new Thickness(10)

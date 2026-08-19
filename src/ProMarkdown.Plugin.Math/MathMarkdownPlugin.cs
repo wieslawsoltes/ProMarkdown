@@ -53,7 +53,7 @@ internal sealed class MathBlockRenderingPlugin : IMarkdownBlockRenderingPlugin
         var view = MarkdownMathRendering.CreateBlockView(
             MarkdownMathParser.ParseBlock(math),
             context.RenderContext);
-        context.AddBlockControl(MathMarkdownSurfaceFactory.CreateBlockCallout(view));
+        context.AddBlockControl(MathMarkdownSurfaceFactory.CreateBlockCallout(view, context.RenderContext));
         return true;
     }
 }
@@ -132,14 +132,11 @@ internal static class MathMarkdownSyntax
 
 internal static class MathMarkdownSurfaceFactory
 {
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush AccentBrush = new SolidColorBrush(Color.Parse("#7C3AED"));
-    private static readonly IBrush Background = new SolidColorBrush(Color.Parse("#F5F3FF"));
-    private static readonly IBrush SubtitleBrush = new SolidColorBrush(Color.Parse("#6E6E6E"));
-
-    public static Control CreateBlockCallout(Control body)
+    public static Control CreateBlockCallout(Control body, MarkdownRenderContext renderContext)
     {
         ArgumentNullException.ThrowIfNull(body);
+        ArgumentNullException.ThrowIfNull(renderContext);
+        var palette = renderContext.ThemePalette ?? MarkdownThemePalette.Resolve(renderContext.Foreground);
 
         var contentPanel = new StackPanel
         {
@@ -151,14 +148,14 @@ internal static class MathMarkdownSurfaceFactory
                 {
                     Text = "Math",
                     FontWeight = FontWeight.SemiBold,
-                    Foreground = AccentBrush,
+                    Foreground = palette.ImportantAccent,
                     TextWrapping = TextWrapping.Wrap
                 },
                 new TextBlock
                 {
                     Text = "Block formula",
                     FontSize = 12,
-                    Foreground = SubtitleBrush,
+                    Foreground = palette.MutedForeground,
                     TextWrapping = TextWrapping.Wrap
                 },
                 body
@@ -177,7 +174,7 @@ internal static class MathMarkdownSurfaceFactory
         layout.Children.Add(new Border
         {
             Width = 4,
-            Background = AccentBrush
+            Background = palette.ImportantAccent
         });
 
         Grid.SetColumn(contentPanel, 1);
@@ -185,8 +182,8 @@ internal static class MathMarkdownSurfaceFactory
 
         return new Border
         {
-            Background = Background,
-            BorderBrush = SurfaceBorderBrush,
+            Background = palette.ImportantBackground,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,

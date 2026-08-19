@@ -9,32 +9,27 @@ public readonly record struct MarkdownCalloutPresentation(string Title, IBrush A
 
 public static class MarkdownCalloutRendering
 {
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush SubtitleBrush = new SolidColorBrush(Color.Parse("#6E6E6E"));
-    private static readonly IBrush NeutralCalloutAccentBrush = new SolidColorBrush(Color.Parse("#64748B"));
-    private static readonly IBrush NeutralCalloutBackground = new SolidColorBrush(Color.Parse("#F8FAFC"));
-    private static readonly IBrush NoteAccentBrush = new SolidColorBrush(Color.Parse("#2563EB"));
-    private static readonly IBrush NoteBackground = new SolidColorBrush(Color.Parse("#EFF6FF"));
-    private static readonly IBrush SuccessAccentBrush = new SolidColorBrush(Color.Parse("#059669"));
-    private static readonly IBrush SuccessBackground = new SolidColorBrush(Color.Parse("#ECFDF5"));
-    private static readonly IBrush WarningAccentBrush = new SolidColorBrush(Color.Parse("#D97706"));
-    private static readonly IBrush WarningBackground = new SolidColorBrush(Color.Parse("#FFFBEB"));
-    private static readonly IBrush DangerAccentBrush = new SolidColorBrush(Color.Parse("#DC2626"));
-    private static readonly IBrush DangerBackground = new SolidColorBrush(Color.Parse("#FEF2F2"));
-    private static readonly IBrush ImportantAccentBrush = new SolidColorBrush(Color.Parse("#7C3AED"));
-    private static readonly IBrush ImportantBackground = new SolidColorBrush(Color.Parse("#F5F3FF"));
+    public static Control CreateCalloutSurface(
+        string title,
+        string? subtitle,
+        Control body,
+        IBrush accentBrush,
+        IBrush background) =>
+        CreateCalloutSurface(title, subtitle, body, accentBrush, background, MarkdownThemePalette.Light);
 
     public static Control CreateCalloutSurface(
         string title,
         string? subtitle,
         Control body,
         IBrush accentBrush,
-        IBrush background)
+        IBrush background,
+        MarkdownThemePalette palette)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentNullException.ThrowIfNull(body);
         ArgumentNullException.ThrowIfNull(accentBrush);
         ArgumentNullException.ThrowIfNull(background);
+        ArgumentNullException.ThrowIfNull(palette);
 
         var contentPanel = new StackPanel
         {
@@ -56,7 +51,7 @@ public static class MarkdownCalloutRendering
             {
                 Text = subtitle,
                 FontSize = 12,
-                Foreground = SubtitleBrush,
+                Foreground = palette.MutedForeground,
                 TextWrapping = TextWrapping.Wrap
             });
         }
@@ -84,7 +79,7 @@ public static class MarkdownCalloutRendering
         return new Border
         {
             Background = background,
-            BorderBrush = SurfaceBorderBrush,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,
@@ -92,22 +87,29 @@ public static class MarkdownCalloutRendering
         };
     }
 
-    public static MarkdownCalloutPresentation ResolvePresentation(string? kind, string fallbackTitle)
+    public static MarkdownCalloutPresentation ResolvePresentation(string? kind, string fallbackTitle) =>
+        ResolvePresentation(kind, fallbackTitle, MarkdownThemePalette.Light);
+
+    public static MarkdownCalloutPresentation ResolvePresentation(
+        string? kind,
+        string fallbackTitle,
+        MarkdownThemePalette palette)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fallbackTitle);
+        ArgumentNullException.ThrowIfNull(palette);
 
         var normalizedKind = kind?.Trim().ToLowerInvariant();
         var title = string.IsNullOrWhiteSpace(kind) ? fallbackTitle : FormatLabel(kind);
 
         return normalizedKind switch
         {
-            "caution" => new MarkdownCalloutPresentation(title, DangerAccentBrush, DangerBackground),
-            "warning" => new MarkdownCalloutPresentation(title, WarningAccentBrush, WarningBackground),
-            "danger" or "error" => new MarkdownCalloutPresentation(title, DangerAccentBrush, DangerBackground),
-            "important" => new MarkdownCalloutPresentation(title, ImportantAccentBrush, ImportantBackground),
-            "success" or "tip" => new MarkdownCalloutPresentation(title, SuccessAccentBrush, SuccessBackground),
-            "info" or "note" => new MarkdownCalloutPresentation(title, NoteAccentBrush, NoteBackground),
-            _ => new MarkdownCalloutPresentation(title, NeutralCalloutAccentBrush, NeutralCalloutBackground)
+            "caution" => new MarkdownCalloutPresentation(title, palette.CautionAccent, palette.CautionBackground),
+            "warning" => new MarkdownCalloutPresentation(title, palette.WarningAccent, palette.WarningBackground),
+            "danger" or "error" => new MarkdownCalloutPresentation(title, palette.CautionAccent, palette.CautionBackground),
+            "important" => new MarkdownCalloutPresentation(title, palette.ImportantAccent, palette.ImportantBackground),
+            "success" or "tip" => new MarkdownCalloutPresentation(title, palette.TipAccent, palette.TipBackground),
+            "info" or "note" => new MarkdownCalloutPresentation(title, palette.NoteAccent, palette.NoteBackground),
+            _ => new MarkdownCalloutPresentation(title, palette.MutedForeground, palette.SurfaceRaised)
         };
     }
 

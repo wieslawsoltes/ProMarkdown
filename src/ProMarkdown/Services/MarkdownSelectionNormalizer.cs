@@ -85,7 +85,7 @@ internal static class MarkdownSelectionNormalizer
             {
                 FontFamily = context.FontFamily,
                 FontSize = context.FontSize,
-                Foreground = context.Foreground,
+                Foreground = (context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground)).Foreground,
                 Inlines = segmentInlines,
                 TextWrapping = TextWrapping.Wrap
             };

@@ -136,7 +136,7 @@ internal static class MarkdownBlockQuoteNormalizer
             {
                 FontFamily = context.FontFamily,
                 FontSize = context.FontSize,
-                Foreground = context.Foreground,
+                Foreground = (context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground)).Foreground,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Inlines = line.Content,
                 Margin = new Thickness(0, GetTopSpacing(lines, row, context.FontSize), 0, 0),

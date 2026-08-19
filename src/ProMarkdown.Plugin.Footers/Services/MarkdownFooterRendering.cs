@@ -9,12 +9,6 @@ namespace ProMarkdown.Plugin.Footers;
 
 internal static class MarkdownFooterRendering
 {
-    private static readonly IBrush BorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush HeaderForeground = new SolidColorBrush(Color.Parse("#64748B"));
-    private static readonly IBrush DiagnosticBorderBrush = new SolidColorBrush(Color.Parse("#FECACA"));
-    private static readonly IBrush DiagnosticBackground = new SolidColorBrush(Color.Parse("#FEF2F2"));
-    private static readonly IBrush DiagnosticForeground = new SolidColorBrush(Color.Parse("#B42318"));
-    private static readonly IBrush PlaceholderForeground = new SolidColorBrush(Color.Parse("#6E6E6E"));
     private static readonly IReadOnlyList<IMarkdownPlugin> NestedPlugins =
     [
         new FootersMarkdownPlugin()
@@ -38,12 +32,12 @@ internal static class MarkdownFooterRendering
 
         if (document.Diagnostics.Count > 0)
         {
-            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics));
+            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics, ResolvePalette(renderContext)));
         }
 
         return new Border
         {
-            BorderBrush = BorderBrush,
+            BorderBrush = ResolvePalette(renderContext).Border,
             BorderThickness = new Thickness(0, 1, 0, 0),
             Padding = new Thickness(0, 10, 0, 0),
             Child = new StackPanel
@@ -54,7 +48,7 @@ internal static class MarkdownFooterRendering
                     new TextBlock
                     {
                         Text = "Footer",
-                        Foreground = HeaderForeground,
+                        Foreground = ResolvePalette(renderContext).MutedForeground,
                         FontWeight = FontWeight.SemiBold
                     },
                     content
@@ -70,12 +64,14 @@ internal static class MarkdownFooterRendering
             return new TextBlock
             {
                 Text = "Add footer content to render a preview.",
-                Foreground = PlaceholderForeground,
+                Foreground = ResolvePalette(renderContext).MutedForeground,
                 TextWrapping = TextWrapping.Wrap
             };
         }
 
-        return new MarkdownTextBlock
+        var palette = ResolvePalette(renderContext);
+        var footerPalette = palette.WithForeground(palette.MutedForeground);
+        var control = new MarkdownTextBlock
         {
             BaseUri = renderContext.BaseUri,
             RenderController = NestedRenderController,
@@ -84,15 +80,19 @@ internal static class MarkdownFooterRendering
             EditorPresentationMode = MarkdownEditorPresentationMode.Inline,
             FontSize = Math.Max(renderContext.FontSize - 1, 11),
             FontFamily = renderContext.FontFamily,
-            Foreground = HeaderForeground,
-            ThemePalette = renderContext.ThemePalette,
+            Foreground = palette.MutedForeground,
+            ThemePalette = footerPalette,
+            ImageOptions = renderContext.ImageOptions,
+            ImageLoader = renderContext.ImageLoader,
             TextWrapping = renderContext.TextWrapping,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Markdown = markdown
         };
+        renderContext.TrackNestedRendering(control);
+        return control;
     }
 
-    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownFooterDiagnostic> diagnostics)
+    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownFooterDiagnostic> diagnostics, MarkdownThemePalette palette)
     {
         var panel = new StackPanel
         {
@@ -104,7 +104,7 @@ internal static class MarkdownFooterRendering
             panel.Children.Add(new TextBlock
             {
                 Text = diagnostic.Message,
-                Foreground = DiagnosticForeground,
+                Foreground = palette.CautionAccent,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -112,12 +112,15 @@ internal static class MarkdownFooterRendering
 
         return new Border
         {
-            Background = DiagnosticBackground,
-            BorderBrush = DiagnosticBorderBrush,
+            Background = palette.CautionBackground,
+            BorderBrush = palette.CautionAccent,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10, 8),
             Child = panel
         };
     }
+
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
 }
