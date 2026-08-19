@@ -1,8 +1,8 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
@@ -33,29 +33,17 @@ namespace ProMarkdown.Services;
 
 public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingService
 {
-    private static readonly HttpClient HttpClient = new();
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private static readonly IBrush LinkForeground = new SolidColorBrush(Color.Parse("#0A56C2"));
-    private static readonly IBrush QuoteForeground = new SolidColorBrush(Color.Parse("#6E6E6E"));
-    private static readonly IBrush CodeBackground = new SolidColorBrush(Color.Parse("#EEF1F5"));
-    private static readonly IBrush SurfaceBackground = new SolidColorBrush(Color.Parse("#F6F8FA"));
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush QuoteAccentBrush = new SolidColorBrush(Color.Parse("#D8DEE4"));
-    private static readonly IBrush CodeTextForeground = new SolidColorBrush(Color.Parse("#1F2328"));
-    private static readonly IBrush MarkedTextBackground = new SolidColorBrush(Color.Parse("#FFF1B8"));
-    private static readonly IBrush InsertedTextForeground = new SolidColorBrush(Color.Parse("#116329"));
-    private static readonly IBrush CodeKeywordForeground = new SolidColorBrush(Color.Parse("#CF222E"));
-    private static readonly IBrush CodeTypeForeground = new SolidColorBrush(Color.Parse("#8250DF"));
-    private static readonly IBrush CodeStringForeground = new SolidColorBrush(Color.Parse("#0A3069"));
-    private static readonly IBrush CodeCommentForeground = new SolidColorBrush(Color.Parse("#6E7781"));
-    private static readonly IBrush CodeNumberForeground = new SolidColorBrush(Color.Parse("#0550AE"));
-    private static readonly IBrush CodePropertyForeground = new SolidColorBrush(Color.Parse("#953800"));
-    private static readonly IBrush CodeTagForeground = new SolidColorBrush(Color.Parse("#1A7F37"));
-    private static readonly IBrush CodeAttributeForeground = new SolidColorBrush(Color.Parse("#9A6700"));
-    private static readonly IBrush CodePunctuationForeground = new SolidColorBrush(Color.Parse("#57606A"));
-    private static readonly IBrush CodeHeaderBackground = new SolidColorBrush(Color.Parse("#EAEEF2"));
-    private static readonly IBrush TableHeaderBackground = new SolidColorBrush(Color.Parse("#F3F4F6"));
-    private static readonly IBrush TableAlternateRowBackground = new SolidColorBrush(Color.Parse("#FBFCFD"));
+    // Retained only by the legacy, currently unused built-in highlighter helpers below.
+    private static readonly IBrush CodeKeywordForeground = MarkdownThemePalette.Light.CodeKeywordForeground;
+    private static readonly IBrush CodeTypeForeground = MarkdownThemePalette.Light.CodeTypeForeground;
+    private static readonly IBrush CodeStringForeground = MarkdownThemePalette.Light.CodeStringForeground;
+    private static readonly IBrush CodeCommentForeground = MarkdownThemePalette.Light.CodeCommentForeground;
+    private static readonly IBrush CodeNumberForeground = MarkdownThemePalette.Light.CodeNumberForeground;
+    private static readonly IBrush CodePropertyForeground = MarkdownThemePalette.Light.CodePropertyForeground;
+    private static readonly IBrush CodeTagForeground = MarkdownThemePalette.Light.CodeTagForeground;
+    private static readonly IBrush CodeAttributeForeground = MarkdownThemePalette.Light.CodeAttributeForeground;
+    private static readonly IBrush CodePunctuationForeground = MarkdownThemePalette.Light.CodePunctuationForeground;
     private static readonly IReadOnlyDictionary<SmartyPantType, string> SmartyPantMapping =
         new Dictionary<SmartyPantType, string>(
             new SmartyPantOptions()
@@ -196,7 +184,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 break;
             case ThematicBreakBlock:
                 AppendQuotePrefix(blockState);
-                AppendStyledRun(blockState.Output, "────────────────────────────────", sourceObject: blockState.SourceObject, fontWeight: FontWeight.Medium, foreground: QuoteForeground);
+                AppendStyledRun(blockState.Output, "────────────────────────────────", sourceObject: blockState.SourceObject, fontWeight: FontWeight.Medium, foreground: blockState.Palette.MutedForeground);
                 break;
             case CustomContainer customContainer:
                 RenderCustomContainerBlock(customContainer, blockState);
@@ -356,7 +344,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         var headingSpan = new Span
         {
             FontWeight = FontWeight.SemiBold,
-            FontSize = ResolveHeadingSize(state.Options.FontSize, heading.Level)
+            FontSize = ResolveHeadingSize(state.Options.FontSize, heading.Level),
+            Foreground = state.Palette.Foreground
         };
         AttachElementInfo(headingSpan, state.SourceObject, MarkdownRenderedElementKind.Text);
 
@@ -549,8 +538,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
 
         var tableBorder = new MarkdownRichBlockBorder
         {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
+            Background = state.Palette.SurfaceRaised,
+            BorderBrush = state.Palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,
@@ -610,11 +599,11 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return new MarkdownRichBlockBorder
         {
             Background = isHeader
-                ? TableHeaderBackground
+                ? state.Palette.TableHeaderBackground
                 : rowIndex % 2 == 0
                     ? Brushes.Transparent
-                    : TableAlternateRowBackground,
-            BorderBrush = SurfaceBorderBrush,
+                    : state.Palette.TableAlternateRowBackground,
+            BorderBrush = state.Palette.Border,
             BorderThickness = new Thickness(0, 0, columnIndex == columnCount - 1 ? 0 : 1, 1),
             Padding = new Thickness(12, 8),
             Child = CreateTableCellContent(
@@ -641,7 +630,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         {
             FontSize = state.Options.FontSize,
             FontFamily = state.Options.FontFamily,
-            Foreground = state.Options.Foreground,
+            Foreground = state.Palette.Foreground,
             FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal,
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = alignment switch
@@ -793,15 +782,15 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             languageHint,
             lineCount == 1 ? "1 line" : $"{lineCount} lines",
             state.Options,
-            textForeground: CodeTextForeground,
-            metaForeground: QuoteForeground);
+            textForeground: state.Palette.Foreground,
+            metaForeground: state.Palette.MutedForeground);
 
         AddRichBlockControl(state, surface.Control, surface.HitTestHandler);
     }
 
     private static void RenderAlertBlock(AlertBlock alert, RenderState state)
     {
-        var presentation = MarkdownCalloutRendering.ResolvePresentation(alert.Kind.ToString(), fallbackTitle: "Alert");
+        var presentation = MarkdownCalloutRendering.ResolvePresentation(alert.Kind.ToString(), fallbackTitle: "Alert", state.Palette);
         var body = CreateRenderedTextBlock(
             state,
             alert,
@@ -814,7 +803,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 subtitle: null,
                 body,
                 presentation.AccentBrush,
-                presentation.Background));
+                presentation.Background,
+                state.Palette));
     }
 
     private static void RenderDefinitionList(DefinitionList definitionList, RenderState state)
@@ -901,7 +891,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         var subtitle = string.IsNullOrWhiteSpace(customContainer.Arguments)
             ? null
             : customContainer.Arguments.Trim();
-        var presentation = MarkdownCalloutRendering.ResolvePresentation(customContainer.Info, fallbackTitle: label);
+        var presentation = MarkdownCalloutRendering.ResolvePresentation(customContainer.Info, fallbackTitle: label, state.Palette);
         var body = CreateRenderedTextBlock(
             state,
             customContainer,
@@ -914,7 +904,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 subtitle,
                 body,
                 presentation.AccentBrush,
-                presentation.Background));
+                presentation.Background,
+                state.Palette));
     }
 
     private static void RenderFigureBlock(Figure figure, RenderState state)
@@ -959,7 +950,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 caption,
                 nestedState => RenderLeafFallback(caption, nestedState.WithSource(caption)),
                 fontSize: Math.Max(state.Options.FontSize - 1, 11),
-                foreground: QuoteForeground,
+                foreground: state.Palette.MutedForeground,
                 textAlignment: TextAlignment.Center));
         }
 
@@ -972,8 +963,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             state,
             new Border
             {
-                Background = SurfaceBackground,
-                BorderBrush = SurfaceBorderBrush,
+                Background = state.Palette.SurfaceRaised,
+                BorderBrush = state.Palette.Border,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12),
@@ -993,7 +984,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     figureCaption,
                     nestedState => RenderLeafFallback(figureCaption, nestedState.WithSource(figureCaption)),
                     fontSize: Math.Max(state.Options.FontSize - 1, 11),
-                    foreground: QuoteForeground,
+                    foreground: state.Palette.MutedForeground,
                     textAlignment: TextAlignment.Center)
             });
     }
@@ -1004,7 +995,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             state,
             new Border
             {
-                BorderBrush = SurfaceBorderBrush,
+                BorderBrush = state.Palette.Border,
                 BorderThickness = new Thickness(0, 1, 0, 0),
                 Padding = new Thickness(0, 10, 0, 0),
                 Child = CreateRenderedTextBlock(
@@ -1012,7 +1003,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     footerBlock,
                     nestedState => RenderBlockSequence(footerBlock, nestedState, lineBreaksBetweenBlocks: 1),
                     fontSize: Math.Max(state.Options.FontSize - 1, 11),
-                    foreground: QuoteForeground)
+                    foreground: state.Palette.MutedForeground)
             });
     }
 
@@ -1022,7 +1013,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         AppendListIndent(state, extraDepth: 0);
 
         var html = NormalizeMarkdownLineText(htmlBlock.Lines.ToString());
-        AppendStyledRun(state.Output, html, sourceObject: state.SourceObject, fontFamily: MonospaceFamily, foreground: QuoteForeground);
+        AppendStyledRun(state.Output, html, sourceObject: state.SourceObject, fontFamily: MonospaceFamily, foreground: state.Palette.MutedForeground);
     }
 
     private static void RenderYamlFrontMatterBlock(YamlFrontMatterBlock yamlFrontMatterBlock, RenderState state)
@@ -1036,8 +1027,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             languageHint: "yaml",
             metaText: "Front matter",
             state.Options,
-            textForeground: CodeTextForeground,
-            metaForeground: QuoteForeground);
+            textForeground: state.Palette.Foreground,
+            metaForeground: state.Palette.MutedForeground);
 
         AddRichBlockControl(state, surface.Control, surface.HitTestHandler);
     }
@@ -1056,18 +1047,18 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
 
         AppendQuotePrefix(state);
         AppendListIndent(state, extraDepth: 0);
-        AppendStyledRun(state.Output, "────────────────────────────────", sourceObject: state.SourceObject, fontWeight: FontWeight.Medium, foreground: QuoteForeground);
+        AppendStyledRun(state.Output, "────────────────────────────────", sourceObject: state.SourceObject, fontWeight: FontWeight.Medium, foreground: state.Palette.MutedForeground);
         AppendLineBreaks(state.Output, 1, state.SourceObject);
         AppendQuotePrefix(state);
         AppendListIndent(state, extraDepth: 0);
-        AppendStyledRun(state.Output, "Footnotes", sourceObject: state.SourceObject, fontWeight: FontWeight.SemiBold, foreground: QuoteForeground);
+        AppendStyledRun(state.Output, "Footnotes", sourceObject: state.SourceObject, fontWeight: FontWeight.SemiBold, foreground: state.Palette.MutedForeground);
 
         foreach (var footnote in footnotes)
         {
             AppendLineBreaks(state.Output, 1, state.SourceObject);
             AppendQuotePrefix(state);
             AppendListIndent(state, extraDepth: 0);
-            AppendStyledRun(state.Output, $"[{footnote.Order}] ", sourceObject: footnote, fontWeight: FontWeight.SemiBold, foreground: LinkForeground);
+            AppendStyledRun(state.Output, $"[{footnote.Order}] ", sourceObject: footnote, fontWeight: FontWeight.SemiBold, foreground: state.Palette.HyperlinkForeground);
             RenderFootnoteContent(footnote, state.WithListDepth(state.ListDepth + 1));
         }
     }
@@ -1189,7 +1180,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             title,
             sourceObject: sourceObject,
             fontWeight: FontWeight.SemiBold,
-            foreground: QuoteForeground);
+            foreground: state.Palette.MutedForeground);
         AppendLineBreaks(state.Output, 1, sourceObject);
     }
 
@@ -1204,13 +1195,13 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     definition.Url,
                     state,
                     fontFamily: MonospaceFamily,
-                    foreground: LinkForeground)
+                    foreground: state.Palette.HyperlinkForeground)
             }
         };
 
         if (!string.IsNullOrWhiteSpace(definition.Title))
         {
-            body.Children.Add(CreateMetadataBodyTextBlock(definition.Title, state, foreground: QuoteForeground));
+            body.Children.Add(CreateMetadataBodyTextBlock(definition.Title, state, foreground: state.Palette.MutedForeground));
         }
 
         AddRichBlockControl(
@@ -1218,7 +1209,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             CreateMetadataCard(
                 $"[{definition.Label}]",
                 "Reference definition",
-                body));
+                body,
+                state.Palette));
     }
 
     private static void RenderAbbreviationDefinition(Abbreviation abbreviation, RenderState state)
@@ -1237,7 +1229,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             CreateMetadataCard(
                 abbreviation.Label ?? "Abbreviation",
                 "Abbreviation definition",
-                body));
+                body,
+                state.Palette));
     }
 
     private static void RenderLeafFallback(LeafBlock leafBlock, RenderState state)
@@ -1309,7 +1302,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     codeInline.Content,
                     sourceObject: inlineState.SourceObject,
                     fontFamily: MonospaceFamily,
-                    background: CodeBackground);
+                    background: inlineState.Palette.InlineCodeBackground);
                 break;
             case LineBreakInline:
                 AppendLineBreaks(output, 1, inlineState.SourceObject);
@@ -1335,7 +1328,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 AppendStyledRun(output, ResolveSmartyPantText(smartyPant), sourceObject: inlineState.SourceObject);
                 break;
             case HtmlInline htmlInline:
-                AppendStyledRun(output, htmlInline.Tag, sourceObject: inlineState.SourceObject, fontFamily: MonospaceFamily, foreground: QuoteForeground);
+                AppendStyledRun(output, htmlInline.Tag, sourceObject: inlineState.SourceObject, fontFamily: MonospaceFamily, foreground: inlineState.Palette.MutedForeground);
                 break;
             case HtmlEntityInline htmlEntity:
                 AppendStyledRun(output, htmlEntity.Transcoded.ToString(), sourceObject: inlineState.SourceObject);
@@ -1419,7 +1412,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         {
             var marked = new Span
             {
-                Background = MarkedTextBackground,
+                Background = state.Palette.MarkedTextBackground,
                 FontWeight = FontWeight.Medium
             };
             AttachElementInfo(marked, state.SourceObject, MarkdownRenderedElementKind.Text);
@@ -1433,7 +1426,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         {
             var inserted = new Span
             {
-                Foreground = InsertedTextForeground,
+                Foreground = state.Palette.InsertedTextForeground,
                 TextDecorations = Avalonia.Media.TextDecorations.Underline
             };
             AttachElementInfo(inserted, state.SourceObject, MarkdownRenderedElementKind.Text);
@@ -1497,7 +1490,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     state,
                     BaselineAlignment.Baseline,
                     fontWeight: FontWeight.Medium,
-                    background: MarkedTextBackground,
+                    background: state.Palette.MarkedTextBackground,
                     padding: new Thickness(2, 0));
                 return;
             case '+' when emphasisDelimiter.DelimiterCount >= 2:
@@ -1506,7 +1499,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     text,
                     state,
                     BaselineAlignment.Baseline,
-                    foreground: InsertedTextForeground,
+                    foreground: state.Palette.InsertedTextForeground,
                     textDecorations: Avalonia.Media.TextDecorations.Underline);
                 return;
             default:
@@ -1568,7 +1561,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         var fallbackText = ExtractInlineText(link);
         var fallbackSpan = new Span
         {
-            Foreground = LinkForeground,
+            Foreground = state.Palette.HyperlinkForeground,
             TextDecorations = Avalonia.Media.TextDecorations.Underline
         };
         AttachElementInfo(fallbackSpan, state.SourceObject, MarkdownRenderedElementKind.Text);
@@ -1584,7 +1577,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         if (!string.IsNullOrWhiteSpace(url) &&
             !string.Equals(fallbackText.Trim(), url.Trim(), StringComparison.OrdinalIgnoreCase))
         {
-            AppendStyledRun(output, $" ({url})", sourceObject: state.SourceObject, foreground: QuoteForeground);
+            AppendStyledRun(output, $" ({url})", sourceObject: state.SourceObject, foreground: state.Palette.MutedForeground);
         }
     }
 
@@ -1621,7 +1614,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
 
         var span = new Span
         {
-            Foreground = LinkForeground,
+            Foreground = state.Palette.HyperlinkForeground,
             TextDecorations = Avalonia.Media.TextDecorations.Underline
         };
         AttachElementInfo(span, state.SourceObject, MarkdownRenderedElementKind.Text);
@@ -1639,7 +1632,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             sourceObject: state.SourceObject,
             fontWeight: FontWeight.SemiBold,
             fontSize: Math.Max(state.Options.FontSize - 2, 10),
-            foreground: LinkForeground);
+            foreground: state.Palette.HyperlinkForeground);
     }
 
     private static void AppendHyperlinkInline(InlineCollection output, string text, RenderState state)
@@ -1653,7 +1646,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
     {
         var hyperlinkSpan = new Span
         {
-            Foreground = LinkForeground,
+            Foreground = state.Palette.HyperlinkForeground,
             TextDecorations = Avalonia.Media.TextDecorations.Underline
         };
         return AttachElementInfo(hyperlinkSpan, state.SourceObject, MarkdownRenderedElementKind.Text);
@@ -1823,7 +1816,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         {
             FontFamily = fontFamily ?? parentState.Options.FontFamily,
             FontSize = fontSize ?? parentState.Options.FontSize,
-            Foreground = foreground ?? parentState.Options.Foreground,
+            Foreground = foreground ?? parentState.Palette.Foreground,
             TextWrapping = parentState.Options.TextWrapping == TextWrapping.NoWrap ? TextWrapping.NoWrap : TextWrapping.Wrap,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             TextAlignment = textAlignment,
@@ -1856,7 +1849,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             Text = text,
             FontSize = fontSize ?? state.Options.FontSize,
             FontFamily = fontFamily ?? state.Options.FontFamily,
-            Foreground = foreground ?? state.Options.Foreground,
+            Foreground = foreground ?? state.Palette.Foreground,
             Background = Brushes.Transparent,
             TextWrapping = TextWrapping.NoWrap
         };
@@ -1903,7 +1896,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         {
             Margin = new Thickness(state.ListDepth * 24d, 4, 0, 4),
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Child = state.QuoteDepth > 0 ? CreateQuoteDecoratedBlock(content, state.QuoteDepth) : content
+            Child = state.QuoteDepth > 0 ? CreateQuoteDecoratedBlock(content, state.QuoteDepth, state.Palette) : content
         };
         MarkdownRenderedElementMetadata.SetStretchesToDocumentWidth(host, true);
         return host;
@@ -1934,7 +1927,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return inlines;
     }
 
-    private static Control CreateQuoteDecoratedBlock(Control content, int quoteDepth)
+    private static Control CreateQuoteDecoratedBlock(Control content, int quoteDepth, MarkdownThemePalette palette)
     {
         var grid = new Grid
         {
@@ -1959,7 +1952,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             {
                 Width = 3,
                 CornerRadius = new CornerRadius(2),
-                Background = QuoteAccentBrush
+                Background = palette.QuoteBorder
             });
         }
 
@@ -1969,11 +1962,15 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return grid;
     }
 
-    private static Control CreateMetadataCard(string title, string subtitle, Control body)
+    private static Control CreateMetadataCard(
+        string title,
+        string subtitle,
+        Control body,
+        MarkdownThemePalette palette)
     {
         var header = new Border
         {
-            Background = CodeHeaderBackground,
+            Background = palette.CodeHeaderBackground,
             Padding = new Thickness(12, 8),
             Child = new StackPanel
             {
@@ -1983,12 +1980,13 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                     new TextBlock
                     {
                         Text = title,
-                        FontWeight = FontWeight.SemiBold
+                        FontWeight = FontWeight.SemiBold,
+                        Foreground = palette.Foreground
                     },
                     new TextBlock
                     {
                         Text = subtitle,
-                        Foreground = QuoteForeground
+                        Foreground = palette.MutedForeground
                     }
                 }
             }
@@ -2010,8 +2008,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
 
         return new MarkdownRichBlockBorder
         {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
+            Background = palette.SurfaceRaised,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,
@@ -2032,13 +2030,18 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             TextWrapping = state.Options.TextWrapping == TextWrapping.NoWrap ? TextWrapping.NoWrap : TextWrapping.Wrap,
             FontFamily = fontFamily ?? state.Options.FontFamily,
             FontSize = state.Options.FontSize,
-            Foreground = foreground ?? state.Options.Foreground
+            Foreground = foreground ?? state.Palette.Foreground
         };
     }
 
-    private static void PopulateHighlightedCodeInlines(InlineCollection output, string code, string? languageHint, MarkdownObject? sourceObject)
+    private static void PopulateHighlightedCodeInlines(
+        InlineCollection output,
+        string code,
+        string? languageHint,
+        MarkdownObject? sourceObject,
+        MarkdownThemePalette palette)
     {
-        var highlightedLines = HighlightCode(code, languageHint);
+        var highlightedLines = HighlightCode(code, languageHint, palette);
         for (var lineIndex = 0; lineIndex < highlightedLines.Count; lineIndex++)
         {
             foreach (var span in highlightedLines[lineIndex].Spans)
@@ -2233,7 +2236,10 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return false;
     }
 
-    private static List<HighlightedCodeLine> HighlightCode(string code, string? languageHint)
+    private static List<HighlightedCodeLine> HighlightCode(
+        string code,
+        string? languageHint,
+        MarkdownThemePalette palette)
     {
         var normalized = NormalizeLanguageHint(languageHint);
         var lines = code.Split('\n', StringSplitOptions.None);
@@ -2244,11 +2250,11 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
 
         return ResolveCodeLanguageFamily(normalized) switch
         {
-            CodeLanguageFamily.Json => HighlightJson(lines),
-            CodeLanguageFamily.Markup => HighlightMarkup(lines),
-            CodeLanguageFamily.Shell => HighlightShell(lines),
-            CodeLanguageFamily.Sql => HighlightSql(lines),
-            CodeLanguageFamily.CStyle => HighlightCStyle(lines),
+            CodeLanguageFamily.Json => HighlightJson(lines, palette),
+            CodeLanguageFamily.Markup => HighlightMarkup(lines, palette),
+            CodeLanguageFamily.Shell => HighlightShell(lines, palette),
+            CodeLanguageFamily.Sql => HighlightSql(lines, palette),
+            CodeLanguageFamily.CStyle => HighlightCStyle(lines, palette),
             _ => HighlightPlainText(lines)
         };
     }
@@ -2260,7 +2266,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             .ToList();
     }
 
-    private static List<HighlightedCodeLine> HighlightCStyle(IReadOnlyList<string> lines)
+    private static List<HighlightedCodeLine> HighlightCStyle(IReadOnlyList<string> lines, MarkdownThemePalette palette)
     {
         var highlighted = new List<HighlightedCodeLine>(lines.Count);
         var inBlockComment = false;
@@ -2343,7 +2349,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 {
                     var end = ConsumeIdentifier(line, index);
                     var word = line[index..end];
-                    var (foreground, fontWeight) = ClassifyCodeIdentifier(word);
+                    var (foreground, fontWeight) = ClassifyCodeIdentifier(word, palette);
                     AddHighlightedSpan(spans, word, foreground, fontWeight);
                     index = end;
                     continue;
@@ -2362,7 +2368,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return highlighted;
     }
 
-    private static List<HighlightedCodeLine> HighlightJson(IReadOnlyList<string> lines)
+    private static List<HighlightedCodeLine> HighlightJson(IReadOnlyList<string> lines, MarkdownThemePalette palette)
     {
         var highlighted = new List<HighlightedCodeLine>(lines.Count);
 
@@ -2420,7 +2426,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return highlighted;
     }
 
-    private static List<HighlightedCodeLine> HighlightMarkup(IReadOnlyList<string> lines)
+    private static List<HighlightedCodeLine> HighlightMarkup(IReadOnlyList<string> lines, MarkdownThemePalette palette)
     {
         var highlighted = new List<HighlightedCodeLine>(lines.Count);
         var inComment = false;
@@ -2572,7 +2578,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return highlighted;
     }
 
-    private static List<HighlightedCodeLine> HighlightShell(IReadOnlyList<string> lines)
+    private static List<HighlightedCodeLine> HighlightShell(IReadOnlyList<string> lines, MarkdownThemePalette palette)
     {
         var highlighted = new List<HighlightedCodeLine>(lines.Count);
 
@@ -2637,7 +2643,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return highlighted;
     }
 
-    private static List<HighlightedCodeLine> HighlightSql(IReadOnlyList<string> lines)
+    private static List<HighlightedCodeLine> HighlightSql(IReadOnlyList<string> lines, MarkdownThemePalette palette)
     {
         var highlighted = new List<HighlightedCodeLine>(lines.Count);
         var inBlockComment = false;
@@ -2721,7 +2727,9 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         return highlighted;
     }
 
-    private static (IBrush? Foreground, FontWeight? FontWeight) ClassifyCodeIdentifier(string word)
+    private static (IBrush? Foreground, FontWeight? FontWeight) ClassifyCodeIdentifier(
+        string word,
+        MarkdownThemePalette palette)
     {
         if (LiteralWords.Contains(word))
         {
@@ -2928,7 +2936,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
 
         for (var index = 0; index < state.QuoteDepth; index++)
         {
-            AppendStyledRun(state.Output, "│ ", sourceObject: state.SourceObject, fontWeight: FontWeight.SemiBold, foreground: QuoteForeground);
+            AppendStyledRun(state.Output, "│ ", sourceObject: state.SourceObject, fontWeight: FontWeight.SemiBold, foreground: state.Palette.MutedForeground);
         }
     }
 
@@ -3054,8 +3062,8 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
     {
         return new Border
         {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
+            Background = ResolvePalette(context).SurfaceRaised,
+            BorderBrush = ResolvePalette(context).Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(8),
@@ -3078,12 +3086,12 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             Text = altText,
             FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap,
-            Foreground = context.Foreground
+            Foreground = ResolvePalette(context).Foreground
         });
         panel.Children.Add(new TextBlock
         {
             Text = status,
-            Foreground = QuoteForeground,
+            Foreground = ResolvePalette(context).MutedForeground,
             TextWrapping = TextWrapping.Wrap
         });
 
@@ -3095,7 +3103,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
                 Text = originalUrl,
                 FontFamily = MonospaceFamily,
                 FontSize = Math.Max(context.FontSize - 1, 11),
-                Foreground = QuoteForeground,
+                Foreground = ResolvePalette(context).MutedForeground,
                 TextWrapping = TextWrapping.Wrap
             });
         }
@@ -3126,7 +3134,7 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             {
                 Text = altText,
                 FontSize = Math.Max(context.FontSize - 1, 11),
-                Foreground = QuoteForeground,
+                Foreground = ResolvePalette(context).MutedForeground,
                 TextWrapping = TextWrapping.Wrap
             });
         }
@@ -3141,105 +3149,139 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
             : DefaultMaxImageWidth;
     }
 
-    private static void LoadImageIntoHost(Border host, Uri imageUri, string altText, string? originalUrl, MarkdownRenderContext context)
-    {
-        if (imageUri.IsFile)
-        {
-            LoadFileImage(host, imageUri, altText, originalUrl, context);
-            return;
-        }
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
 
-        if (string.Equals(imageUri.Scheme, "data", StringComparison.OrdinalIgnoreCase))
-        {
-            LoadDataUriImage(host, imageUri, altText, originalUrl, context);
-            return;
-        }
-
-        if (string.Equals(imageUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(imageUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        {
-            _ = LoadRemoteImageAsync(host, imageUri, altText, originalUrl, context);
-            return;
-        }
-
-        SetImageContent(host, CreateImageStatusContent(altText, originalUrl, $"Unsupported image source: {imageUri.Scheme}", context));
-    }
-
-    private static void LoadFileImage(Border host, Uri imageUri, string altText, string? originalUrl, MarkdownRenderContext context)
-    {
-        if (!File.Exists(imageUri.LocalPath))
-        {
-            SetImageContent(host, CreateImageStatusContent(altText, originalUrl, "Image file not found.", context));
-            return;
-        }
-
-        try
-        {
-            var bitmap = new Bitmap(imageUri.LocalPath);
-            ApplyLoadedImage(host, bitmap, altText, context);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or InvalidOperationException)
-        {
-            SetImageContent(host, CreateImageStatusContent(altText, originalUrl, $"Unable to load image ({ex.Message}).", context));
-        }
-    }
-
-    private static void LoadDataUriImage(Border host, Uri imageUri, string altText, string? originalUrl, MarkdownRenderContext context)
-    {
-        var uriText = imageUri.OriginalString;
-        var commaIndex = uriText.IndexOf(',');
-        if (commaIndex < 0)
-        {
-            SetImageContent(host, CreateImageStatusContent(altText, originalUrl, "Invalid data URI image.", context));
-            return;
-        }
-
-        var metadata = uriText[..commaIndex];
-        if (!metadata.EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
-        {
-            SetImageContent(host, CreateImageStatusContent(altText, originalUrl, "Only base64 data URI images are supported.", context));
-            return;
-        }
-
-        try
-        {
-            var bytes = Convert.FromBase64String(uriText[(commaIndex + 1)..]);
-            using var memoryStream = new MemoryStream(bytes);
-            var bitmap = new Bitmap(memoryStream);
-            ApplyLoadedImage(host, bitmap, altText, context);
-        }
-        catch (Exception ex) when (ex is FormatException or ArgumentException or NotSupportedException or InvalidOperationException)
-        {
-            SetImageContent(host, CreateImageStatusContent(altText, originalUrl, $"Unable to decode image ({ex.Message}).", context));
-        }
-    }
-
-    private static async Task LoadRemoteImageAsync(Border host, Uri imageUri, string altText, string? originalUrl, MarkdownRenderContext context)
+    private static async void LoadImageIntoHost(Border host, Uri imageUri, string altText, string? originalUrl, MarkdownRenderContext context)
     {
         try
         {
-            using var response = await HttpClient.GetAsync(imageUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
-
-            await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            using var memoryStream = new MemoryStream();
-            await stream.CopyToAsync(memoryStream).ConfigureAwait(false);
-            memoryStream.Position = 0;
-
-            var bitmap = new Bitmap(memoryStream);
-            await Dispatcher.UIThread.InvokeAsync(() => ApplyLoadedImage(host, bitmap, altText, context));
+            await LoadImageAsync(host, imageUri, altText, originalUrl, context);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or InvalidOperationException)
+        catch (Exception exception)
+        {
+            MarkdownAsyncExceptionBoundary.ReportNonRecoverable(exception);
+        }
+    }
+
+    private static async Task LoadImageAsync(
+        Border host,
+        Uri imageUri,
+        string altText,
+        string? originalUrl,
+        MarkdownRenderContext context)
+    {
+        IDisposable? operation = null;
+        Bitmap? bitmap = null;
+        try
+        {
+            operation = context.BeginAsyncOperation();
+            MarkdownImagePolicy.ValidateRequest(imageUri, context.ImageOptions);
+            var loadTask = StartImageLoadTask(
+                context.ImageLoader,
+                new MarkdownImageLoadRequest
+                {
+                    Source = imageUri,
+                    Options = context.ImageOptions
+                },
+                context.CancellationToken);
+            bitmap = await AwaitImageLoadAsync(loadTask, context.CancellationToken).ConfigureAwait(false);
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!context.IsCurrentRender(context.RenderGeneration) || context.CancellationToken.IsCancellationRequested)
+                    return;
+                ApplyLoadedImage(host, bitmap, altText, context);
+                bitmap = null;
+            });
+        }
+        catch (OperationCanceledException) when (context.CancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception) when (MarkdownAsyncExceptionBoundary.IsRecoverable(exception))
+        {
+            Trace.TraceWarning("A Markdown image could not be loaded: {0}", exception);
+            await TryShowImageFailureAsync(host, altText, originalUrl, exception, context).ConfigureAwait(false);
+        }
+        finally
+        {
+            bitmap?.Dispose();
+            operation?.Dispose();
+        }
+    }
+
+    private static Task<Bitmap> StartImageLoadTask(
+        IMarkdownImageLoader loader,
+        MarkdownImageLoadRequest request,
+        CancellationToken cancellationToken) =>
+        Task.Run(
+            () => loader.LoadAsync(request, cancellationToken),
+            CancellationToken.None);
+
+    private static async Task<Bitmap> AwaitImageLoadAsync(
+        Task<Bitmap> loadTask,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await loadTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            ObserveAbandonedImageLoad(loadTask);
+            throw;
+        }
+    }
+
+    private static async void ObserveAbandonedImageLoad(Task<Bitmap> loadTask)
+    {
+        Bitmap? bitmap = null;
+        try
+        {
+            bitmap = await loadTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception exception) when (MarkdownAsyncExceptionBoundary.IsRecoverable(exception))
+        {
+            Trace.TraceWarning("An abandoned Markdown image loader failed after cancellation: {0}", exception);
+        }
+        catch (Exception exception)
+        {
+            MarkdownAsyncExceptionBoundary.ReportNonRecoverable(exception);
+        }
+        finally
+        {
+            bitmap?.Dispose();
+        }
+    }
+
+    private static async Task TryShowImageFailureAsync(
+        Border host,
+        string altText,
+        string? originalUrl,
+        Exception exception,
+        MarkdownRenderContext context)
+    {
+        try
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!context.IsCurrentRender(context.RenderGeneration))
-                {
+                if (!context.IsCurrentRender(context.RenderGeneration) || context.CancellationToken.IsCancellationRequested)
                     return;
-                }
-
-                SetImageContent(host, CreateImageStatusContent(altText, originalUrl, $"Unable to load image ({ex.Message}).", context));
+                SetImageContent(
+                    host,
+                    CreateImageStatusContent(
+                        altText,
+                        originalUrl,
+                        $"Unable to load image ({exception.Message}).",
+                        context));
             });
+        }
+        catch (Exception displayException) when (MarkdownAsyncExceptionBoundary.IsRecoverable(displayException))
+        {
+            Trace.TraceWarning("A Markdown image error state could not be displayed: {0}", displayException);
         }
     }
 
@@ -3287,6 +3329,9 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         public MarkdownParseResult ParseResult { get; } = parseResult;
 
         public MarkdownRenderContext Options { get; } = options;
+
+        public MarkdownThemePalette Palette { get; } =
+            options.ThemePalette ?? MarkdownThemePalette.Resolve(options.Foreground);
 
         public InlineCollection Output { get; } = output;
 

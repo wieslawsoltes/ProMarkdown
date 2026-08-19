@@ -8,6 +8,13 @@ namespace ProMarkdown.Services;
 /// </summary>
 public sealed class MarkdownThemePalette
 {
+    private IBrush _foreground = Brush("#1F2328");
+
+    /// <summary>Initializes a Markdown theme palette with the built-in light values.</summary>
+    public MarkdownThemePalette()
+    {
+    }
+
     /// <summary>Gets the built-in light Markdown palette.</summary>
     public static MarkdownThemePalette Light { get; } = CreateLight();
 
@@ -18,7 +25,11 @@ public sealed class MarkdownThemePalette
     public bool IsDark { get; init; }
 
     /// <summary>Gets or initializes the primary content foreground.</summary>
-    public IBrush Foreground { get; init; } = Brush("#1F2328");
+    public IBrush Foreground
+    {
+        get => _foreground;
+        init => _foreground = value;
+    }
 
     /// <summary>Gets or initializes the secondary content foreground.</summary>
     public IBrush MutedForeground { get; init; } = Brush("#57606A");
@@ -116,9 +127,28 @@ public sealed class MarkdownThemePalette
     /// <summary>Gets or initializes the syntax punctuation foreground.</summary>
     public IBrush CodePunctuationForeground { get; init; } = Brush("#57606A");
 
-    /// <summary>Returns the built-in palette appropriate for the supplied foreground.</summary>
-    public static MarkdownThemePalette Resolve(IBrush? foreground) =>
-        IsLightForeground(foreground) ? Dark : Light;
+    /// <summary>
+    /// Returns a palette appropriate for the supplied foreground while preserving that brush as the
+    /// primary content foreground.
+    /// </summary>
+    public static MarkdownThemePalette Resolve(IBrush? foreground)
+    {
+        var basis = IsLightForeground(foreground) ? Dark : Light;
+        return foreground is null ? basis : basis.WithForeground(foreground);
+    }
+
+    /// <summary>
+    /// Creates a palette that preserves every semantic brush except the primary content foreground.
+    /// </summary>
+    /// <param name="foreground">The primary content foreground for the derived palette.</param>
+    /// <returns>A derived palette with the requested primary foreground.</returns>
+    public MarkdownThemePalette WithForeground(IBrush foreground)
+    {
+        ArgumentNullException.ThrowIfNull(foreground);
+        var result = (MarkdownThemePalette)MemberwiseClone();
+        result._foreground = foreground;
+        return result;
+    }
 
     private static MarkdownThemePalette CreateLight() => new();
 

@@ -9,15 +9,6 @@ namespace ProMarkdown.Plugin.Figures;
 
 internal static class MarkdownFigureRendering
 {
-    private static readonly IBrush SurfaceBackground = new SolidColorBrush(Color.Parse("#F8FAFC"));
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush HeaderBackground = new SolidColorBrush(Color.Parse("#EFF6FF"));
-    private static readonly IBrush HeaderBorderBrush = new SolidColorBrush(Color.Parse("#BFDBFE"));
-    private static readonly IBrush CaptionForeground = new SolidColorBrush(Color.Parse("#6E6E6E"));
-    private static readonly IBrush AccentBrush = new SolidColorBrush(Color.Parse("#2563EB"));
-    private static readonly IBrush DiagnosticBorderBrush = new SolidColorBrush(Color.Parse("#FECACA"));
-    private static readonly IBrush DiagnosticBackground = new SolidColorBrush(Color.Parse("#FEF2F2"));
-    private static readonly IBrush DiagnosticForeground = new SolidColorBrush(Color.Parse("#B42318"));
     private static readonly IReadOnlyList<IMarkdownPlugin> NestedPlugins =
     [
         new FiguresMarkdownPlugin()
@@ -49,13 +40,13 @@ internal static class MarkdownFigureRendering
 
         if (document.Diagnostics.Count > 0)
         {
-            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics));
+            content.Children.Add(CreateDiagnosticsPanel(document.Diagnostics, ResolvePalette(renderContext)));
         }
 
         return new Border
         {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
+            Background = ResolvePalette(renderContext).SurfaceRaised,
+            BorderBrush = ResolvePalette(renderContext).Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(14),
@@ -68,7 +59,7 @@ internal static class MarkdownFigureRendering
                     {
                         Text = "Figure",
                         FontWeight = FontWeight.SemiBold,
-                        Foreground = AccentBrush
+                        Foreground = ResolvePalette(renderContext).Accent
                     },
                     content
                 }
@@ -80,8 +71,8 @@ internal static class MarkdownFigureRendering
     {
         return new Border
         {
-            Background = HeaderBackground,
-            BorderBrush = HeaderBorderBrush,
+            Background = ResolvePalette(renderContext).NoteBackground,
+            BorderBrush = ResolvePalette(renderContext).NoteAccent,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12, 8),
@@ -91,7 +82,9 @@ internal static class MarkdownFigureRendering
 
     private static Control CreateCaptionView(string markdown, MarkdownRenderContext renderContext, FontWeight fontWeight)
     {
-        return new MarkdownTextBlock
+        var palette = ResolvePalette(renderContext);
+        var captionPalette = palette.WithForeground(palette.MutedForeground);
+        var control = new MarkdownTextBlock
         {
             BaseUri = renderContext.BaseUri,
             RenderController = NestedRenderController,
@@ -101,13 +94,17 @@ internal static class MarkdownFigureRendering
             FontSize = Math.Max(renderContext.FontSize - 1, 11),
             FontFamily = renderContext.FontFamily,
             FontWeight = fontWeight,
-            Foreground = CaptionForeground,
-            ThemePalette = renderContext.ThemePalette,
+            Foreground = palette.MutedForeground,
+            ThemePalette = captionPalette,
+            ImageOptions = renderContext.ImageOptions,
+            ImageLoader = renderContext.ImageLoader,
             TextWrapping = renderContext.TextWrapping,
             TextAlignment = TextAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Markdown = markdown
         };
+        renderContext.TrackNestedRendering(control);
+        return control;
     }
 
     private static Control CreateBodyView(string markdown, MarkdownRenderContext renderContext)
@@ -117,37 +114,42 @@ internal static class MarkdownFigureRendering
             return new TextBlock
             {
                 Text = "Add figure body content to render a preview.",
-                Foreground = CaptionForeground,
+                Foreground = ResolvePalette(renderContext).MutedForeground,
                 FontStyle = FontStyle.Italic,
                 TextWrapping = TextWrapping.Wrap
             };
         }
 
+        var control = new MarkdownTextBlock
+        {
+            BaseUri = renderContext.BaseUri,
+            RenderController = NestedRenderController,
+            EditingService = NestedEditingService,
+            IsEditingEnabled = false,
+            EditorPresentationMode = MarkdownEditorPresentationMode.Inline,
+            FontSize = renderContext.FontSize,
+            FontFamily = renderContext.FontFamily,
+            Foreground = ResolvePalette(renderContext).Foreground,
+            ThemePalette = renderContext.ThemePalette,
+            ImageOptions = renderContext.ImageOptions,
+            ImageLoader = renderContext.ImageLoader,
+            TextWrapping = renderContext.TextWrapping,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Markdown = markdown
+        };
+        renderContext.TrackNestedRendering(control);
+
         return new Border
         {
-            BorderBrush = SurfaceBorderBrush,
+            BorderBrush = ResolvePalette(renderContext).Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(12, 10),
-            Child = new MarkdownTextBlock
-            {
-                BaseUri = renderContext.BaseUri,
-                RenderController = NestedRenderController,
-                EditingService = NestedEditingService,
-                IsEditingEnabled = false,
-                EditorPresentationMode = MarkdownEditorPresentationMode.Inline,
-                FontSize = renderContext.FontSize,
-                FontFamily = renderContext.FontFamily,
-                Foreground = renderContext.Foreground,
-                ThemePalette = renderContext.ThemePalette,
-                TextWrapping = renderContext.TextWrapping,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Markdown = markdown
-            }
+            Child = control
         };
     }
 
-    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownFigureDiagnostic> diagnostics)
+    private static Control CreateDiagnosticsPanel(IReadOnlyList<MarkdownFigureDiagnostic> diagnostics, MarkdownThemePalette palette)
     {
         var panel = new StackPanel
         {
@@ -159,7 +161,7 @@ internal static class MarkdownFigureRendering
             panel.Children.Add(new TextBlock
             {
                 Text = diagnostic.Message,
-                Foreground = DiagnosticForeground,
+                Foreground = palette.CautionAccent,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             });
@@ -167,12 +169,15 @@ internal static class MarkdownFigureRendering
 
         return new Border
         {
-            Background = DiagnosticBackground,
-            BorderBrush = DiagnosticBorderBrush,
+            Background = palette.CautionBackground,
+            BorderBrush = palette.CautionAccent,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(10, 8),
             Child = panel
         };
     }
+
+    private static MarkdownThemePalette ResolvePalette(MarkdownRenderContext context) =>
+        context.ThemePalette ?? MarkdownThemePalette.Resolve(context.Foreground);
 }

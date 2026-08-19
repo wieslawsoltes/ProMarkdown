@@ -1,4 +1,6 @@
+using System.Buffers.Binary;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
@@ -7,10 +9,13 @@ using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ProMarkdown.Controls;
 using ProMarkdown.Services;
@@ -23,6 +28,831 @@ namespace ProMarkdown.Tests;
 
 public sealed class MarkdownRenderingTests
 {
+    [AvaloniaFact]
+    public async Task FatalImageLoaderFailuresReachTheDispatcherExceptionBoundary()
+    {
+        var observed = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs args)
+        {
+            if (args.Exception is not OutOfMemoryException)
+                return;
+            args.Handled = true;
+            observed.TrySetResult(args.Exception);
+        }
+
+        Dispatcher.UIThread.UnhandledException += OnUnhandledException;
+        try
+        {
+            var control = new MarkdownTextBlock
+            {
+                ImageLoader = new FatalImageLoader()
+            };
+            control.Markdown = "![diagram](https://example.com/diagram.png)";
+
+            var exception = await observed.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+
+            exception.Message.ShouldBe("fatal image failure");
+        }
+        finally
+        {
+            Dispatcher.UIThread.UnhandledException -= OnUnhandledException;
+        }
+    }
+
+    [AvaloniaFact]
+    public void SelectionCommandsAndDocumentTextTrackDocumentSelection()
+    {
+        var control = CreateMarkdown("First paragraph.\n\nSecond paragraph.");
+        var notifications = 0;
+        control.SelectionChanged += (_, _) => notifications++;
+
+        var documentText = MarkdownSelection.GetDocumentText(control);
+        documentText.ShouldContain("First paragraph.");
+        documentText.ShouldContain("Second paragraph.");
+        control.CanCopyDocumentSelection.ShouldBeFalse();
+        control.CopySelectionCommand.CanExecute(null).ShouldBeFalse();
+
+        _ = control.SelectAllCommand.CanExecute(null);
+        var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        var selectAllEnabled = true;
+        for (var iteration = 0; iteration < 100; iteration++)
+            selectAllEnabled &= control.SelectAllCommand.CanExecute(null);
+        var allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+        selectAllEnabled.ShouldBeTrue();
+        allocatedBytes.ShouldBe(0);
+
+        control.SelectAllCommand.Execute(null);
+
+        control.CanCopyDocumentSelection.ShouldBeTrue();
+        ((SelectableTextBlock)control).CanCopy.ShouldBeFalse();
+        control.CopySelectionCommand.CanExecute(null).ShouldBeTrue();
+        MarkdownSelection.GetSelectedText(control).Replace("\r\n", "\n", StringComparison.Ordinal)
+            .ShouldBe(documentText.Replace("\r\n", "\n", StringComparison.Ordinal));
+        MarkdownSelection.GetDocumentText(control).ShouldBe(documentText);
+        notifications.ShouldBeGreaterThan(0);
+    }
+
+    [AvaloniaFact]
+    public void DetachingRaisesCopyCommandStateChanged()
+    {
+        var control = CreateMarkdown("Selectable text");
+        var window = new Window { Width = 320, Height = 120, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            control.SelectAllCommand.Execute(null);
+            control.CanCopyDocumentSelection.ShouldBeTrue();
+
+            var commandNotifications = 0;
+            var selectionNotifications = 0;
+            control.CopySelectionCommand.CanExecuteChanged += OnCanExecuteChanged;
+            control.SelectionChanged += OnSelectionChanged;
+            try
+            {
+                window.Content = null;
+
+                control.CanCopyDocumentSelection.ShouldBeFalse();
+                control.CopySelectionCommand.CanExecute(null).ShouldBeFalse();
+                MarkdownSelection.CanCopy(control).ShouldBeFalse();
+                MarkdownSelection.GetSelectedText(control).ShouldBeEmpty();
+                commandNotifications.ShouldBe(1);
+                selectionNotifications.ShouldBe(1);
+            }
+            finally
+            {
+                control.CopySelectionCommand.CanExecuteChanged -= OnCanExecuteChanged;
+                control.SelectionChanged -= OnSelectionChanged;
+            }
+
+            void OnCanExecuteChanged(object? sender, EventArgs eventArgs) => commandNotifications++;
+            void OnSelectionChanged(object? sender, EventArgs eventArgs) => selectionNotifications++;
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RepeatedSelectionRangeDoesNotRaiseDuplicateNotifications()
+    {
+        var control = CreateMarkdown("Selectable text");
+        var segment = MarkdownDocumentSelection.GetSegmentControls(control).Single();
+        var selectionNotifications = 0;
+        var commandNotifications = 0;
+        control.SelectionChanged += (_, _) => selectionNotifications++;
+        control.CopySelectionCommand.CanExecuteChanged += (_, _) => commandNotifications++;
+
+        MarkdownDocumentSelection.SelectRange(control, segment, 0, segment, 5);
+        MarkdownDocumentSelection.SelectRange(control, segment, 0, segment, 5);
+
+        selectionNotifications.ShouldBe(1);
+        commandNotifications.ShouldBe(1);
+    }
+
+    [AvaloniaFact]
+    public void DynamicSegmentReplacementClearsStaleSelectionCoordinates()
+    {
+        var content = new StackPanel
+        {
+            Children =
+            {
+                new SelectableTextBlock { Text = "first" },
+                new SelectableTextBlock { Text = "second" },
+                new SelectableTextBlock { Text = "third" }
+            }
+        };
+        var host = new Border { Child = content };
+        var control = CreateInlineDocument(host);
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var segments = MarkdownDocumentSelection.GetSegmentControls(control);
+            MarkdownDocumentSelection.SelectRange(control, segments[0], 0, segments[^1], 3);
+            control.CanCopyDocumentSelection.ShouldBeTrue();
+
+            host.Child = new SelectableTextBlock { Text = "replacement" };
+            window.UpdateLayout();
+
+            control.CanCopyDocumentSelection.ShouldBeFalse();
+            control.CopySelectionCommand.CanExecute(null).ShouldBeFalse();
+            var replacement = MarkdownDocumentSelection.GetSegmentControls(control).Single();
+            Should.NotThrow(() =>
+                MarkdownDocumentSelection.SelectRange(control, replacement, 0, replacement, 5));
+            MarkdownSelection.GetSelectedText(control).ShouldBe("repla");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DynamicSelectedSegmentInsertionReappliesSelectionAndNotifies()
+    {
+        var first = new SelectableTextBlock { Text = "first" };
+        var second = new SelectableTextBlock { Text = "second" };
+        var third = new SelectableTextBlock { Text = "third" };
+        var content = new StackPanel { Children = { first, second, third } };
+        var control = CreateInlineDocument(content);
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            MarkdownDocumentSelection.SelectRange(control, first, 0, third, 3);
+            var notifications = 0;
+            control.SelectionChanged += OnSelectionChanged;
+            try
+            {
+                window.Width = 360;
+                window.UpdateLayout();
+                notifications.ShouldBe(0);
+
+                var inserted = new SelectableTextBlock { Text = "inserted" };
+                content.Children.Insert(1, inserted);
+                window.UpdateLayout();
+
+                inserted.SelectionStart.ShouldBe(0);
+                inserted.SelectionEnd.ShouldBe(inserted.Text!.Length);
+                MarkdownSelection.GetSelectedText(control).ShouldContain("inserted");
+                notifications.ShouldBe(1);
+            }
+            finally
+            {
+                control.SelectionChanged -= OnSelectionChanged;
+            }
+
+            void OnSelectionChanged(object? sender, EventArgs eventArgs) => notifications++;
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DynamicSegmentTextChangesRefreshSelectionLength()
+    {
+        var segment = new SelectableTextBlock { Text = "short" };
+        var control = CreateInlineDocument(segment);
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            MarkdownDocumentSelection.GetSegmentControls(control).ShouldBe([segment]);
+
+            segment.Text = "longer dynamic text";
+            window.UpdateLayout();
+            control.SelectAllCommand.Execute(null);
+
+            segment.SelectionEnd.ShouldBe(segment.Text.Length);
+            MarkdownSelection.GetSelectedText(control).ShouldBe(segment.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void UnrelatedLayoutPassKeepsTheSelectionSegmentSnapshot()
+    {
+        var segment = new SelectableTextBlock { Text = "stable" };
+        var control = CreateInlineDocument(segment);
+        var unrelated = new Border { Height = 20 };
+        var root = new StackPanel { Children = { control, unrelated } };
+        var window = new Window { Width = 320, Height = 200, Content = root };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            MarkdownDocumentSelection.GetSegmentControls(control).ShouldBe([segment]);
+            var snapshotVersion = MarkdownDocumentSelection.GetSegmentSnapshotVersion(control);
+
+            unrelated.Height = 40;
+            window.UpdateLayout();
+            MarkdownDocumentSelection.GetSegmentControls(control).ShouldBe([segment]);
+
+            MarkdownDocumentSelection.GetSegmentSnapshotVersion(control).ShouldBe(snapshotVersion);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ChildLayoutChangesRefreshSelectionSegmentBoundsWithinFixedOwner()
+    {
+        var spacer = new Border { Height = 12 };
+        var segment = new SelectableTextBlock { Text = "moving segment" };
+        var content = new StackPanel { Children = { spacer, segment } };
+        var control = CreateInlineDocument(content);
+        control.Height = 120;
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, segment, out var initialBounds).ShouldBeTrue();
+            var ownerHeight = control.Bounds.Height;
+
+            spacer.Height = 48;
+            window.UpdateLayout();
+
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, segment, out var updatedBounds).ShouldBeTrue();
+            control.Bounds.Height.ShouldBe(ownerHeight, 0.01);
+            updatedBounds.Y.ShouldBeGreaterThan(initialBounds.Y + 30);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void MutableRenderTransformChangesRefreshSelectionSegmentBounds()
+    {
+        var segment = new SelectableTextBlock { Text = "transformed segment" };
+        var transform = new TranslateTransform(0, 8);
+        var content = new StackPanel
+        {
+            RenderTransform = transform,
+            Children = { segment }
+        };
+        var control = CreateInlineDocument(content);
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, segment, out var initialBounds).ShouldBeTrue();
+
+            transform.Y = 44;
+
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, segment, out var updatedBounds).ShouldBeTrue();
+            updatedBounds.Y.ShouldBe(initialBounds.Y + 36, 0.01);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ScaledSegmentUsesTransformedBoundsAndInverseMappedHitCoordinates()
+    {
+        var segment = new SelectableTextBlock
+        {
+            Text = "scaled segment",
+            Width = 120
+        };
+        var content = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            RenderTransform = new ScaleTransform(1.75, 1.5),
+            RenderTransformOrigin = RelativePoint.TopLeft,
+            Children = { segment }
+        };
+        var control = CreateInlineDocument(content);
+        var window = new Window { Width = 420, Height = 200, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var expectedLocalPoint = new Point(segment.Bounds.Width * 0.75, segment.Bounds.Height * 0.5);
+            var ownerPoint = segment.TranslatePoint(expectedLocalPoint, control).ShouldNotBeNull();
+
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, segment, out var bounds).ShouldBeTrue();
+            bounds.Width.ShouldBeGreaterThan(segment.Bounds.Width * 1.7);
+            bounds.Height.ShouldBeGreaterThan(segment.Bounds.Height * 1.45);
+            MarkdownDocumentSelection.TryHitTestSegment(
+                control,
+                ownerPoint,
+                out var hitSegment,
+                out var localPoint,
+                out _).ShouldBeTrue();
+
+            hitSegment.ShouldBeSameAs(segment);
+            localPoint.X.ShouldBe(expectedLocalPoint.X, 0.01);
+            localPoint.Y.ShouldBe(expectedLocalPoint.Y, 0.01);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RotatedSegmentUsesInverseMappedHitCoordinatesAndRejectsEmptyBoundingBoxCorners()
+    {
+        var segment = new SelectableTextBlock
+        {
+            Text = "rotated segment",
+            Width = 160,
+            RenderTransform = new RotateTransform(20),
+            RenderTransformOrigin = RelativePoint.Center
+        };
+        var content = new StackPanel
+        {
+            Margin = new Thickness(40),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Children = { segment }
+        };
+        var control = CreateInlineDocument(content);
+        var window = new Window { Width = 520, Height = 260, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var expectedLocalPoint = new Point(segment.Bounds.Width * 0.5, segment.Bounds.Height * 0.5);
+            var ownerPoint = segment.TranslatePoint(expectedLocalPoint, control).ShouldNotBeNull();
+
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, segment, out var bounds).ShouldBeTrue();
+            MarkdownDocumentSelection.TryHitTestSegment(
+                control,
+                ownerPoint,
+                out var hitSegment,
+                out var localPoint,
+                out _).ShouldBeTrue();
+
+            hitSegment.ShouldBeSameAs(segment);
+            localPoint.X.ShouldBe(expectedLocalPoint.X, 0.01);
+            localPoint.Y.ShouldBe(expectedLocalPoint.Y, 0.01);
+            MarkdownDocumentSelection.TryHitTestSegment(
+                control,
+                bounds.TopLeft + new Vector(0.1, 0.1),
+                out _,
+                out _,
+                out _).ShouldBeFalse();
+
+            var emptyOwnerPoint = bounds.TopLeft + new Vector(0.1, 0.1);
+            var emptyWindowPoint = control.TranslatePoint(emptyOwnerPoint, window).ShouldNotBeNull();
+            var centerWindowPoint = control.TranslatePoint(ownerPoint, window).ShouldNotBeNull();
+            window.MouseMove(emptyWindowPoint);
+            window.MouseDown(emptyWindowPoint, MouseButton.Left);
+            window.MouseMove(centerWindowPoint, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(centerWindowPoint, MouseButton.Left);
+
+            control.CanCopyDocumentSelection.ShouldBeFalse();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RenderActivityIgnoresStaleGenerationLeases()
+    {
+        var plugin = new AsyncActivityPlugin();
+        var control = CreateMarkdown("first", controller: MarkdownRenderingServices.CreateController(plugin));
+        control.IsRendering.ShouldBeTrue();
+        var firstLease = plugin.Leases.Last();
+
+        control.Markdown = "second";
+        control.IsRendering.ShouldBeTrue();
+        var secondLease = plugin.Leases.Last();
+        firstLease.Dispose();
+        control.IsRendering.ShouldBeTrue();
+
+        var completions = 0;
+        control.RenderCompleted += (_, _) => completions++;
+        secondLease.Dispose();
+
+        control.IsRendering.ShouldBeFalse();
+        completions.ShouldBe(1);
+    }
+
+    [AvaloniaFact]
+    public void CompletedRenderActivityCannotBeReopenedByLatePluginWork()
+    {
+        var plugin = new AsyncActivityPlugin();
+        var control = CreateMarkdown("render", controller: MarkdownRenderingServices.CreateController(plugin));
+        var completions = 0;
+        control.RenderCompleted += (_, _) => completions++;
+
+        plugin.Leases.Last().Dispose();
+        control.IsRendering.ShouldBeFalse();
+        completions.ShouldBe(1);
+
+        plugin.LastContext.ShouldNotBeNull().BeginAsyncOperation().Dispose();
+
+        control.IsRendering.ShouldBeFalse();
+        completions.ShouldBe(1);
+    }
+
+    [Fact]
+    public void DisposedRenderActivityDoesNotRetainItsCompletionTarget()
+    {
+        var (target, lease) = CreateDisposedRenderActivityWithOutstandingLease();
+
+        for (var attempt = 0; attempt < 3 && target.IsAlive; attempt++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+
+        target.IsAlive.ShouldBeFalse();
+        GC.KeepAlive(lease);
+        lease.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task NestedMarkdownRenderingContributesToTheParentGeneration()
+    {
+        var loader = new FailingImageLoader();
+        var plugin = new NestedMarkdownActivityPlugin(loader);
+        var control = CreateMarkdown("nested", controller: MarkdownRenderingServices.CreateController(plugin));
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        control.RenderCompleted += OnRenderCompleted;
+
+        await loader.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        control.IsRendering.ShouldBeTrue();
+
+        loader.Fail();
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        control.IsRendering.ShouldBeFalse();
+
+        void OnRenderCompleted(object? sender, EventArgs eventArgs) => completed.TrySetResult();
+    }
+
+    [AvaloniaFact]
+    public async Task NestedRenderingStartedDuringAttachmentKeepsTheParentGenerationActive()
+    {
+        var plugin = new AttachedNestedMarkdownActivityPlugin();
+        var control = new MarkdownTextBlock();
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            control.RenderController = MarkdownRenderingServices.CreateController(plugin);
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            control.RenderCompleted += OnRenderCompleted;
+            try
+            {
+                control.Markdown = "nested";
+                Dispatcher.UIThread.RunJobs();
+                plugin.HasOperation.ShouldBeTrue();
+                control.IsRendering.ShouldBeTrue();
+
+                plugin.Complete();
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+                control.IsRendering.ShouldBeFalse();
+            }
+            finally
+            {
+                control.RenderCompleted -= OnRenderCompleted;
+            }
+
+            void OnRenderCompleted(object? sender, EventArgs eventArgs) => completed.TrySetResult();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DetachedNestedRenderingCompletesTheParentGeneration()
+    {
+        var plugin = new AttachedNestedMarkdownActivityPlugin();
+        var control = new MarkdownTextBlock();
+        var window = new Window { Width = 320, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            control.RenderController = MarkdownRenderingServices.CreateController(plugin);
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            control.RenderCompleted += OnRenderCompleted;
+            try
+            {
+                control.Markdown = "nested";
+                Dispatcher.UIThread.RunJobs();
+                plugin.HasOperation.ShouldBeTrue();
+                control.IsRendering.ShouldBeTrue();
+
+                plugin.Detach();
+                Dispatcher.UIThread.RunJobs();
+                await completed.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+                control.IsRendering.ShouldBeFalse();
+            }
+            finally
+            {
+                control.RenderCompleted -= OnRenderCompleted;
+                plugin.Complete();
+            }
+
+            void OnRenderCompleted(object? sender, EventArgs eventArgs) => completed.TrySetResult();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ParentRerenderCancelsAnUnattachedNestedMarkdownGeneration()
+    {
+        var loader = new CancellationAwareImageLoader();
+        var plugin = new NestedMarkdownActivityPlugin(loader);
+        var control = CreateMarkdown("nested", controller: MarkdownRenderingServices.CreateController(plugin));
+
+        await loader.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        control.IsRendering.ShouldBeTrue();
+
+        control.Markdown = string.Empty;
+
+        await loader.Canceled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        control.IsRendering.ShouldBeFalse();
+    }
+
+    [AvaloniaFact]
+    public void ParentRerenderDisposesCompletedNestedMarkdownResources()
+    {
+        var plugin = new NestedMarkdownResourcePlugin();
+        var control = CreateMarkdown("nested", controller: MarkdownRenderingServices.CreateController(plugin));
+        var resource = plugin.LastController.ShouldNotBeNull().LastResource.ShouldNotBeNull();
+        resource.IsDisposed.ShouldBeFalse();
+
+        control.Markdown = string.Empty;
+
+        resource.IsDisposed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ImagePoliciesAndLimitsAreEnforcedWithoutNetworkAccess()
+    {
+        MarkdownImageOptions.Default.AllowedSourceKinds.ShouldBe(MarkdownImageSourceKinds.All);
+        MarkdownImageOptions.EmbeddedOnly.AllowedSourceKinds.ShouldBe(MarkdownImageSourceKinds.Data);
+        DefaultMarkdownImageLoader.IsSourceAllowed(
+                new Uri("file://server/share/image.png"),
+                MarkdownImageOptions.BlockRemote)
+            .ShouldBeFalse();
+        var blockedRequest = new MarkdownImageLoadRequest
+        {
+            Source = new Uri("https://example.com/image.png"),
+            Options = MarkdownImageOptions.BlockRemote
+        };
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            DefaultMarkdownImageLoader.Instance.LoadAsync(blockedRequest, TestContext.Current.CancellationToken));
+
+        var oversizedData = new MarkdownImageLoadRequest
+        {
+            Source = new Uri("data:image/png;base64,AAAA"),
+            Options = new MarkdownImageOptions { MaximumBytes = 1 }
+        };
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            DefaultMarkdownImageLoader.Instance.LoadAsync(oversizedData, TestContext.Current.CancellationToken));
+
+        var pixelData = new Uri("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR42mNkYGD4z8DAwMDEAAUADikBA4GMbH8AAAAASUVORK5CYII=");
+        var pixelLimited = new MarkdownImageLoadRequest
+        {
+            Source = pixelData,
+            Options = new MarkdownImageOptions { MaximumPixelCount = 1 }
+        };
+        await Should.ThrowAsync<InvalidOperationException>(() =>
+            DefaultMarkdownImageLoader.Instance.LoadAsync(pixelLimited, TestContext.Current.CancellationToken));
+
+        byte[] oversizedJpeg =
+        [
+            0xFF, 0xD8,
+            0xFF, 0xC0, 0x00, 0x11, 0x08,
+            0xFF, 0xFF, 0xFF, 0xFF, 0x03,
+            0x01, 0x11, 0x00,
+            0x02, 0x11, 0x00,
+            0x03, 0x11, 0x00,
+            0xFF, 0xD9
+        ];
+        var oversizedJpegRequest = new MarkdownImageLoadRequest
+        {
+            Source = new Uri($"data:image/jpeg;base64,{Convert.ToBase64String(oversizedJpeg)}"),
+            Options = MarkdownImageOptions.Default
+        };
+        var jpegException = await Should.ThrowAsync<InvalidOperationException>(() =>
+            DefaultMarkdownImageLoader.Instance.LoadAsync(
+                oversizedJpegRequest,
+                TestContext.Current.CancellationToken));
+        jpegException.Message.ShouldBe("The decoded Markdown image exceeds the configured pixel limit.");
+
+        var excessiveTimeout = new MarkdownImageOptions
+        {
+            RemoteTimeout = TimeSpan.FromMilliseconds(uint.MaxValue)
+        };
+        Should.Throw<ArgumentOutOfRangeException>(excessiveTimeout.Validate);
+    }
+
+    [AvaloniaFact]
+    public async Task ImagePolicyIsEnforcedBeforeInvokingACustomLoader()
+    {
+        var loader = new PolicyRejectingImageLoader();
+        var control = new MarkdownTextBlock
+        {
+            ImageLoader = loader,
+            ImageOptions = MarkdownImageOptions.BlockRemote
+        };
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        control.RenderCompleted += OnRenderCompleted;
+        try
+        {
+            control.Markdown = "![Blocked](https://example.com/image.png)";
+            await completed.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+
+            loader.InvocationCount.ShouldBe(0);
+        }
+        finally
+        {
+            control.RenderCompleted -= OnRenderCompleted;
+        }
+
+        void OnRenderCompleted(object? sender, EventArgs args) => completed.TrySetResult();
+    }
+
+    [AvaloniaFact]
+    public async Task BoundedImageLoaderPreservesWbmpCompatibility()
+    {
+        byte[] wbmp = [0x00, 0x00, 0x01, 0x01, 0x00];
+        var request = new MarkdownImageLoadRequest
+        {
+            Source = new Uri($"data:image/vnd.wap.wbmp;base64,{Convert.ToBase64String(wbmp)}"),
+            Options = MarkdownImageOptions.Default
+        };
+
+        using var bitmap = await DefaultMarkdownImageLoader.Instance.LoadAsync(
+            request,
+            TestContext.Current.CancellationToken);
+
+        bitmap.PixelSize.ShouldBe(new PixelSize(1, 1));
+    }
+
+    [AvaloniaFact]
+    public async Task BoundedImageLoaderPreservesBitmapCoreHeaderCompatibility()
+    {
+        var bitmapBytes = new byte[30];
+        bitmapBytes[0] = (byte)'B';
+        bitmapBytes[1] = (byte)'M';
+        BinaryPrimitives.WriteUInt32LittleEndian(bitmapBytes.AsSpan(2, 4), (uint)bitmapBytes.Length);
+        BinaryPrimitives.WriteUInt32LittleEndian(bitmapBytes.AsSpan(10, 4), 26);
+        BinaryPrimitives.WriteUInt32LittleEndian(bitmapBytes.AsSpan(14, 4), 12);
+        BinaryPrimitives.WriteUInt16LittleEndian(bitmapBytes.AsSpan(18, 2), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(bitmapBytes.AsSpan(20, 2), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(bitmapBytes.AsSpan(22, 2), 1);
+        BinaryPrimitives.WriteUInt16LittleEndian(bitmapBytes.AsSpan(24, 2), 24);
+
+        var request = new MarkdownImageLoadRequest
+        {
+            Source = new Uri($"data:image/bmp;base64,{Convert.ToBase64String(bitmapBytes)}"),
+            Options = MarkdownImageOptions.Default
+        };
+
+        using var bitmap = await DefaultMarkdownImageLoader.Instance.LoadAsync(
+            request,
+            TestContext.Current.CancellationToken);
+
+        bitmap.PixelSize.ShouldBe(new PixelSize(1, 1));
+    }
+
+    [Fact]
+    public async Task IcoPixelLimitUsesEmbeddedPayloadDimensions()
+    {
+        var ico = new byte[46];
+        ico[2] = 1;
+        ico[4] = 1;
+        ico[6] = 1;
+        ico[7] = 1;
+        BinaryPrimitives.WriteUInt32LittleEndian(ico.AsSpan(14, 4), 24);
+        BinaryPrimitives.WriteUInt32LittleEndian(ico.AsSpan(18, 4), 22);
+        "\x89PNG\r\n\x1a\n"u8.CopyTo(ico.AsSpan(22));
+        BinaryPrimitives.WriteInt32BigEndian(ico.AsSpan(38, 4), 4096);
+        BinaryPrimitives.WriteInt32BigEndian(ico.AsSpan(42, 4), 4096);
+        var request = new MarkdownImageLoadRequest
+        {
+            Source = new Uri($"data:image/x-icon;base64,{Convert.ToBase64String(ico)}"),
+            Options = new MarkdownImageOptions { MaximumPixelCount = 1024 }
+        };
+
+        var exception = await Should.ThrowAsync<InvalidOperationException>(() =>
+            DefaultMarkdownImageLoader.Instance.LoadAsync(
+                request,
+                TestContext.Current.CancellationToken));
+
+        exception.Message.ShouldBe("The decoded Markdown image exceeds the configured pixel limit.");
+    }
+
+    [Fact]
+    public async Task BoundedImageStreamNeverReadsOrSeeksPastItsLimit()
+    {
+        await using var stream = new MarkdownBoundedReadStream(
+            new MemoryStream(Enumerable.Range(0, 32).Select(value => (byte)value).ToArray()),
+            8);
+        var buffer = new byte[32];
+
+        (await stream.ReadAsync(buffer, TestContext.Current.CancellationToken)).ShouldBe(8);
+        stream.Position.ShouldBe(8);
+        (await stream.ReadAsync(buffer, TestContext.Current.CancellationToken)).ShouldBe(0);
+        Should.Throw<ArgumentOutOfRangeException>(() => stream.Seek(1, SeekOrigin.End));
+    }
+
+    [AvaloniaFact]
+    public async Task RerenderCancelsAnInFlightImageLoadAndCompletesItsGeneration()
+    {
+        var loader = new CancellationAwareImageLoader();
+        var control = new MarkdownTextBlock { ImageLoader = loader };
+        control.Markdown = "![Pending](data:image/png;base64,AAAA)";
+
+        await loader.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        control.IsRendering.ShouldBeTrue();
+
+        control.Markdown = "Replacement";
+
+        await loader.Canceled.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        control.IsRendering.ShouldBeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task UnexpectedImageLoaderFailuresBecomeRenderedErrorState()
+    {
+        var uiThread = Environment.CurrentManagedThreadId;
+        var loader = new FailingImageLoader();
+        var control = new MarkdownTextBlock { ImageLoader = loader };
+        control.Markdown = "![Broken](data:image/png;base64,AAAA)";
+        await loader.Started.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+        loader.ThreadId.ShouldNotBe(uiThread);
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        control.RenderCompleted += OnRenderCompleted;
+
+        try
+        {
+            loader.Fail();
+            await completed.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+            control.IsRendering.ShouldBeFalse();
+            var hasRenderedFailure = EnumerateControls(control.Inlines!)
+                .OfType<TextBlock>()
+                .Any(text => text.Text is { } value &&
+                             value.Contains("Unexpected loader failure", StringComparison.Ordinal));
+            hasRenderedFailure.ShouldBeTrue();
+        }
+        finally
+        {
+            control.RenderCompleted -= OnRenderCompleted;
+        }
+
+        void OnRenderCompleted(object? sender, EventArgs args) => completed.TrySetResult();
+    }
+
     [AvaloniaTheory]
     [InlineData(14d)]
     [InlineData(18d)]
@@ -54,9 +884,9 @@ public sealed class MarkdownRenderingTests
             var inlines = EnumerateInlines(control.Inlines!).ToArray();
             inlines.OfType<Bold>().Single().Inlines.OfType<Run>().Single().Text.ShouldBe("bold");
             inlines.OfType<Italic>().Single().Inlines.OfType<Run>().Single().Text.ShouldBe("italic");
-            inlines.OfType<Span>()
-                .Single(span => ReferenceEquals(span.Foreground, hyperlink))
-                .TextDecorations.ShouldBe(TextDecorations.Underline);
+            inlines.OfType<Span>().ShouldContain(span =>
+                ReferenceEquals(span.Foreground, hyperlink) &&
+                span.TextDecorations == TextDecorations.Underline);
 
             MarkdownDocumentSelection.SelectAll(control);
             MarkdownDocumentSelection.GetSelectedText(control).ShouldBe(text);
@@ -89,6 +919,34 @@ public sealed class MarkdownRenderingTests
     }
 
     [AvaloniaFact]
+    public async Task PublicSelectionApiSelectsAndCopiesRenderedText()
+    {
+        var expected = $"First paragraph.{Environment.NewLine}{Environment.NewLine}Second paragraph.";
+        var control = CreateMarkdown("First paragraph.\n\nSecond paragraph.");
+        var window = new Window { Width = 480, Height = 160, Content = control };
+        window.Show();
+
+        try
+        {
+            window.UpdateLayout();
+            MarkdownSelection.CanCopy(control).ShouldBeFalse();
+
+            MarkdownSelection.SelectAll(control);
+
+            MarkdownSelection.CanCopy(control).ShouldBeTrue();
+            MarkdownSelection.GetSelectedText(control).ShouldBe(expected);
+            await MarkdownSelection.CopyAsync(control);
+            var clipboard = TopLevel.GetTopLevel(control)?.Clipboard
+                            ?? throw new InvalidOperationException("The Markdown control was not attached to a clipboard-enabled top level.");
+            (await clipboard.TryGetTextAsync()).ShouldBe(expected);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void HeadingAndScriptsRetainIntentionalScaling()
     {
         var control = CreateMarkdown("# Heading\n\nH~2~O and 2^10^.", 14);
@@ -96,6 +954,36 @@ public sealed class MarkdownRenderingTests
         text.Single(block => GetText(block) == "Heading").FontSize.ShouldBeGreaterThan(14);
         text.Where(block => GetText(block) is "2" or "10")
             .ShouldAllBe(block => block.FontSize < 14);
+    }
+
+    [AvaloniaFact]
+    public void HeadingsUseTheThemePaletteForeground()
+    {
+        var control = CreateMarkdown(
+            "# ATX heading\n\nSetext heading\n==============",
+            foreground: Brushes.Black,
+            palette: MarkdownThemePalette.Dark);
+        var headings = control.GetVisualDescendants()
+            .OfType<SelectableTextBlock>()
+            .Where(block => GetText(block).EndsWith("heading", StringComparison.Ordinal))
+            .ToArray();
+
+        headings.Length.ShouldBe(2);
+        headings.ShouldAllBe(block => ReferenceEquals(block.Foreground, MarkdownThemePalette.Dark.Foreground));
+    }
+
+    [AvaloniaFact]
+    public void ImplicitThemePalettePreservesTheConfiguredForeground()
+    {
+        var foreground = new SolidColorBrush(Color.Parse("#FFCC3300"));
+        var control = CreateMarkdown("# Heading\n\nBody", foreground: foreground);
+        var renderedText = control.GetVisualDescendants()
+            .OfType<SelectableTextBlock>()
+            .Where(block => GetText(block) is "Heading" or "Body")
+            .ToArray();
+
+        renderedText.Length.ShouldBe(2);
+        renderedText.ShouldAllBe(block => ReferenceEquals(block.Foreground, foreground));
     }
 
     [AvaloniaFact]
@@ -124,52 +1012,42 @@ public sealed class MarkdownRenderingTests
     }
 
     [AvaloniaFact]
-    public void ThemeNormalizerUsesThePaletteCommentForeground()
+    public void InlineFormattingUsesPaletteWithoutPostNormalization()
     {
-        var commentForeground = new SolidColorBrush(Color.Parse("#FF12AB34"));
-        var palette = new MarkdownThemePalette { CodeCommentForeground = commentForeground };
-        var comment = new Run("// comment")
-        {
-            Foreground = new SolidColorBrush(Color.Parse("#FF6E7781"))
-        };
-        var inlines = new InlineCollection { comment };
-
-        MarkdownThemeNormalizer.Apply(inlines, palette);
-
-        comment.Foreground.ShouldBeSameAs(commentForeground);
-    }
-
-    [AvaloniaFact]
-    public void ThemeNormalizerKeepsSyntaxTagsIndependentFromInsertedText()
-    {
-        var tagForeground = new SolidColorBrush(Color.Parse("#FF12AB34"));
-        var insertedForeground = new SolidColorBrush(Color.Parse("#FFDC2626"));
+        var markedBackground = new SolidColorBrush(Color.Parse("#FF12AB34"));
+        var insertedForeground = new SolidColorBrush(Color.Parse("#FF3412AB"));
         var palette = new MarkdownThemePalette
         {
-            CodeTagForeground = tagForeground,
+            MarkedTextBackground = markedBackground,
             InsertedTextForeground = insertedForeground
         };
-        var tag = new Run("tag")
-        {
-            Foreground = new SolidColorBrush(Color.Parse("#FF1A7F37"))
-        };
-        var inserted = new Run("inserted")
-        {
-            Foreground = new SolidColorBrush(Color.Parse("#FF116329"))
-        };
-        var inlines = new InlineCollection { tag, inserted };
+        var control = CreateMarkdown("==marked== ++inserted++", palette: palette);
+        var spans = EnumerateInlines(control.Inlines!).OfType<Span>().ToArray();
 
-        MarkdownThemeNormalizer.Apply(inlines, palette);
-
-        tag.Foreground.ShouldBeSameAs(tagForeground);
-        inserted.Foreground.ShouldBeSameAs(insertedForeground);
+        spans.Single(span => span.Inlines.OfType<Run>().Any(run => run.Text == "marked"))
+            .Background.ShouldBeSameAs(markedBackground);
+        spans.Single(span => span.Inlines.OfType<Run>().Any(run => run.Text == "inserted"))
+            .Foreground.ShouldBeSameAs(insertedForeground);
     }
 
     [AvaloniaFact]
-    public void ThemeNormalizerPreservesStyledPropertyBindings()
+    public void ThemePaletteDoesNotRewriteThirdPartyPluginColors()
+    {
+        var background = new SolidColorBrush(Color.Parse("#FF123456"));
+        var plugin = new FixedColorBlockPlugin(background);
+        var controller = MarkdownRenderingServices.CreateController(plugin);
+        _ = CreateMarkdown("third party", palette: MarkdownThemePalette.Dark, controller: controller);
+
+        plugin.LastBorder.ShouldNotBeNull();
+        plugin.LastBorder.Background.ShouldBeSameAs(background);
+    }
+
+    [AvaloniaFact]
+    public void ThirdPartyPluginBindingsRemainActive()
     {
         var source = new BrushBindingSource(new SolidColorBrush(Color.Parse("#FFFFFFFF")));
-        var border = new Border();
+        var plugin = new FixedColorBlockPlugin(Brushes.Transparent);
+        var border = plugin.LastBorder = new Border();
         using var binding = border.Bind(
             Border.BackgroundProperty,
             new Binding(nameof(BrushBindingSource.Brush))
@@ -177,9 +1055,17 @@ public sealed class MarkdownRenderingTests
                 Source = source,
                 Mode = BindingMode.OneWay
             });
-        var inlines = new InlineCollection { new InlineUIContainer(border) };
-
-        MarkdownThemeNormalizer.Apply(inlines, MarkdownThemePalette.Dark);
+        plugin.UseExistingBorder = true;
+        var controller = MarkdownRenderingServices.CreateController(plugin);
+        var control = new MarkdownTextBlock
+        {
+            FontSize = 14,
+            Foreground = Brushes.Black,
+            ThemePalette = MarkdownThemePalette.Dark,
+            RenderController = controller,
+            TextWrapping = TextWrapping.Wrap
+        };
+        control.Markdown = "third party";
 
         border.Background.ShouldBeSameAs(source.Brush);
         var replacement = new SolidColorBrush(Color.Parse("#FF123456"));
@@ -296,6 +1182,28 @@ public sealed class MarkdownRenderingTests
             .OfType<Span>()
             .Single(span => span.Inlines.OfType<Run>().Any(run => run.Text == "nested link"));
         link.Foreground.ShouldBeSameAs(hyperlink);
+    }
+
+    [Fact]
+    public void DerivedForegroundPalettePreservesSemanticBrushes()
+    {
+        var mutedForeground = new SolidColorBrush(Color.Parse("#FF9CA3AF"));
+        var palette = new MarkdownThemePalette
+        {
+            IsDark = true,
+            Foreground = Brushes.White,
+            MutedForeground = mutedForeground,
+            Accent = Brushes.CornflowerBlue,
+            Border = Brushes.DimGray
+        };
+        var derived = palette.WithForeground(mutedForeground);
+
+        derived.ShouldNotBeSameAs(palette);
+        derived.IsDark.ShouldBeTrue();
+        derived.Foreground.ShouldBeSameAs(mutedForeground);
+        derived.MutedForeground.ShouldBeSameAs(palette.MutedForeground);
+        derived.Accent.ShouldBeSameAs(palette.Accent);
+        derived.Border.ShouldBeSameAs(palette.Border);
     }
 
     [AvaloniaFact]
@@ -648,6 +1556,135 @@ public sealed class MarkdownRenderingTests
     }
 
     [AvaloniaFact]
+    public void ThirdPartySelectableTextBlockMaxWidthIsPreserved()
+    {
+        var selectableText = new SelectableTextBlock
+        {
+            MaxWidth = 640,
+            Text = "Custom render controllers can return ordinary selectable text that must wrap with the document.",
+            TextWrapping = TextWrapping.Wrap
+        };
+        var control = CreateInlineDocument(selectableText);
+        var window = new Window { Width = 180, Height = 220, Content = control };
+        window.Show();
+
+        try
+        {
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            selectableText.MaxWidth.ShouldBe(640);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void SegmentHitTestingUsesVisibleTextCoordinatesAfterScrolling()
+    {
+        var paragraphs = Enumerable.Range(1, 30)
+            .Select(index => new SelectableTextBlock
+            {
+                Text = $"Paragraph {index} with selectable text.",
+                TextWrapping = TextWrapping.Wrap
+            })
+            .ToArray();
+        var stack = new StackPanel
+        {
+            Spacing = 8,
+            Margin = new Thickness(0, 0, 0, 48),
+            RenderTransform = new TranslateTransform(0, 48)
+        };
+        stack.Children.AddRange(paragraphs);
+        var control = CreateInlineDocument(stack);
+        var scrollViewer = new ScrollViewer
+        {
+            BringIntoViewOnFocusChange = false,
+            Height = 120,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Content = control
+        };
+        var window = new Window { Width = 600, Height = 160, Content = scrollViewer };
+        window.Show();
+
+        try
+        {
+            window.UpdateLayout();
+            var target = paragraphs[14];
+            var targetOrigin = target.TranslatePoint(default, control).ShouldNotBeNull();
+            scrollViewer.Offset = new Vector(0, targetOrigin.Y - 60);
+            window.UpdateLayout();
+            var initialOffset = scrollViewer.Offset;
+            var targetCharacter = target.TextLayout.HitTestTextPosition(4);
+            var targetOwnerPoint = target.TranslatePoint(
+                new Point(
+                    target.Padding.Left + targetCharacter.X + Math.Max(targetCharacter.Width, 1) / 2,
+                    target.Padding.Top + targetCharacter.Y + targetCharacter.Height / 2),
+                control).ShouldNotBeNull();
+            MarkdownDocumentSelection.TryHitTestSegment(
+                control,
+                targetOwnerPoint,
+                out var hitSegment,
+                out _,
+                out var hitBounds).ShouldBeTrue();
+            hitSegment.ShouldBeSameAs(target);
+            Math.Abs(hitBounds.X - targetOrigin.X).ShouldBeLessThan(0.01);
+            Math.Abs(hitBounds.Y - targetOrigin.Y).ShouldBeLessThan(0.01);
+            scrollViewer.Offset.Y.ShouldBe(initialOffset.Y, 0.01);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void PointerSelectionDoesNotMoveTheContainingScrollViewerWhenTakingFocus()
+    {
+        var markdown = string.Join(
+            "\n\n",
+            Enumerable.Range(1, 30).Select(index => $"Paragraph {index} with selectable text."));
+        var control = CreateMarkdown(markdown);
+        var scrollViewer = new ScrollViewer
+        {
+            Height = 120,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            Content = control
+        };
+        var window = new Window { Width = 600, Height = 160, Content = scrollViewer };
+        window.Show();
+
+        try
+        {
+            window.UpdateLayout();
+            var target = MarkdownDocumentSelection.GetSegmentControls(control)
+                .Single(candidate => GetText(candidate).StartsWith("Paragraph 15 ", StringComparison.Ordinal));
+            MarkdownDocumentSelection.TryGetSegmentBounds(control, target, out var targetBounds).ShouldBeTrue();
+            scrollViewer.Offset = new Vector(0, targetBounds.Y - 60);
+            window.UpdateLayout();
+            var initialOffset = scrollViewer.Offset;
+            var anchor = GetWindowPoint(control, target, window, 4);
+            var focus = GetWindowPoint(control, target, window, 18);
+
+            ResetClickSequence(window, anchor);
+            window.MouseMove(anchor);
+            window.MouseDown(anchor, MouseButton.Left);
+            window.MouseMove(focus, RawInputModifiers.LeftMouseButton);
+            window.MouseUp(focus, MouseButton.Left);
+
+            scrollViewer.Offset.Y.ShouldBe(initialOffset.Y, 0.01);
+            window.FocusManager?.GetFocusedElement().ShouldBe(control);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void RoutedPointerDragUsesOneSelectionOwnerAcrossNestedMarkdown()
     {
         const string nestedText = "Nested paragraph with enough text.";
@@ -964,6 +2001,47 @@ public sealed class MarkdownRenderingTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public void SelectAllCommandTracksDynamicallyVisibleDocumentText()
+    {
+        var text = new SelectableTextBlock { Text = "Dynamically visible source" };
+        var host = new StackPanel
+        {
+            IsVisible = false,
+            Children = { text }
+        };
+        MarkdownDocumentSelection.RegisterSegment(text);
+        var control = CreateInlineDocument(host);
+        var commandNotifications = 0;
+        control.SelectAllCommand.CanExecuteChanged += OnCanExecuteChanged;
+        var window = new Window { Width = 600, Height = 160, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            control.SelectAllCommand.CanExecute(null).ShouldBeFalse();
+
+            host.IsVisible = true;
+            window.UpdateLayout();
+
+            control.SelectAllCommand.CanExecute(null).ShouldBeTrue();
+            commandNotifications.ShouldBe(1);
+
+            host.IsVisible = false;
+            window.UpdateLayout();
+
+            control.SelectAllCommand.CanExecute(null).ShouldBeFalse();
+            commandNotifications.ShouldBe(2);
+        }
+        finally
+        {
+            control.SelectAllCommand.CanExecuteChanged -= OnCanExecuteChanged;
+            window.Close();
+        }
+
+        void OnCanExecuteChanged(object? sender, EventArgs args) => commandNotifications++;
     }
 
     [AvaloniaFact]
@@ -1771,12 +2849,248 @@ public sealed class MarkdownRenderingTests
         }
     }
 
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (WeakReference Target, IDisposable Lease) CreateDisposedRenderActivityWithOutstandingLease()
+    {
+        var target = new object();
+        var activity = new MarkdownRenderActivity(() => GC.KeepAlive(target));
+        var lease = activity.Begin();
+        activity.Complete();
+        activity.Dispose();
+        return (new WeakReference(target), lease);
+    }
+
+    private sealed class FixedColorBlockPlugin(IBrush background) : IMarkdownPlugin, IMarkdownBlockRenderingPlugin
+    {
+        public Border LastBorder { get; set; } = new() { Background = background };
+
+        public bool UseExistingBorder { get; set; }
+
+        public void Register(MarkdownPluginRegistry registry) => registry.AddBlockRenderingPlugin(this);
+
+        public bool CanRender(Markdig.Syntax.Block block) => block is Markdig.Syntax.ParagraphBlock;
+
+        public bool TryRender(MarkdownBlockRenderingPluginContext context)
+        {
+            if (!UseExistingBorder)
+                LastBorder = new Border { Background = background };
+            context.AddBlockControl(LastBorder);
+            return true;
+        }
+    }
+
     private sealed class TrackingDisposable : IDisposable
     {
         public bool IsDisposed { get; private set; }
 
         public void Dispose() => IsDisposed = true;
     }
+
+    private sealed class AsyncActivityPlugin : IMarkdownPlugin, IMarkdownBlockRenderingPlugin
+    {
+        public List<IDisposable> Leases { get; } = [];
+
+        public MarkdownRenderContext? LastContext { get; private set; }
+
+        public void Register(MarkdownPluginRegistry registry) => registry.AddBlockRenderingPlugin(this);
+
+        public bool CanRender(Markdig.Syntax.Block block) => block is Markdig.Syntax.ParagraphBlock;
+
+        public bool TryRender(MarkdownBlockRenderingPluginContext context)
+        {
+            LastContext = context.RenderContext;
+            Leases.Add(context.RenderContext.BeginAsyncOperation());
+            context.AddBlockControl(new TextBlock { Text = "async" });
+            return true;
+        }
+    }
+
+    private sealed class NestedMarkdownActivityPlugin(IMarkdownImageLoader imageLoader)
+        : IMarkdownPlugin, IMarkdownBlockRenderingPlugin
+    {
+        public void Register(MarkdownPluginRegistry registry) => registry.AddBlockRenderingPlugin(this);
+
+        public bool CanRender(Markdig.Syntax.Block block) => block is Markdig.Syntax.ParagraphBlock;
+
+        public bool TryRender(MarkdownBlockRenderingPluginContext context)
+        {
+            var control = new MarkdownTextBlock
+            {
+                ImageLoader = imageLoader,
+                Markdown = "![Pending](data:image/png;base64,AAAA)"
+            };
+            context.RenderContext.TrackNestedRendering(control);
+            context.AddBlockControl(control);
+            return true;
+        }
+    }
+
+    private sealed class AttachedNestedMarkdownActivityPlugin
+        : IMarkdownPlugin, IMarkdownBlockRenderingPlugin
+    {
+        private AttachedAsyncRenderController? _controller;
+        private Border? _host;
+
+        public bool HasOperation => _controller?.HasOperation ?? false;
+
+        public void Register(MarkdownPluginRegistry registry) => registry.AddBlockRenderingPlugin(this);
+
+        public bool CanRender(Markdig.Syntax.Block block) => block is Markdig.Syntax.ParagraphBlock;
+
+        public bool TryRender(MarkdownBlockRenderingPluginContext context)
+        {
+            var controller = new AttachedAsyncRenderController();
+            var control = new MarkdownTextBlock
+            {
+                RenderController = controller,
+                Markdown = "nested"
+            };
+            controller.Control = control;
+            _controller = controller;
+            _host = new Border { Child = control };
+            context.RenderContext.TrackNestedRendering(control);
+            context.AddBlockControl(_host);
+            return true;
+        }
+
+        public void Complete() => _controller?.Complete();
+
+        public void Detach()
+        {
+            if (_host is not null)
+                _host.Child = null;
+        }
+    }
+
+    private sealed class AttachedAsyncRenderController : IMarkdownRenderController
+    {
+        private IDisposable? _operation;
+
+        public MarkdownTextBlock? Control { get; set; }
+
+        public bool HasOperation => Volatile.Read(ref _operation) is not null;
+
+        public MarkdownRenderResult Render(MarkdownRenderRequest request)
+        {
+            if (Control is { } control && TopLevel.GetTopLevel(control) is not null)
+            {
+                var operation = request.Context.BeginAsyncOperation();
+                Interlocked.Exchange(ref _operation, operation)?.Dispose();
+            }
+
+            return MarkdownRenderResult.Empty(request.Context.ResourceTracker);
+        }
+
+        public void Complete() => Interlocked.Exchange(ref _operation, null)?.Dispose();
+    }
+
+    private sealed class NestedMarkdownResourcePlugin : IMarkdownPlugin, IMarkdownBlockRenderingPlugin
+    {
+        public OwnedResourceRenderController? LastController { get; private set; }
+
+        public void Register(MarkdownPluginRegistry registry) => registry.AddBlockRenderingPlugin(this);
+
+        public bool CanRender(Markdig.Syntax.Block block) => block is Markdig.Syntax.ParagraphBlock;
+
+        public bool TryRender(MarkdownBlockRenderingPluginContext context)
+        {
+            LastController = new OwnedResourceRenderController();
+            var control = new MarkdownTextBlock
+            {
+                Markdown = "nested",
+                RenderController = LastController
+            };
+            context.RenderContext.TrackNestedRendering(control);
+            context.AddBlockControl(control);
+            return true;
+        }
+    }
+
+    private sealed class OwnedResourceRenderController : IMarkdownRenderController
+    {
+        public TrackingDisposable? LastResource { get; private set; }
+
+        public MarkdownRenderResult Render(MarkdownRenderRequest request)
+        {
+            LastResource = new TrackingDisposable();
+            request.Context.ResourceTracker.Track(LastResource);
+            return MarkdownRenderResult.Empty(request.Context.ResourceTracker);
+        }
+    }
+
+    private sealed class CancellationAwareImageLoader : IMarkdownImageLoader
+    {
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Canceled { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<Bitmap> LoadAsync(
+            MarkdownImageLoadRequest request,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                Canceled.TrySetResult();
+                throw;
+            }
+
+            throw new InvalidOperationException("The cancellation-aware test loader unexpectedly completed.");
+        }
+    }
+
+    private sealed class FailingImageLoader : IMarkdownImageLoader
+    {
+        private readonly TaskCompletionSource _release =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int ThreadId { get; private set; }
+
+        public async Task<Bitmap> LoadAsync(
+            MarkdownImageLoadRequest request,
+            CancellationToken cancellationToken)
+        {
+            ThreadId = Environment.CurrentManagedThreadId;
+            Started.TrySetResult();
+            await _release.Task.WaitAsync(cancellationToken);
+            throw new ImageLoaderTestException("Unexpected loader failure.");
+        }
+
+        public void Fail() => _release.TrySetResult();
+    }
+
+    private sealed class FatalImageLoader : IMarkdownImageLoader
+    {
+        public Task<Bitmap> LoadAsync(
+            MarkdownImageLoadRequest request,
+            CancellationToken cancellationToken) =>
+            Task.FromException<Bitmap>(new OutOfMemoryException("fatal image failure"));
+    }
+
+    private sealed class PolicyRejectingImageLoader : IMarkdownImageLoader
+    {
+        public int InvocationCount { get; private set; }
+
+        public Task<Bitmap> LoadAsync(
+            MarkdownImageLoadRequest request,
+            CancellationToken cancellationToken)
+        {
+            InvocationCount++;
+            return Task.FromException<Bitmap>(
+                new InvalidOperationException("The blocked custom loader was invoked."));
+        }
+    }
+
+    private sealed class ImageLoaderTestException(string message) : Exception(message);
 
     private sealed class DelegateCommand(Action<object?> execute) : ICommand
     {

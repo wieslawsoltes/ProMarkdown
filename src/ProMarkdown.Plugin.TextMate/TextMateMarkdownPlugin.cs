@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.TextMate;
+using System.Collections;
 using ProMarkdown.Services;
 using Markdig.Syntax;
 using TextMateSharp.Grammars;
@@ -30,14 +31,49 @@ public sealed class TextMateMarkdownPlugin : IMarkdownPlugin
 
 internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRenderingPlugin
 {
-    private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private static readonly RegistryOptions RegistryOptions = new(ThemeName.LightPlus);
-    private static readonly Theme Theme = Theme.CreateFromRawTheme(RegistryOptions.LoadTheme(ThemeName.LightPlus), RegistryOptions);
     private static readonly BalancedBracketSelectors EmptyBalancedBracketSelectors = new([], []);
-    private static readonly IBrush SurfaceBackground = new SolidColorBrush(Color.Parse("#F6F8FA"));
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush HeaderBackground = new SolidColorBrush(Color.Parse("#EAEEF2"));
-    private static readonly IBrush MetaForeground = new SolidColorBrush(Color.Parse("#6E7781"));
+    private static readonly IReadOnlyDictionary<string, SemanticForegroundKind> SemanticColors =
+        new Dictionary<string, SemanticForegroundKind>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["#010101"] = SemanticForegroundKind.Foreground,
+            ["#020202"] = SemanticForegroundKind.Comment,
+            ["#030303"] = SemanticForegroundKind.String,
+            ["#040404"] = SemanticForegroundKind.Number,
+            ["#050505"] = SemanticForegroundKind.Tag,
+            ["#060606"] = SemanticForegroundKind.Attribute,
+            ["#070707"] = SemanticForegroundKind.Property,
+            ["#080808"] = SemanticForegroundKind.Type,
+            ["#090909"] = SemanticForegroundKind.Keyword,
+            ["#0A0A0A"] = SemanticForegroundKind.Punctuation
+        };
+    private static readonly (string Scope, SemanticForegroundKind Kind)[] SemanticScopeRules =
+    [
+        ("comment", SemanticForegroundKind.Comment),
+        ("string", SemanticForegroundKind.String),
+        ("constant.character", SemanticForegroundKind.String),
+        ("constant.numeric", SemanticForegroundKind.Number),
+        ("entity.name.tag", SemanticForegroundKind.Tag),
+        ("entity.other.attribute-name", SemanticForegroundKind.Attribute),
+        ("variable.other.property", SemanticForegroundKind.Property),
+        ("variable.other.member", SemanticForegroundKind.Property),
+        ("support.variable.property", SemanticForegroundKind.Property),
+        ("support.type.property-name", SemanticForegroundKind.Property),
+        ("entity.name.function", SemanticForegroundKind.Property),
+        ("support.function", SemanticForegroundKind.Property),
+        ("entity.name.type", SemanticForegroundKind.Type),
+        ("entity.name.class", SemanticForegroundKind.Type),
+        ("entity.name.namespace", SemanticForegroundKind.Type),
+        ("support.type", SemanticForegroundKind.Type),
+        ("support.class", SemanticForegroundKind.Type),
+        ("keyword.type", SemanticForegroundKind.Type),
+        ("storage.type", SemanticForegroundKind.Type),
+        ("keyword", SemanticForegroundKind.Keyword),
+        ("storage.modifier", SemanticForegroundKind.Keyword),
+        ("constant.language", SemanticForegroundKind.Keyword),
+        ("punctuation", SemanticForegroundKind.Punctuation)
+    ];
+    private static readonly TextMateThemeResources LightTheme = CreateThemeResources(ThemeName.LightPlus);
+    private static readonly TextMateThemeResources DarkTheme = CreateThemeResources(ThemeName.DarkPlus);
     private static readonly HashSet<string> MermaidLanguageAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         "diagram-mermaid",
@@ -81,8 +117,6 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
         ["yml"] = ".yml",
         ["yaml"] = ".yml"
     };
-    private static readonly Dictionary<string, IBrush> BrushCache = new(StringComparer.OrdinalIgnoreCase);
-
     public int Order => -10;
 
     public bool CanRender(Block block) => block is CodeBlock;
@@ -114,6 +148,8 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
         }
 
         var lineCount = string.IsNullOrEmpty(code) ? 0 : code.Split('\n', StringSplitOptions.None).Length;
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
         var codeSurface = MarkdownCodeBlockRendering.CreateSurface(
             codeBlock,
             code,
@@ -121,150 +157,17 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
             languageHint,
             lineCount == 1 ? "1 line • TextMate" : $"{lineCount} lines • TextMate",
             context.RenderContext,
-            textForeground: context.RenderContext.Foreground);
+            textForeground: palette.Foreground,
+            metaForeground: palette.MutedForeground);
         context.AddBlockControl(codeSurface.Control, codeSurface.HitTestHandler);
         return true;
     }
 
-    private static TextMateCodeSurface CreateCodeSurface(
-        InlineCollection inlines,
-        string? languageHint,
-        int lineCount,
-        MarkdownRenderContext renderContext)
-    {
-        var codeText = new SelectableTextBlock
-        {
-            FontFamily = MonospaceFamily,
-            FontSize = Math.Max(renderContext.FontSize - 1, 12),
-            Foreground = renderContext.Foreground,
-            TextWrapping = renderContext.TextWrapping == TextWrapping.NoWrap ? TextWrapping.NoWrap : TextWrapping.Wrap,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Inlines = inlines
-        };
-
-        Control codeContent = renderContext.TextWrapping == TextWrapping.NoWrap
-            ? new ScrollViewer
-            {
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                Content = codeText
-            }
-            : codeText;
-
-        var layout = new Grid
-        {
-            RowDefinitions =
-            {
-                new RowDefinition { Height = GridLength.Auto },
-                new RowDefinition { Height = GridLength.Auto }
-            }
-        };
-
-        var header = CreateHeader(languageHint, lineCount);
-        layout.Children.Add(header);
-
-        var body = new Border
-        {
-            Padding = new Thickness(12, 10),
-            Child = codeContent
-        };
-        Grid.SetRow(body, 1);
-        layout.Children.Add(body);
-
-        var root = new Border
-        {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            ClipToBounds = true,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Child = layout
-        };
-        return new TextMateCodeSurface(
-            root,
-            request => CreateHitTestResult(request, header, body));
-    }
-
-    private static Border CreateHeader(string? languageHint, int lineCount)
-    {
-        var grid = new Grid
-        {
-            ColumnDefinitions =
-            {
-                new ColumnDefinition { Width = GridLength.Auto },
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
-            },
-            ColumnSpacing = 12
-        };
-
-        grid.Children.Add(new TextBlock
-        {
-            Text = FormatLanguageLabel(languageHint),
-            FontWeight = FontWeight.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-
-        var meta = new TextBlock
-        {
-            Text = lineCount == 1 ? "1 line • TextMate" : $"{lineCount} lines • TextMate",
-            Foreground = MetaForeground,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(meta, 1);
-        grid.Children.Add(meta);
-
-        return new Border
-        {
-            Background = HeaderBackground,
-            Padding = new Thickness(12, 8),
-            Child = grid
-        };
-    }
-
-    private static MarkdownVisualHitTestResult CreateHitTestResult(
-        MarkdownVisualHitTestRequest request,
-        Control header,
-        Control body)
-    {
-        if (request.Control.TranslatePoint(request.LocalPoint, body) is { } bodyPoint &&
-            new Rect(body.Bounds.Size).Contains(bodyPoint))
-        {
-            return new MarkdownVisualHitTestResult
-            {
-                LocalHighlightRects = ResolveControlBounds(body, request.Control)
-            };
-        }
-
-        if (request.Control.TranslatePoint(request.LocalPoint, header) is { } headerPoint &&
-            new Rect(header.Bounds.Size).Contains(headerPoint))
-        {
-            return new MarkdownVisualHitTestResult
-            {
-                LocalHighlightRects = ResolveControlBounds(header, request.Control)
-            };
-        }
-
-        return new MarkdownVisualHitTestResult
-        {
-            LocalHighlightRects = ResolveControlBounds(request.Control, request.Control)
-        };
-    }
-
-    private static IReadOnlyList<Rect> ResolveControlBounds(Control control, Control root)
-    {
-        if (control.TranslatePoint(default, root) is not { } topLeft)
-        {
-            return Array.Empty<Rect>();
-        }
-
-        return [new Rect(topLeft, control.Bounds.Size)];
-    }
-
     private static InlineCollection? TokenizeCode(string code, string grammarScope, MarkdownRenderContext renderContext)
     {
-        var grammar = TryCreateGrammar(grammarScope);
+        var palette = renderContext.ThemePalette ?? MarkdownThemePalette.Resolve(renderContext.Foreground);
+        var theme = palette.IsDark ? DarkTheme : LightTheme;
+        var grammar = TryCreateGrammar(grammarScope, theme);
         if (grammar is null)
         {
             return null;
@@ -284,7 +187,7 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
 
             if (result.Tokens.Length == 0)
             {
-                inlines.Add(CreateRun(line, renderContext.Foreground, null, TextMateFontStyle.None));
+                inlines.Add(CreateRun(line, palette.Foreground, TextMateFontStyle.None));
             }
             else
             {
@@ -292,17 +195,20 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
                 {
                     var start = result.Tokens[tokenIndex];
                     var metadata = result.Tokens[tokenIndex + 1];
-                    var end = tokenIndex + 2 < result.Tokens.Length ? result.Tokens[tokenIndex + 2] : line.Length;
+                    var end = tokenIndex + 2 < result.Tokens.Length
+                        ? result.Tokens[tokenIndex + 2]
+                        : line.Length;
                     if (start >= end || start < 0 || end > line.Length)
                     {
                         continue;
                     }
 
                     var tokenText = line[start..end];
-                    var foreground = ResolveBrush(Theme.GetColor(EncodedTokenAttributes.GetForeground(metadata)), renderContext.Foreground);
-                    var background = ResolveOptionalBackground(Theme.GetColor(EncodedTokenAttributes.GetBackground(metadata)));
                     var style = EncodedTokenAttributes.GetFontStyle(metadata);
-                    inlines.Add(CreateRun(tokenText, foreground, background, style));
+                    inlines.Add(CreateRun(
+                        tokenText,
+                        ResolveSemanticForeground(theme.Theme, metadata, palette),
+                        style));
                 }
             }
 
@@ -315,16 +221,16 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
         return inlines;
     }
 
-    private static IGrammar? TryCreateGrammar(string grammarScope)
+    private static IGrammar? TryCreateGrammar(string grammarScope, TextMateThemeResources theme)
     {
-        var rawGrammar = RegistryOptions.GetGrammar(grammarScope);
+        var rawGrammar = theme.RegistryOptions.GetGrammar(grammarScope);
         if (rawGrammar is null)
         {
             return null;
         }
 
-        var registry = new SyncRegistry(Theme);
-        registry.AddGrammar(rawGrammar, RegistryOptions.GetInjections(grammarScope));
+        var registry = new SyncRegistry(theme.Theme);
+        registry.AddGrammar(rawGrammar, theme.RegistryOptions.GetInjections(grammarScope));
         return registry.GrammarForScopeName(
             grammarScope,
             0,
@@ -333,17 +239,12 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
             EmptyBalancedBracketSelectors);
     }
 
-    private static Run CreateRun(string text, IBrush? foreground, IBrush? background, TextMateFontStyle style)
+    private static Run CreateRun(string text, IBrush? foreground, TextMateFontStyle style)
     {
         var run = new Run(text);
         if (foreground is not null)
         {
             run.Foreground = foreground;
-        }
-
-        if (background is not null)
-        {
-            run.Background = background;
         }
 
         if (HasStyle(style, TextMateFontStyle.Bold))
@@ -368,36 +269,33 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
         return run;
     }
 
-    private static IBrush? ResolveBrush(string? colorText, IBrush? fallback)
+    private static IBrush ResolveSemanticForeground(Theme theme, int metadata, MarkdownThemePalette palette)
     {
-        if (string.IsNullOrWhiteSpace(colorText))
-        {
-            return fallback;
-        }
+        var colorId = EncodedTokenAttributes.GetForeground(metadata);
+        var color = theme.GetColor(colorId);
+        if (!SemanticColors.TryGetValue(color, out var kind))
+            kind = SemanticForegroundKind.Foreground;
 
-        if (BrushCache.TryGetValue(colorText, out var brush))
+        return kind switch
         {
-            return brush;
-        }
-
-        brush = new SolidColorBrush(Color.Parse(colorText));
-        BrushCache[colorText] = brush;
-        return brush;
+            SemanticForegroundKind.Comment => palette.CodeCommentForeground,
+            SemanticForegroundKind.String => palette.CodeStringForeground,
+            SemanticForegroundKind.Number => palette.CodeNumberForeground,
+            SemanticForegroundKind.Tag => palette.CodeTagForeground,
+            SemanticForegroundKind.Attribute => palette.CodeAttributeForeground,
+            SemanticForegroundKind.Property => palette.CodePropertyForeground,
+            SemanticForegroundKind.Type => palette.CodeTypeForeground,
+            SemanticForegroundKind.Keyword => palette.CodeKeywordForeground,
+            SemanticForegroundKind.Punctuation => palette.CodePunctuationForeground,
+            _ => palette.Foreground
+        };
     }
 
-    private static IBrush? ResolveOptionalBackground(string? colorText)
+    private static bool IsScope(string scope, ReadOnlySpan<char> prefix)
     {
-        if (string.IsNullOrWhiteSpace(colorText))
-        {
-            return null;
-        }
-
-        var normalized = colorText.Trim();
-        return normalized.Equals("#FFFFFF", StringComparison.OrdinalIgnoreCase) ||
-               normalized.Equals("#FFF", StringComparison.OrdinalIgnoreCase) ||
-               normalized.Equals("white", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : ResolveBrush(normalized, null);
+        var candidate = scope.AsSpan();
+        return candidate.StartsWith(prefix, StringComparison.Ordinal) &&
+               (candidate.Length == prefix.Length || candidate[prefix.Length] == '.');
     }
 
     private static bool HasStyle(TextMateFontStyle value, TextMateFontStyle flag)
@@ -413,8 +311,23 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
             return null;
         }
 
-        var language = RegistryOptions.GetLanguageByExtension(extension);
-        return language is null ? null : RegistryOptions.GetScopeByLanguageId(language.Id);
+        var language = LightTheme.RegistryOptions.GetLanguageByExtension(extension);
+        return language is null ? null : LightTheme.RegistryOptions.GetScopeByLanguageId(language.Id);
+    }
+
+    private static TextMateThemeResources CreateThemeResources(ThemeName themeName)
+    {
+        var registryOptions = new RegistryOptions(themeName);
+        var rawTheme = registryOptions.LoadTheme(themeName);
+        var theme = Theme.CreateFromRawTheme(new SemanticRawTheme(rawTheme), registryOptions);
+        return new TextMateThemeResources(registryOptions, theme);
+    }
+
+    internal static IRawTheme CreateEditorTheme(IRawTheme rawTheme, MarkdownThemePalette palette)
+    {
+        ArgumentNullException.ThrowIfNull(rawTheme);
+        ArgumentNullException.ThrowIfNull(palette);
+        return new SemanticRawTheme(rawTheme, palette);
     }
 
     internal static string? ResolveExtension(string? languageHint)
@@ -484,13 +397,233 @@ internal sealed class TextMateCodeBlockRenderingPlugin : IMarkdownBlockRendering
         };
     }
 
-    private sealed record TextMateCodeSurface(Control Control, MarkdownVisualHitTestHandler? HitTestHandler);
+
+    private sealed record TextMateThemeResources(
+        RegistryOptions RegistryOptions,
+        Theme Theme);
+
+    private enum SemanticForegroundKind
+    {
+        Foreground,
+        Comment,
+        String,
+        Number,
+        Tag,
+        Attribute,
+        Property,
+        Type,
+        Keyword,
+        Punctuation
+    }
+
+    private sealed class SemanticRawTheme : IRawTheme
+    {
+        private readonly IRawTheme _source;
+        private readonly ICollection<IRawThemeSetting> _settings;
+        private readonly ICollection<IRawThemeSetting> _tokenColors;
+        private readonly ICollection<KeyValuePair<string, object>> _guiColors;
+
+        public SemanticRawTheme(IRawTheme source, MarkdownThemePalette? palette = null)
+        {
+            _source = source;
+            _settings = CreateSemanticSettings(source.GetSettings(), palette);
+            _tokenColors = CreateSemanticSettings(source.GetTokenColors(), palette);
+            _guiColors = palette is null
+                ? source.GetGuiColors() ?? []
+                : CreatePaletteGuiColors(source.GetGuiColors(), palette);
+        }
+
+        public string GetName() => _source.GetName();
+
+        public string GetInclude() => _source.GetInclude();
+
+        public ICollection<IRawThemeSetting> GetSettings() => _settings;
+
+        public ICollection<IRawThemeSetting> GetTokenColors() => _tokenColors;
+
+        public ICollection<KeyValuePair<string, object>> GetGuiColors() => _guiColors;
+
+        private static ICollection<IRawThemeSetting> CreateSemanticSettings(
+            ICollection<IRawThemeSetting>? sourceSettings,
+            MarkdownThemePalette? palette)
+        {
+            var capacity = (sourceSettings?.Count ?? 0) + SemanticScopeRules.Length + 1;
+            var settings = new List<IRawThemeSetting>(capacity)
+            {
+                new SemanticRawThemeSetting(null, null, SemanticForegroundKind.Foreground, palette)
+            };
+
+            if (sourceSettings is not null)
+            {
+                foreach (var sourceSetting in sourceSettings)
+                {
+                    foreach (var scope in EnumerateScopes(sourceSetting.GetScope()))
+                    {
+                        settings.Add(new SemanticRawThemeSetting(
+                            sourceSetting,
+                            scope,
+                            ResolveSemanticKind(scope),
+                            palette));
+                    }
+                }
+            }
+
+            foreach (var (scope, kind) in SemanticScopeRules)
+                settings.Add(new SemanticRawThemeSetting(null, scope, kind, palette));
+            return settings;
+        }
+
+        private static ICollection<KeyValuePair<string, object>> CreatePaletteGuiColors(
+            ICollection<KeyValuePair<string, object>>? sourceColors,
+            MarkdownThemePalette palette)
+        {
+            var colors = new Dictionary<string, object>((sourceColors?.Count ?? 0) + 2, StringComparer.OrdinalIgnoreCase);
+            if (sourceColors is not null)
+            {
+                foreach (var pair in sourceColors)
+                    colors[pair.Key] = pair.Value;
+            }
+
+            var fallback = palette.IsDark ? MarkdownThemePalette.Dark : MarkdownThemePalette.Light;
+            colors["editor.foreground"] = ToThemeColor(palette.Foreground, fallback.Foreground);
+            colors["editor.background"] = ToThemeColor(palette.SurfaceRaised, fallback.SurfaceRaised);
+            return colors.ToArray();
+        }
+
+        private static IEnumerable<string?> EnumerateScopes(object? value)
+        {
+            if (value is null)
+            {
+                yield return null;
+                yield break;
+            }
+
+            if (value is string scope)
+            {
+                foreach (var candidate in scope.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    yield return candidate;
+                yield break;
+            }
+
+            if (value is IEnumerable values)
+            {
+                foreach (var item in values)
+                {
+                    if (item is not null)
+                    {
+                        foreach (var candidate in item.ToString()!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            yield return candidate;
+                    }
+                }
+            }
+        }
+
+        private static SemanticForegroundKind ResolveSemanticKind(string? selector)
+        {
+            if (string.IsNullOrWhiteSpace(selector))
+                return SemanticForegroundKind.Foreground;
+
+            var scopes = selector.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            for (var scopeIndex = scopes.Length - 1; scopeIndex >= 0; scopeIndex--)
+            {
+                var scope = scopes[scopeIndex];
+                for (var ruleIndex = 0; ruleIndex < SemanticScopeRules.Length; ruleIndex++)
+                {
+                    if (IsScope(scope, SemanticScopeRules[ruleIndex].Scope))
+                        return SemanticScopeRules[ruleIndex].Kind;
+                }
+            }
+
+            return SemanticForegroundKind.Foreground;
+        }
+    }
+
+    private sealed class SemanticRawThemeSetting(
+        IRawThemeSetting? source,
+        string? scope,
+        SemanticForegroundKind kind,
+        MarkdownThemePalette? palette) : IRawThemeSetting
+    {
+        private readonly IThemeSetting _setting = new SemanticThemeSetting(
+            source?.GetSetting(),
+            kind,
+            scope is null,
+            palette);
+
+        public string GetName() => source?.GetName() ?? string.Empty;
+
+        public object? GetScope() => scope;
+
+        public IThemeSetting GetSetting() => _setting;
+    }
+
+    private sealed class SemanticThemeSetting(
+        IThemeSetting? source,
+        SemanticForegroundKind kind,
+        bool isDocumentDefault,
+        MarkdownThemePalette? palette) : IThemeSetting
+    {
+        public object? GetFontStyle() => source?.GetFontStyle();
+
+        public string? GetBackground()
+        {
+            if (!isDocumentDefault || palette is null)
+                return source?.GetBackground();
+
+            var fallback = palette.IsDark ? MarkdownThemePalette.Dark : MarkdownThemePalette.Light;
+            return ToThemeColor(palette.SurfaceRaised, fallback.SurfaceRaised);
+        }
+
+        public string GetForeground()
+        {
+            if (palette is null)
+            {
+                return kind switch
+                {
+                    SemanticForegroundKind.Comment => "#020202",
+                    SemanticForegroundKind.String => "#030303",
+                    SemanticForegroundKind.Number => "#040404",
+                    SemanticForegroundKind.Tag => "#050505",
+                    SemanticForegroundKind.Attribute => "#060606",
+                    SemanticForegroundKind.Property => "#070707",
+                    SemanticForegroundKind.Type => "#080808",
+                    SemanticForegroundKind.Keyword => "#090909",
+                    SemanticForegroundKind.Punctuation => "#0A0A0A",
+                    _ => "#010101"
+                };
+            }
+
+            var fallback = palette.IsDark ? MarkdownThemePalette.Dark : MarkdownThemePalette.Light;
+            return kind switch
+            {
+                SemanticForegroundKind.Comment => ToThemeColor(palette.CodeCommentForeground, fallback.CodeCommentForeground),
+                SemanticForegroundKind.String => ToThemeColor(palette.CodeStringForeground, fallback.CodeStringForeground),
+                SemanticForegroundKind.Number => ToThemeColor(palette.CodeNumberForeground, fallback.CodeNumberForeground),
+                SemanticForegroundKind.Tag => ToThemeColor(palette.CodeTagForeground, fallback.CodeTagForeground),
+                SemanticForegroundKind.Attribute => ToThemeColor(palette.CodeAttributeForeground, fallback.CodeAttributeForeground),
+                SemanticForegroundKind.Property => ToThemeColor(palette.CodePropertyForeground, fallback.CodePropertyForeground),
+                SemanticForegroundKind.Type => ToThemeColor(palette.CodeTypeForeground, fallback.CodeTypeForeground),
+                SemanticForegroundKind.Keyword => ToThemeColor(palette.CodeKeywordForeground, fallback.CodeKeywordForeground),
+                SemanticForegroundKind.Punctuation => ToThemeColor(palette.CodePunctuationForeground, fallback.CodePunctuationForeground),
+                _ => ToThemeColor(palette.Foreground, fallback.Foreground)
+            };
+        }
+    }
+
+    private static string ToThemeColor(IBrush brush, IBrush fallback)
+    {
+        var color = brush is ISolidColorBrush solid
+            ? solid.Color
+            : ((ISolidColorBrush)fallback).Color;
+        return $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+    }
 }
 
 internal sealed class TextMateCodeBlockEditorPlugin : IMarkdownEditorPlugin
 {
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private static readonly RegistryOptions EditorRegistryOptions = new(ThemeName.LightPlus);
+    private static readonly RegistryOptions LightEditorRegistryOptions = new(ThemeName.LightPlus);
+    private static readonly RegistryOptions DarkEditorRegistryOptions = new(ThemeName.DarkPlus);
 
     public string EditorId => TextMateMarkdownPlugin.TextMateCodeEditorId;
 
@@ -553,7 +686,18 @@ internal sealed class TextMateCodeBlockEditorPlugin : IMarkdownEditorPlugin
             VerticalAlignment = VerticalAlignment.Stretch
         };
 
-        var installation = editor.InstallTextMate(EditorRegistryOptions);
+        var palette = context.RenderContext.ThemePalette ??
+                      MarkdownThemePalette.Resolve(context.RenderContext.Foreground);
+        var editorRegistryOptions = palette.IsDark
+            ? DarkEditorRegistryOptions
+            : LightEditorRegistryOptions;
+        var editorThemeName = palette.IsDark ? ThemeName.DarkPlus : ThemeName.LightPlus;
+        var installation = editor.InstallTextMate(editorRegistryOptions);
+        installation.SetTheme(TextMateCodeBlockRenderingPlugin.CreateEditorTheme(
+            editorRegistryOptions.LoadTheme(editorThemeName),
+            palette));
+        editor.SetCurrentValue(TextEditor.BackgroundProperty, palette.SurfaceRaised);
+        editor.SetCurrentValue(TextEditor.ForegroundProperty, palette.Foreground);
         context.TrackResource(new DelegateDisposable(installation.Dispose));
 
         void ApplyGrammar()
@@ -594,7 +738,7 @@ internal sealed class TextMateCodeBlockEditorPlugin : IMarkdownEditorPlugin
         body.Children.Add(settingsRow);
         body.Children.Add(new Border
         {
-            BorderBrush = MarkdownEditorUiFactory.BorderBrush,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,

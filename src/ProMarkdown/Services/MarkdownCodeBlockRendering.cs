@@ -12,12 +12,7 @@ namespace ProMarkdown.Services;
 public static class MarkdownCodeBlockRendering
 {
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private static readonly IBrush SurfaceBackground = new SolidColorBrush(Color.Parse("#F6F8FA"));
-    private static readonly IBrush SurfaceBorderBrush = new SolidColorBrush(Color.Parse("#D0D7DE"));
-    private static readonly IBrush HeaderBackground = new SolidColorBrush(Color.Parse("#EAEEF2"));
-    private static readonly IBrush DefaultMetaForeground = new SolidColorBrush(Color.Parse("#6E7781"));
-
-    public static IBrush DefaultCodeTextForeground { get; } = new SolidColorBrush(Color.Parse("#1F2328"));
+    public static IBrush DefaultCodeTextForeground { get; } = MarkdownThemePalette.Light.Foreground;
 
     public static MarkdownCodeBlockSurface CreateSurface(
         CodeBlock block,
@@ -32,12 +27,13 @@ public static class MarkdownCodeBlockRendering
         ArgumentNullException.ThrowIfNull(block);
         ArgumentNullException.ThrowIfNull(inlines);
         ArgumentNullException.ThrowIfNull(renderContext);
+        var palette = renderContext.ThemePalette ?? MarkdownThemePalette.Resolve(renderContext.Foreground);
 
-        var codeText = new SelectableTextBlock
+        var codeText = new MarkdownWrappingSelectableTextBlock
         {
             FontFamily = MonospaceFamily,
             FontSize = Math.Max(renderContext.FontSize - 1, 12),
-            Foreground = textForeground ?? renderContext.Foreground ?? DefaultCodeTextForeground,
+            Foreground = textForeground ?? palette.Foreground,
             TextWrapping = renderContext.TextWrapping == TextWrapping.NoWrap ? TextWrapping.NoWrap : TextWrapping.Wrap,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Inlines = inlines
@@ -64,6 +60,7 @@ public static class MarkdownCodeBlockRendering
         headerGrid.Children.Add(new TextBlock
         {
             Text = FormatLanguageLabel(languageHint),
+            Foreground = palette.Foreground,
             FontWeight = FontWeight.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         });
@@ -71,7 +68,7 @@ public static class MarkdownCodeBlockRendering
         var metaTextBlock = new TextBlock
         {
             Text = metaText,
-            Foreground = metaForeground ?? DefaultMetaForeground,
+            Foreground = metaForeground ?? palette.MutedForeground,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -95,7 +92,7 @@ public static class MarkdownCodeBlockRendering
 
         var headerBorder = new Border
         {
-            Background = HeaderBackground,
+            Background = palette.CodeHeaderBackground,
             Padding = new Thickness(12, 8),
             Child = headerGrid
         };
@@ -106,8 +103,8 @@ public static class MarkdownCodeBlockRendering
 
         var root = new MarkdownRichBlockBorder
         {
-            Background = SurfaceBackground,
-            BorderBrush = SurfaceBorderBrush,
+            Background = palette.SurfaceRaised,
+            BorderBrush = palette.Border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             ClipToBounds = true,

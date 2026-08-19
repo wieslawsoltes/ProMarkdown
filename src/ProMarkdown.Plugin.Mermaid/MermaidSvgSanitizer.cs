@@ -46,6 +46,12 @@ internal static class MermaidSvgSanitizer
 
             foreach (var attribute in element.Attributes().ToArray())
             {
+                if (attribute.Name == XNamespace.Xml + "base")
+                {
+                    attribute.Remove();
+                    continue;
+                }
+
                 var name = attribute.Name.LocalName;
                 if (name.StartsWith("on", StringComparison.OrdinalIgnoreCase))
                 {

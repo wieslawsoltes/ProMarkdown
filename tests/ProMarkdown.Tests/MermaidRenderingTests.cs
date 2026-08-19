@@ -1,11 +1,19 @@
 using System.Diagnostics;
 using System.Text;
+using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Svg.Skia;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ProMarkdown.Plugin.Mermaid;
 using ProMarkdown.Services;
@@ -44,6 +52,226 @@ public sealed class MermaidRenderingTests
         { "block", "block-beta\ncolumns 2\nA[\"A\"] B[\"B\"]" },
         { "treeview", "treeView-beta\n  root/\n    child.txt" }
     };
+
+    [AvaloniaFact]
+    public void HostStylesOverrideMermaidLayoutDefaults()
+    {
+        using var diagram = new MermaidDiagramControl(
+            new PaletteRecordingRenderer(),
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions(),
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 500, Height = 300, Content = diagram };
+        window.Styles.Add(new Style(selector => selector.OfType<MermaidDiagramControl>())
+        {
+            Setters =
+            {
+                new Setter(Layoutable.MinHeightProperty, 120d),
+                new Setter(Layoutable.HorizontalAlignmentProperty, HorizontalAlignment.Center)
+            }
+        });
+        window.Show();
+        try
+        {
+            diagram.MinHeight.ShouldBe(120);
+            diagram.HorizontalAlignment.ShouldBe(HorizontalAlignment.Center);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Fact]
+    public void FatalExceptionsAreNotConvertedIntoMermaidErrorState()
+    {
+        MermaidDiagramControl.IsRecoverableAsyncException(new InvalidOperationException()).ShouldBeTrue();
+        MermaidDiagramControl.IsRecoverableAsyncException(new OutOfMemoryException()).ShouldBeFalse();
+        MermaidDiagramControl.IsRecoverableAsyncException(new AccessViolationException()).ShouldBeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task FatalRendererFailuresReachTheDispatcherExceptionBoundary()
+    {
+        var observed = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs args)
+        {
+            if (args.Exception is not OutOfMemoryException)
+                return;
+            args.Handled = true;
+            observed.TrySetResult(args.Exception);
+        }
+
+        Dispatcher.UIThread.UnhandledException += OnUnhandledException;
+        try
+        {
+            using var diagram = new MermaidDiagramControl(
+                new ExceptionRenderer(new OutOfMemoryException("fatal renderer failure")),
+                "flowchart TD\nA --> B",
+                MarkdownThemePalette.Dark,
+                "Inter",
+                14,
+                new MermaidMarkdownPluginOptions(),
+                CancellationToken.None,
+                static () => new CompletionTrackingDisposable());
+
+            var exception = await observed.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+
+            exception.Message.ShouldBe("fatal renderer failure");
+            diagram.HasError.ShouldBeFalse();
+        }
+        finally
+        {
+            Dispatcher.UIThread.UnhandledException -= OnUnhandledException;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task PressHitTestsTheCurrentDiagramInsteadOfCachedHoverState()
+    {
+        var renderer = new DeferredSvgRenderer();
+        var activated = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var diagram = new MermaidDiagramControl(
+            renderer,
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions
+            {
+                ActivateLinkAsync = (uri, _) =>
+                {
+                    activated.TrySetResult(uri);
+                    return Task.CompletedTask;
+                }
+            },
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await renderer.Started.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+            window.MouseMove(new Point(200, 100));
+            renderer.Complete(LinkedSvg);
+            await WaitForAsync(() => diagram.HasImage);
+
+            window.MouseDown(new Point(200, 100), MouseButton.Left);
+            activated.Task.IsCompleted.ShouldBeFalse();
+            window.MouseUp(new Point(200, 100), MouseButton.Left);
+
+            var uri = await activated.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+            uri.ShouldBe(new Uri("https://example.com/docs"));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DraggingFromADiagramLinkDoesNotActivateIt()
+    {
+        var activated = new TaskCompletionSource<Uri>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var diagram = new MermaidDiagramControl(
+            new StaticSvgRenderer(LinkedSvg),
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions
+            {
+                ActivateLinkAsync = (uri, _) =>
+                {
+                    activated.TrySetResult(uri);
+                    return Task.CompletedTask;
+                }
+            },
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+
+            window.MouseDown(new Point(200, 100), MouseButton.Left);
+            window.MouseMove(new Point(220, 100));
+            window.MouseUp(new Point(220, 100), MouseButton.Left);
+
+            activated.Task.IsCompleted.ShouldBeFalse();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DiagramLinksSupportKeyboardAndAutomationActivation()
+    {
+        var activationCount = 0;
+        var activated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var diagram = new MermaidDiagramControl(
+            new StaticSvgRenderer(LinkedSvg),
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions
+            {
+                AccessibleName = "Architecture diagram",
+                ActivateLinkAsync = (_, _) =>
+                {
+                    if (Interlocked.Increment(ref activationCount) >= 2)
+                        activated.TrySetResult();
+                    return Task.CompletedTask;
+                }
+            },
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            diagram.Focusable.ShouldBeTrue();
+            diagram.Focus().ShouldBeTrue();
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
+
+            var peer = ControlAutomationPeer.CreatePeerForElement(diagram);
+            peer.ShouldNotBeNull();
+            peer.GetName().ShouldBe("Architecture diagram");
+            var linkPeer = peer.GetChildren().Single();
+            linkPeer.GetAutomationControlType().ShouldBe(AutomationControlType.Hyperlink);
+            linkPeer.GetName().ShouldBe("Documentation");
+            linkPeer.IsKeyboardFocusable().ShouldBeFalse();
+            linkPeer.HasKeyboardFocus().ShouldBeFalse();
+            linkPeer.SetFocus();
+            linkPeer.HasKeyboardFocus().ShouldBeFalse();
+            var invokeProvider = linkPeer.ShouldBeAssignableTo<IInvokeProvider>();
+            invokeProvider.Invoke();
+
+            await activated.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+            activationCount.ShouldBe(2);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     [Theory]
     [MemberData(nameof(SupportedDiagrams))]
@@ -109,6 +337,41 @@ public sealed class MermaidRenderingTests
         configuredPalettes.SelectMany(static colors => colors)
             .ShouldAllBe(color => color.Length == 7 && color[0] == '#');
         configuredPalettes[0].ShouldNotBe(configuredPalettes[1]);
+    }
+
+    [Fact]
+    public async Task RendererUsesForegroundForConnectorsAndCachesBorderSeparately()
+    {
+        var configuredColors = new List<(string? Accent, string? Line, string? Border)>();
+        var renderer = new MermaiderSvgRenderer((_, destination, options, cancellationToken) =>
+        {
+            configuredColors.Add((options.Accent, options.Line, options.Border));
+            return WriteMinimalSvgAsync(destination, cancellationToken);
+        });
+        const string source = "flowchart TD\nA --> B";
+        var firstPalette = new MarkdownThemePalette
+        {
+            IsDark = true,
+            Foreground = new SolidColorBrush(Color.Parse("#FFDECADE")),
+            Accent = new SolidColorBrush(Color.Parse("#FF123456")),
+            Border = new SolidColorBrush(Color.Parse("#FF654321"))
+        };
+        var secondPalette = new MarkdownThemePalette
+        {
+            IsDark = true,
+            Foreground = firstPalette.Foreground,
+            Accent = firstPalette.Accent,
+            Border = new SolidColorBrush(Color.Parse("#FFABCDEF"))
+        };
+
+        await renderer.RenderAsync(source, firstPalette, "Inter", 14, CancellationToken.None);
+        await renderer.RenderAsync(source, secondPalette, "Inter", 14, CancellationToken.None);
+
+        renderer.RenderInvocationCount.ShouldBe(2);
+        configuredColors.ShouldBe([
+            ("#DECADE", "#DECADE", "#654321"),
+            ("#DECADE", "#DECADE", "#ABCDEF")
+        ]);
     }
 
     [Fact]
@@ -452,6 +715,22 @@ public sealed class MermaidRenderingTests
     }
 
     [Fact]
+    public void SanitizerRemovesXmlBaseBeforeKeepingFragmentReferences()
+    {
+        const string svg = """
+            <svg xmlns="http://www.w3.org/2000/svg" xml:base="https://example.com/external.svg">
+              <defs><path id="node" d="M0 0 L10 10" /></defs>
+              <use href="#node" />
+            </svg>
+            """;
+
+        var sanitized = MermaidSvgSanitizer.Sanitize(svg);
+
+        sanitized.ShouldNotContain("xml:base", Case.Insensitive);
+        sanitized.ShouldContain("href=\"#node\"", Case.Insensitive);
+    }
+
+    [Fact]
     public void SanitizerRejectsExternalPaintReferencesAndForeignSvgNamespaces()
     {
         Should.Throw<InvalidOperationException>(() => MermaidSvgSanitizer.Sanitize(
@@ -474,6 +753,130 @@ public sealed class MermaidRenderingTests
 
         sanitized.ShouldNotContain("data:image/svg+xml", Case.Insensitive);
         sanitized.ShouldContain("data:image/png;base64,AA==", Case.Insensitive);
+    }
+
+    [AvaloniaFact]
+    public async Task DiagramAcquiresItsInitialOperationBeforeAttachmentAndObservesLinkFailures()
+    {
+        var beginCalls = 0;
+        var operation = new CompletionTrackingDisposable();
+        using var diagram = new MermaidDiagramControl(
+            new NonCancelingRenderer(),
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions
+            {
+                ActivateLinkAsync = static (_, _) => Task.FromException(new InvalidOperationException("launch failed"))
+            },
+            CancellationToken.None,
+            () =>
+            {
+                beginCalls++;
+                return operation;
+            });
+
+        beginCalls.ShouldBe(1);
+        diagram.Foreground.ShouldBeSameAs(MarkdownThemePalette.Dark.Foreground);
+        await diagram.ActivateLinkSafelyAsync(new Uri("https://example.com"));
+
+        diagram.Dispose();
+        await operation.Disposed.Task.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+    }
+
+    [AvaloniaFact]
+    public async Task OffTreeDiagramCompletesItsParentRenderGeneration()
+    {
+        var renderer = new NonCancelingRenderer();
+        var control = new ProMarkdown.Controls.MarkdownTextBlock
+        {
+            RenderController = MarkdownRenderingServices.CreateController(
+                new MermaidMarkdownPlugin(renderer))
+        };
+        control.Markdown = "```mermaid\nflowchart TD\nA --> B\n```";
+
+        await renderer.Started.Task.WaitAsync(
+            TimeSpan.FromSeconds(2),
+            TestContext.Current.CancellationToken);
+        control.IsRendering.ShouldBeTrue();
+
+        renderer.Complete();
+
+        await WaitForAsync(() => !control.IsRendering);
+        control.IsRendering.ShouldBeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task DetachingPendingDiagramClearsLoadingState()
+    {
+        var renderer = new NonCancelingRenderer();
+        using var diagram = new MermaidDiagramControl(
+            renderer,
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions(),
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await renderer.Started.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+            diagram.IsLoading.ShouldBeTrue();
+
+            window.Content = null;
+
+            diagram.IsLoading.ShouldBeFalse();
+        }
+        finally
+        {
+            renderer.Complete();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task OffTreeThemeReplacementRendersTheNewPalette()
+    {
+        var renderer = new PaletteRecordingRenderer();
+        var lightPalette = new MarkdownThemePalette
+        {
+            Foreground = new SolidColorBrush(Color.Parse("#FF101010"))
+        };
+        var darkPalette = new MarkdownThemePalette
+        {
+            IsDark = true,
+            Foreground = new SolidColorBrush(Color.Parse("#FFF0F0F0"))
+        };
+        using var diagram = new MermaidDiagramControl(
+            renderer,
+            "flowchart TD\nA --> B",
+            lightPalette,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions(),
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+
+        await WaitForAsync(() => renderer.Requests.Count == 1 && !diagram.IsLoading);
+        diagram.ThemePalette = darkPalette;
+        await WaitForAsync(() => renderer.Requests.Count == 2 && !diagram.IsLoading);
+
+        var renderedPalettes = renderer.Requests.ToArray()
+            .Select(static request => request.Palette)
+            .ToArray();
+        renderedPalettes.Select(static palette => palette.IsDark).ShouldBe([false, true]);
+        renderedPalettes
+            .Select(static palette => palette.Foreground.ShouldBeAssignableTo<ISolidColorBrush>().Color)
+            .ShouldBe([Color.Parse("#FF101010"), Color.Parse("#FFF0F0F0")]);
+        diagram.Foreground.ShouldBeSameAs(darkPalette.Foreground);
     }
 
     [AvaloniaFact]
@@ -502,6 +905,77 @@ public sealed class MermaidRenderingTests
         }
         finally
         {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task UiOwnedPaletteBrushIsSnapshottedBeforeBackgroundRendering()
+    {
+        var accentBrush = new SolidColorBrush(Color.Parse("#FF7C3AED"));
+        accentBrush.Color.ShouldBe(Color.Parse("#FF7C3AED"));
+
+        var renderer = new MermaiderSvgRenderer(
+            (_, destination, _, cancellationToken) => WriteMinimalSvgAsync(destination, cancellationToken));
+        var palette = new MarkdownThemePalette
+        {
+            IsDark = true,
+            Accent = accentBrush
+        };
+        using var diagram = new MermaidDiagramControl(
+            renderer,
+            "flowchart TD\nA --> B",
+            palette,
+            "Inter",
+            14);
+        var window = new Window { Width = 500, Height = 300, Content = diagram };
+        window.Show();
+
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage || diagram.HasError);
+
+            diagram.HasError.ShouldBeFalse(diagram.ErrorText);
+            diagram.HasImage.ShouldBeTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DisposingDiagramReleasesItsOperationWhenInjectedRendererIgnoresCancellation()
+    {
+        var renderer = new NonCancelingRenderer();
+        var operation = new CompletionTrackingDisposable();
+        using var diagram = new MermaidDiagramControl(
+            renderer,
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions(),
+            CancellationToken.None,
+            () => operation);
+        var window = new Window { Width = 500, Height = 300, Content = diagram };
+        window.Show();
+        try
+        {
+            await renderer.Started.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+
+            diagram.Dispose();
+
+            await operation.Disposed.Task.WaitAsync(
+                TimeSpan.FromSeconds(2),
+                TestContext.Current.CancellationToken);
+            renderer.PendingRender.IsCompleted.ShouldBeFalse();
+        }
+        finally
+        {
+            renderer.Complete();
             window.Close();
         }
     }
@@ -594,11 +1068,15 @@ public sealed class MermaidRenderingTests
                 TestContext.Current.CancellationToken);
             await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Image>()
                 .Any(image => image.IsVisible));
+            diagram.IsLoading.ShouldBeTrue();
+            diagram.GetVisualDescendants().OfType<ProgressBar>()
+                .ShouldAllBe(progress => !progress.IsVisible);
 
             releaseThemedRender.TrySetResult();
-            await WaitForAsync(() => diagram.GetVisualDescendants().OfType<StackPanel>()
-                .Any(panel => panel.IsVisible && panel.Children.OfType<Button>()
-                    .Any(button => Equals(button.Content, "Retry"))));
+            await WaitForAsync(() => diagram.HasError);
+            diagram.GetVisualDescendants().OfType<StackPanel>()
+                .ShouldContain(panel => panel.IsVisible && panel.Children.OfType<Button>()
+                    .Any(button => Equals(button.Content, "Retry")));
             diagram.GetVisualDescendants().OfType<Image>()
                 .ShouldAllBe(image => image.IsVisible);
 
@@ -689,21 +1167,24 @@ public sealed class MermaidRenderingTests
             return WriteMinimalSvgAsync(destination, cancellationToken);
         });
         const string source = "flowchart TD\nA -->";
+        const double fontSize = 10;
         using var diagram = new MermaidDiagramControl(
             renderer,
             source,
             MarkdownThemePalette.Dark,
             "Inter",
-            14);
+            fontSize);
         var window = new Window { Width = 500, Height = 300, Content = diagram };
         window.Show();
         try
         {
             await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Button>()
                 .Any(button => button.IsVisible && Equals(button.Content, "Retry")));
-            diagram.GetVisualDescendants().OfType<SelectableTextBlock>()
-                .Single(text => text.Text == source)
-                .Text.ShouldBe(source);
+            var sourceText = diagram.GetVisualDescendants().OfType<SelectableTextBlock>()
+                .Single(text => text.Text == source);
+            sourceText.Text.ShouldBe(source);
+            diagram.SourceFontSize.ShouldBe(12);
+            sourceText.FontSize.ShouldBe(diagram.SourceFontSize);
 
             var retry = diagram.GetVisualDescendants().OfType<Button>()
                 .Single(button => Equals(button.Content, "Retry"));
@@ -712,6 +1193,66 @@ public sealed class MermaidRenderingTests
             await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Image>()
                 .Any(image => image.IsVisible));
             invocation.ShouldBe(2);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task MermaidOwnsInputInsideAMarkdownDocument()
+    {
+        var renderer = new MermaiderSvgRenderer(
+            (_, _, _, _) => throw new InvalidOperationException("Invalid diagram syntax."));
+        const string source = "flowchart TD\nA -->";
+        var markdown = CreateMermaidMarkdown($"```mermaid\n{source}\n```", renderer);
+        var window = new Window { Width = 500, Height = 300, Content = markdown };
+        window.Show();
+        try
+        {
+            var diagram = EnumerateMermaidControls(markdown.Inlines!).Single();
+            await WaitForAsync(() => diagram.GetVisualDescendants()
+                .OfType<SelectableTextBlock>()
+                .Any(text => text.IsVisible && text.Text == source));
+            var sourceText = diagram.GetVisualDescendants()
+                .OfType<SelectableTextBlock>()
+                .Single(text => text.Text == source);
+
+            diagram.ShouldBeAssignableTo<IMarkdownInputBoundary>();
+            MarkdownDocumentSelection.ShouldBypassDocumentInput(markdown, sourceText).ShouldBeTrue();
+            sourceText.SelectAll();
+            sourceText.SelectedText.ShouldBe(source);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DiagramWithoutLinksDoesNotEnterTheTabOrder()
+    {
+        using var diagram = new MermaidDiagramControl(
+            new StaticSvgRenderer(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 50\"><rect width=\"100\" height=\"50\" /></svg>"),
+            "flowchart TD\nA --> B",
+            MarkdownThemePalette.Dark,
+            "Inter",
+            14,
+            new MermaidMarkdownPluginOptions(),
+            CancellationToken.None,
+            static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+
+            diagram.Focusable.ShouldBeFalse();
+            var peer = ControlAutomationPeer.CreatePeerForElement(diagram);
+            peer.ShouldNotBeNull();
+            peer.GetChildren().ShouldBeEmpty();
         }
         finally
         {
@@ -848,6 +1389,91 @@ public sealed class MermaidRenderingTests
         public void Register(MarkdownPluginRegistry registry) => registry
             .AddParserPlugin(new MermaidParserPlugin())
             .AddBlockRenderingPlugin(new MermaidDiagramBlockRenderingPlugin(renderer));
+    }
+
+    private const string LinkedSvg =
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 50\"><a href=\"https://example.com/docs\" title=\"Documentation\"><rect width=\"100\" height=\"50\" /></a></svg>";
+
+    private sealed class NonCancelingRenderer : IMermaidSvgRenderer
+    {
+        private readonly TaskCompletionSource<string> _completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<string> PendingRender => _completion.Task;
+
+        public Task<string> RenderAsync(
+            MermaidSvgRenderRequest request,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            return _completion.Task;
+        }
+
+        public void Complete() => _completion.TrySetResult(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 50\" />");
+    }
+
+    private sealed class PaletteRecordingRenderer : IMermaidSvgRenderer
+    {
+        public System.Collections.Concurrent.ConcurrentQueue<MermaidSvgRenderRequest> Requests { get; } = new();
+
+        public Task<string> RenderAsync(
+            MermaidSvgRenderRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Requests.Enqueue(request);
+            return Task.FromResult(
+                "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 50\" />");
+        }
+    }
+
+    private sealed class StaticSvgRenderer(string svg) : IMermaidSvgRenderer
+    {
+        public Task<string> RenderAsync(
+            MermaidSvgRenderRequest request,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(svg);
+        }
+    }
+
+    private sealed class DeferredSvgRenderer : IMermaidSvgRenderer
+    {
+        private readonly TaskCompletionSource<string> _completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<string> RenderAsync(
+            MermaidSvgRenderRequest request,
+            CancellationToken cancellationToken)
+        {
+            Started.TrySetResult();
+            return _completion.Task;
+        }
+
+        public void Complete(string svg) => _completion.TrySetResult(svg);
+    }
+
+    private sealed class ExceptionRenderer(Exception exception) : IMermaidSvgRenderer
+    {
+        public Task<string> RenderAsync(
+            MermaidSvgRenderRequest request,
+            CancellationToken cancellationToken) => Task.FromException<string>(exception);
+    }
+
+    private sealed class CompletionTrackingDisposable : IDisposable
+    {
+        public TaskCompletionSource Disposed { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Dispose() => Disposed.TrySetResult();
     }
 
     private static async Task WriteMinimalSvgAsync(Stream destination, CancellationToken cancellationToken)

@@ -1,0 +1,42 @@
+<ControlTheme xmlns="https://github.com/avaloniaui"
+              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+              xmlns:mermaid="using:ProMarkdown.Plugin.Mermaid"
+              x:Class="ProMarkdown.Plugin.Mermaid.Themes.MermaidDiagramTheme"
+              TargetType="mermaid:MermaidDiagramControl">
+  <Setter Property="Background" Value="Transparent" />
+  <Setter Property="HorizontalAlignment" Value="Stretch" />
+  <Setter Property="MinHeight" Value="48" />
+  <Setter Property="Focusable" Value="False" />
+  <Setter Property="Template">
+    <ControlTemplate>
+      <Border x:Name="PART_FocusBorder" Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding Foreground}" BorderThickness="0">
+        <Grid>
+          <Image x:Name="PART_DiagramImage" HorizontalAlignment="Stretch" Stretch="Uniform"
+                 IsVisible="{TemplateBinding HasImage}" />
+          <ProgressBar x:Name="PART_LoadingIndicator" Width="64" Height="4" IsIndeterminate="True"
+                       IsVisible="{TemplateBinding IsLoading}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <StackPanel Spacing="8" IsVisible="{TemplateBinding HasError}">
+            <TextBlock Text="{TemplateBinding ErrorText}" Foreground="{TemplateBinding Foreground}"
+                       FontWeight="SemiBold" TextWrapping="Wrap" />
+            <SelectableTextBlock Text="{TemplateBinding SourceText}" Foreground="{TemplateBinding Foreground}"
+                                  FontFamily="Cascadia Mono, Consolas, Courier New"
+                                  FontSize="{TemplateBinding SourceFontSize}" TextWrapping="Wrap" />
+            <Button Content="{TemplateBinding RetryText}" Command="{TemplateBinding RetryCommand}"
+                    HorizontalAlignment="Left" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </ControlTemplate>
+  </Setter>
+  <Style Selector="^:focus-visible /template/ Border#PART_FocusBorder">
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="^:has-links">
+    <Setter Property="Focusable" Value="True" />
+  </Style>
+  <Style Selector="^:has-image /template/ ProgressBar#PART_LoadingIndicator">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+</ControlTheme>

@@ -47,7 +47,7 @@ internal static class MarkdownDocumentLayout
     private sealed class LayoutState : IDisposable
     {
         private const double WidthTolerance = 0.01;
-        private static readonly TimeSpan ResizeDebounce = TimeSpan.FromMilliseconds(150);
+        private static readonly TimeSpan LayoutUpdateDelay = TimeSpan.Zero;
         private readonly MarkdownTextBlock _owner;
         private readonly DispatcherTimer _resizeTimer;
         private double _lastAppliedWidth = double.NaN;
@@ -56,7 +56,7 @@ internal static class MarkdownDocumentLayout
         {
             _owner = owner;
             _resizeTimer = new DispatcherTimer(
-                ResizeDebounce,
+                LayoutUpdateDelay,
                 DispatcherPriority.Background,
                 OnResizeTimerTick);
             _owner.SizeChanged += OnOwnerSizeChanged;
