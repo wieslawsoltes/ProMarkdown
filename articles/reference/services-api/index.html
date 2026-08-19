@@ -198,7 +198,7 @@ public MarkdownRenderResult Render(
 
 public MarkdownRenderResult Render(MarkdownRenderRequest request);
 </code></pre>
-<p>Implements <code>IMarkdownRenderController</code> and applies the post-render theme, borders, tasks, block quotes, and selection normalizers.</p>
+<p>Implements <code>IMarkdownRenderController</code> and applies the post-render rich-border, task-list, block-quote, and document-selection normalizers. Core and official plugin colors are assigned directly from <code>MarkdownThemePalette</code> during rendering rather than rewritten afterward.</p>
 <h3 id="markdownhittestingservice">MarkdownHitTestingService</h3>
 <pre><code class="language-csharp">public MarkdownHitTestingService();
 public MarkdownHitTestResult? HitTest(MarkdownHitTestRequest request);
@@ -221,6 +221,7 @@ public Control? CreateEditor(MarkdownEditorRenderRequest request);
 <pre><code class="language-csharp">public static MarkdownThemePalette Light { get; }
 public static MarkdownThemePalette Dark { get; }
 public static MarkdownThemePalette Resolve(IBrush? foreground);
+public MarkdownThemePalette WithForeground(IBrush foreground);
 </code></pre>
 <p>All instance properties are init-only:</p>
 <table class="table">
@@ -258,6 +259,54 @@ public static MarkdownThemePalette Resolve(IBrush? foreground);
 </tbody>
 </table>
 <p>See <a href="/ProMarkdown/articles/markdown/theming">Theming</a> for examples.</p>
+<h2 id="image-loading">Image loading</h2>
+<h3 id="markdownimagesourcekinds">MarkdownImageSourceKinds</h3>
+<p>Flags enum with <code>None</code>, <code>Data</code>, <code>File</code>, <code>Remote</code>, and <code>All</code> values.</p>
+<h3 id="markdownimageoptions">MarkdownImageOptions</h3>
+<pre><code class="language-csharp">public const long DefaultMaximumBytes;
+public const long DefaultMaximumPixelCount;
+public static readonly TimeSpan DefaultRemoteTimeout;
+
+public static MarkdownImageOptions Default { get; }
+public static MarkdownImageOptions BlockRemote { get; }
+public static MarkdownImageOptions EmbeddedOnly { get; }
+
+public MarkdownImageSourceKinds AllowedSourceKinds { get; init; }
+public long MaximumBytes { get; init; }
+public long MaximumPixelCount { get; init; }
+public TimeSpan RemoteTimeout { get; init; }
+</code></pre>
+<p>The defaults are 8 MiB, 64 × 1024 × 1024 decoded pixels, and 15 seconds. <code>Default</code> allows data, file, HTTP, and HTTPS sources; <code>BlockRemote</code> allows data and files; <code>EmbeddedOnly</code> allows only data URIs.</p>
+<h3 id="loader-contracts">Loader contracts</h3>
+<pre><code class="language-csharp">public sealed class MarkdownImageLoadRequest
+{
+    public required Uri Source { get; init; }
+    public required MarkdownImageOptions Options { get; init; }
+}
+
+public interface IMarkdownImageLoader
+{
+    Task&lt;Bitmap&gt; LoadAsync(
+        MarkdownImageLoadRequest request,
+        CancellationToken cancellationToken);
+}
+
+public sealed class DefaultMarkdownImageLoader : IMarkdownImageLoader
+{
+    public static DefaultMarkdownImageLoader Instance { get; }
+}
+</code></pre>
+<p>The default loader validates the policy, encoded byte count, and decoded pixel count. Custom loaders should honor the request options and cancellation token. See <a href="/ProMarkdown/articles/markdown/image-loading">Image Loading and Security</a> for integration guidance.</p>
+<h2 id="markdownselection">MarkdownSelection</h2>
+<p>Document-wide selection and clipboard helpers:</p>
+<pre><code class="language-csharp">public static bool CanCopy(MarkdownTextBlock? control);
+public static Task CopyAsync(MarkdownTextBlock? control);
+public static void SelectAll(MarkdownTextBlock? control);
+public static string GetSelectedText(MarkdownTextBlock? control);
+public static string GetDocumentText(MarkdownTextBlock? control);
+public static Task CopyDocumentTextAsync(MarkdownTextBlock? control);
+</code></pre>
+<p>The complete-document operations do not modify the active selection.</p>
 <h2 id="markdowncodeblockrendering">MarkdownCodeBlockRendering</h2>
 <p>Shared code-surface helpers for rendering plugins.</p>
 <pre><code class="language-csharp">public static IBrush DefaultCodeTextForeground { get; }
@@ -280,7 +329,7 @@ public static MarkdownCodeBlockSurface CreateSurface(
 <p>Shared callout presentation helpers:</p>
 <pre><code class="language-csharp">public static MarkdownCalloutPresentation ResolvePresentation(
     string? kind,
-    string? fallbackTitle = null);
+    string fallbackTitle);
 
 public static Control CreateCalloutSurface(
     string title,
@@ -289,8 +338,22 @@ public static Control CreateCalloutSurface(
     IBrush accentBrush,
     IBrush background);
 
-public static string FormatLabel(string? value);
+public static Control CreateCalloutSurface(
+    string title,
+    string? subtitle,
+    Control body,
+    IBrush accentBrush,
+    IBrush background,
+    MarkdownThemePalette palette);
+
+public static MarkdownCalloutPresentation ResolvePresentation(
+    string? kind,
+    string fallbackTitle,
+    MarkdownThemePalette palette);
+
+public static string FormatLabel(string value);
 </code></pre>
+<p>The overloads without a palette remain available for compatibility and use the built-in light palette. Official plugins pass the active render palette so borders, muted text, and semantic callout colors remain theme-correct.</p>
 <p><code>MarkdownCalloutPresentation</code> is a positional record struct with <code>Title</code>, <code>AccentBrush</code>, and <code>Background</code>, including value equality and deconstruction.</p>
 
       </div>

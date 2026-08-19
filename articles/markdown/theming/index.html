@@ -12,13 +12,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
 <meta name="twitter:title" content="Theming | ProMarkdown">
-<meta name="twitter:description" content="Theming MarkdownThemePalette centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, and syntax-highlighted tokens. Built-in palettes markdownView.ThemePalette = MarkdownThemePalette.Light; // or markdownView.ThemePalette = MarkdownThemePalette.Dark; When ThemePalette is null, MarkdownTextBlock calls MarkdownThemePalette.Resolve(Foreground). A light solid foreground selects the dark palette; other foregrounds select the light palette. For applications with an explicit theme mode, assigning...">
+<meta name="twitter:description" content="Theming MarkdownThemePalette centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, syntax-highlighted tokens, math, and Mermaid diagrams. Built-in palettes markdownView.ThemePalette = MarkdownThemePalette.Light; // or markdownView.ThemePalette = MarkdownThemePalette.Dark; When ThemePalette is null, MarkdownTextBlock calls MarkdownThemePalette.Resolve(Foreground). A light solid foreground selects the dark palette; other foregrounds select the light palette. For applications with an explicit theme mode, assigning...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta name="twitter:image:alt" content="Theming | ProMarkdown">
 <meta property="og:title" content="Theming | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Theming MarkdownThemePalette centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, and syntax-highlighted tokens. Built-in palettes markdownView.ThemePalette = MarkdownThemePalette.Light; // or markdownView.ThemePalette = MarkdownThemePalette.Dark; When ThemePalette is null, MarkdownTextBlock calls MarkdownThemePalette.Resolve(Foreground). A light solid foreground selects the dark palette; other foregrounds select the light palette. For applications with an explicit theme mode, assigning...">
+<meta property="og:description" content="Theming MarkdownThemePalette centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, syntax-highlighted tokens, math, and Mermaid diagrams. Built-in palettes markdownView.ThemePalette = MarkdownThemePalette.Light; // or markdownView.ThemePalette = MarkdownThemePalette.Dark; When ThemePalette is null, MarkdownTextBlock calls MarkdownThemePalette.Resolve(Foreground). A light solid foreground selects the dark palette; other foregrounds select the light palette. For applications with an explicit theme mode, assigning...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta property="og:image:alt" content="Theming | ProMarkdown">
   </head>
@@ -102,16 +102,18 @@
             <li id='menu-item-markdown-2' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
             <li id='menu-item-markdown-3' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/image-loading/' class='menu-link  '>Image Loading and Security</a></span>  </li>
             <li id='menu-item-markdown-4' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
             <li id='menu-item-markdown-5' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
+            <li id='menu-item-markdown-6' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
-            <li id='menu-item-markdown-6' class='menu-item  active'>
+            <li id='menu-item-markdown-7' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
-            <li id='menu-item-markdown-7' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
             <li id='menu-item-markdown-8' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+            <li id='menu-item-markdown-9' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/plugin-ecosystem/' class='menu-link  '>Plugin Ecosystem</a></span>  </li>
           </ol>
 
@@ -160,7 +162,7 @@
         </div>
 <!-- lunet:summarize -->
 <h1 id="theming">Theming</h1>
-<p><code>MarkdownThemePalette</code> centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, and syntax-highlighted tokens.</p>
+<p><code>MarkdownThemePalette</code> centralizes semantic brushes for document surfaces. It covers ordinary foregrounds and borders, code, tables, marked and inserted text, links, block quotes, alerts, syntax-highlighted tokens, math, and Mermaid diagrams.</p>
 <h2 id="built-in-palettes">Built-in palettes</h2>
 <pre><code class="language-csharp">markdownView.ThemePalette = MarkdownThemePalette.Light;
 // or
@@ -201,9 +203,12 @@ markdownView.ThemePalette = palette;
 <li><strong>Alerts:</strong> Note, Tip, Important, Warning, and Caution accent/background pairs</li>
 <li><strong>Syntax tokens:</strong> keyword, type, string, comment, number, property, tag, attribute, and punctuation foregrounds</li>
 </ul>
-<p>Changing the palette rerenders the document so plugin controls and normalized built-in content receive the new semantic brushes.</p>
+<p><code>Foreground</code> is the ordinary document color and is also used for neutral Mermaid strokes and arrows. <code>Accent</code> is for emphasized UI and semantic accents. Hyperlinks use <code>HyperlinkForeground</code>, so applications that expect links to follow their accent should assign both roles to the same brush.</p>
+<p>Changing the palette rerenders the document. Core rendering, math, syntax highlighting, Mermaid, and the other official plugins consume the palette directly while constructing their controls. ProMarkdown does not walk the completed visual tree to replace arbitrary colors, so controls created by third-party plugins retain the brushes selected by those plugins.</p>
+<p>This direct palette model also means official plugin controls receive the correct colors before they are attached, avoiding a visible post-render color correction.</p>
 <h2 id="avalonia-theme-integration">Avalonia theme integration</h2>
 <p>Expose the current <code>MarkdownThemePalette</code> from your theme service or view model and bind it like any other view state. Keep palette construction in shared theme infrastructure rather than scattering brushes across individual Markdown views.</p>
+<p>When an application changes theme at runtime, replace the palette instance or assign the appropriate themed resource. <code>MarkdownTextBlock</code> rerenders for the new palette, and Mermaid regenerates its SVG using the new semantic colors. A custom <code>IMermaidSvgRenderer</code> receives a background-thread-safe palette snapshot in each <code>MermaidSvgRenderRequest</code>.</p>
 
       </div>
   </div>

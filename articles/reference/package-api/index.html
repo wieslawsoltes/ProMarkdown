@@ -238,7 +238,7 @@ markdown.EditingService = MarkdownRenderingServices.CreateEditingService(plugins
 </tr>
 </tbody>
 </table>
-<p>Every class has a public parameterless constructor and this method:</p>
+<p>Every plugin class has a public parameterless constructor and this method:</p>
 <pre><code class="language-csharp">public void Register(MarkdownPluginRegistry registry);
 </code></pre>
 <p>Registration is normally performed by the service factories. Call <code>Register</code> directly only when assembling a <code>MarkdownPluginRegistry</code> yourself.</p>
@@ -310,6 +310,16 @@ markdown.EditingService = MarkdownRenderingServices.CreateEditingService(plugins
         TextMateMarkdownPlugin.TextMateCodeEditorId);
 </code></pre>
 <p><code>SyntaxHighlightingMarkdownPlugin</code> is rendering-only and does not expose an editor ID.</p>
+<h2 id="mermaid-public-api">Mermaid public API</h2>
+<p><code>MermaidMarkdownPlugin</code> also supports host configuration and renderer injection:</p>
+<pre><code class="language-csharp">public MermaidMarkdownPlugin(MermaidMarkdownPluginOptions options);
+public MermaidMarkdownPlugin(
+    IMermaidSvgRenderer renderer,
+    MermaidMarkdownPluginOptions? options = null);
+</code></pre>
+<p><code>IMermaidSvgRenderer.RenderAsync</code> receives a <code>MermaidSvgRenderRequest</code> with <code>Source</code>, a background-thread-safe <code>Palette</code> snapshot, <code>FontFamily</code>, and <code>FontSize</code>, plus the render cancellation token. The plugin sanitizes returned SVG before displaying it.</p>
+<p><code>MermaidMarkdownPluginOptions</code> has init-only <code>AccessibleName</code>, <code>ErrorText</code>, <code>RetryText</code>, and optional <code>ActivateLinkAsync</code> properties. Link activation is restricted to absolute HTTPS URIs even when a callback is supplied.</p>
+<p><code>MermaidDiagramControl</code> is a public, styleable <code>TemplatedControl</code> created by the plugin. It exposes the styled <code>ThemePalette</code> property and read-only direct properties for <code>IsLoading</code>, <code>HasImage</code>, <code>HasError</code>, <code>ErrorText</code>, <code>SourceText</code>, <code>SourceFontSize</code>, <code>RetryText</code>, and <code>RetryCommand</code>. The control owns its SVG resources and implements <code>IDisposable</code>; normal plugin rendering registers it with the render resource tracker automatically.</p>
 <h2 id="composition-notes">Composition notes</h2>
 <ul>
 <li>Plugin classes retain any resources they reuse across renders; construct them once and reuse the plugin list.</li>

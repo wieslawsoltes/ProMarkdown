@@ -12,13 +12,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
 <meta name="twitter:title" content="Controls API | ProMarkdown">
-<meta name="twitter:description" content="Controls API Namespace: ProMarkdown.Controls MarkdownTextBlock public sealed class MarkdownTextBlock : SelectableTextBlock Primary Markdown rendering and editing control. See the control guide for lifecycle and usage. Avalonia properties Each CLR property below has a corresponding public styled-property identifier where shown. CLR property Type Styled property Notes Markdown string? MarkdownProperty Source text. BaseUri Uri? BaseUriProperty Base for relative links and images. IsEditingEnabled bool IsEditingEnabledProperty Permits editor sessions. EditorPresentationMode MarkdownEditorPresentationMode EditorPresentationModeProperty Inline...">
+<meta name="twitter:description" content="Controls API Namespace: ProMarkdown.Controls MarkdownTextBlock public sealed class MarkdownTextBlock : SelectableTextBlock Primary Markdown rendering and editing control. See the control guide for lifecycle and usage. Avalonia properties Each CLR property below has a corresponding public styled- or direct-property identifier where shown. CLR property Type Styled property Notes Markdown string? MarkdownProperty Source text. BaseUri Uri? BaseUriProperty Base for relative links and images. IsEditingEnabled bool IsEditingEnabledProperty Permits editor sessions. EditorPresentationMode MarkdownEditorPresentationMode...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta name="twitter:image:alt" content="Controls API | ProMarkdown">
 <meta property="og:title" content="Controls API | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Controls API Namespace: ProMarkdown.Controls MarkdownTextBlock public sealed class MarkdownTextBlock : SelectableTextBlock Primary Markdown rendering and editing control. See the control guide for lifecycle and usage. Avalonia properties Each CLR property below has a corresponding public styled-property identifier where shown. CLR property Type Styled property Notes Markdown string? MarkdownProperty Source text. BaseUri Uri? BaseUriProperty Base for relative links and images. IsEditingEnabled bool IsEditingEnabledProperty Permits editor sessions. EditorPresentationMode MarkdownEditorPresentationMode EditorPresentationModeProperty Inline...">
+<meta property="og:description" content="Controls API Namespace: ProMarkdown.Controls MarkdownTextBlock public sealed class MarkdownTextBlock : SelectableTextBlock Primary Markdown rendering and editing control. See the control guide for lifecycle and usage. Avalonia properties Each CLR property below has a corresponding public styled- or direct-property identifier where shown. CLR property Type Styled property Notes Markdown string? MarkdownProperty Source text. BaseUri Uri? BaseUriProperty Base for relative links and images. IsEditingEnabled bool IsEditingEnabledProperty Permits editor sessions. EditorPresentationMode MarkdownEditorPresentationMode...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta property="og:image:alt" content="Controls API | ProMarkdown">
   </head>
@@ -166,7 +166,7 @@
 </code></pre>
 <p>Primary Markdown rendering and editing control. See the <a href="/ProMarkdown/articles/markdown/markdown-text-block">control guide</a> for lifecycle and usage.</p>
 <h3 id="avalonia-properties">Avalonia properties</h3>
-<p>Each CLR property below has a corresponding public styled-property identifier where shown.</p>
+<p>Each CLR property below has a corresponding public styled- or direct-property identifier where shown.</p>
 <table class="table">
 <thead>
 <tr>
@@ -206,6 +206,24 @@
 <td><code>MarkdownThemePalette?</code></td>
 <td><code>ThemePaletteProperty</code></td>
 <td>Semantic render palette.</td>
+</tr>
+<tr>
+<td><code>ImageOptions</code></td>
+<td><code>MarkdownImageOptions</code></td>
+<td><code>ImageOptionsProperty</code></td>
+<td>Source policy and resource limits; defaults to <code>MarkdownImageOptions.Default</code>.</td>
+</tr>
+<tr>
+<td><code>CanCopyDocumentSelection</code></td>
+<td><code>bool</code></td>
+<td><code>CanCopyDocumentSelectionProperty</code></td>
+<td>Read-only document-selection command state.</td>
+</tr>
+<tr>
+<td><code>IsRendering</code></td>
+<td><code>bool</code></td>
+<td><code>IsRenderingProperty</code></td>
+<td>Read-only activity state for the current render generation.</td>
 </tr>
 <tr>
 <td><code>IsTaskListInteractive</code></td>
@@ -252,6 +270,21 @@
 <td>get/set</td>
 </tr>
 <tr>
+<td><code>ImageLoader</code></td>
+<td><code>IMarkdownImageLoader</code></td>
+<td>get/set</td>
+</tr>
+<tr>
+<td><code>CopySelectionCommand</code></td>
+<td><code>ICommand</code></td>
+<td>get</td>
+</tr>
+<tr>
+<td><code>SelectAllCommand</code></td>
+<td><code>ICommand</code></td>
+<td>get</td>
+</tr>
+<tr>
 <td><code>LastRenderResult</code></td>
 <td><code>MarkdownRenderResult?</code></td>
 <td>get</td>
@@ -282,7 +315,22 @@ void CancelEdit();
 <h3 id="events">Events</h3>
 <pre><code class="language-csharp">event EventHandler&lt;MarkdownEditedEventArgs&gt;? MarkdownEdited;
 event EventHandler&lt;MarkdownEditCanceledEventArgs&gt;? MarkdownEditCanceled;
+event EventHandler? SelectionChanged;
+event EventHandler? RenderCompleted;
 </code></pre>
+<p><code>SelectionChanged</code> is raised for document-wide selection changes, including selection spanning rich block controls. <code>RenderCompleted</code> is raised after synchronous rendering and every asynchronous operation registered for the active generation have completed. Replaced or detached generations are canceled and cannot complete the current generation.</p>
+<h2 id="markdownselection">MarkdownSelection</h2>
+<p>Namespace: <code>ProMarkdown.Services</code></p>
+<pre><code class="language-csharp">public static bool CanCopy(MarkdownTextBlock? control);
+public static Task CopyAsync(MarkdownTextBlock? control);
+public static void SelectAll(MarkdownTextBlock? control);
+public static string GetSelectedText(MarkdownTextBlock? control);
+public static string GetDocumentText(MarkdownTextBlock? control);
+public static Task CopyDocumentTextAsync(MarkdownTextBlock? control);
+</code></pre>
+<p>The document-text methods include every rendered segment without changing the active selection. Null controls return empty text or a completed no-op task as appropriate.</p>
+<h3 id="imarkdowninputboundary">IMarkdownInputBoundary</h3>
+<p>Implement this marker interface on nested controls that own their routed pointer and keyboard input. Document-wide selection does not intercept input originating within an input boundary. <code>MermaidDiagramControl</code> implements it so diagram links, keyboard navigation, and text selection in its error surface remain independent from the surrounding document selection.</p>
 <h2 id="markdowneditedeventargs">MarkdownEditedEventArgs</h2>
 <p>Created after the control commits a source change.</p>
 <pre><code class="language-csharp">public MarkdownEditedEventArgs(

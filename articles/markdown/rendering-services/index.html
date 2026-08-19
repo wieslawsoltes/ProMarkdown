@@ -101,17 +101,19 @@
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/' class='menu-link  '>User Guide</a></span>  </li>
             <li id='menu-item-markdown-2' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
-            <li id='menu-item-markdown-3' class='menu-item  active'>
+            <li id='menu-item-markdown-3' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/image-loading/' class='menu-link  '>Image Loading and Security</a></span>  </li>
+            <li id='menu-item-markdown-4' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
-            <li id='menu-item-markdown-4' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
             <li id='menu-item-markdown-5' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
             <li id='menu-item-markdown-6' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
             <li id='menu-item-markdown-7' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
             <li id='menu-item-markdown-8' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+            <li id='menu-item-markdown-9' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/plugin-ecosystem/' class='menu-link  '>Plugin Ecosystem</a></span>  </li>
           </ol>
 
@@ -202,9 +204,24 @@ markdownView.HitTestingService = hitTesting;
 </ul>
 <p>For custom composition, instantiate <code>MarkdownParsingService</code>, <code>MarkdownInlineRenderingService</code>, and <code>MarkdownRenderController</code> directly. Plugin authors normally use <code>MarkdownPluginRegistry</code> and the factory methods instead because those preserve the built-in editors and normalizers.</p>
 <h2 id="render-requests-and-resource-ownership">Render requests and resource ownership</h2>
-<p>Lower-level consumers call <code>IMarkdownRenderController.Render</code> with a <code>MarkdownRenderRequest</code> containing source and a <code>MarkdownRenderContext</code>. The context supplies typography, width, base URI, theme, render generation, resource tracking, and optional editor state.</p>
+<p>Lower-level consumers call <code>IMarkdownRenderController.Render</code> with a <code>MarkdownRenderRequest</code> containing source and a <code>MarkdownRenderContext</code>. The context supplies typography, width, base URI, theme, image policy and loading, render generation, cancellation, resource tracking, and optional editor state.</p>
 <p>Each render owns a <code>MarkdownRenderResourceTracker</code>. Dispose the previous result's tracker when replacing or removing a render; plugins use the same tracker for subscriptions, asynchronous image resources, and other disposable state. <code>MarkdownTextBlock</code> performs this lifecycle automatically.</p>
-<p><code>RenderGeneration</code> and <code>IsCurrentRender</code> let delayed plugin work verify that its originating render is still current before mutating a control.</p>
+<p><code>RenderGeneration</code> and <code>IsCurrentRender</code> let delayed plugin work verify that its originating render is still current before mutating a control. <code>CancellationToken</code> signals replacement or teardown of the generation.</p>
+<h2 id="asynchronous-plugin-work">Asynchronous plugin work</h2>
+<p>Plugins that outlive the synchronous <code>Render</code> call must register their activity:</p>
+<pre><code class="language-csharp">var operation = context.RenderContext.BeginAsyncOperation();
+try
+{
+    await RenderContentAsync(context.RenderContext.CancellationToken);
+}
+finally
+{
+    operation.Dispose();
+}
+</code></pre>
+<p>The completion lease keeps <code>MarkdownTextBlock.IsRendering</code> true until it is disposed. Activity is generation-scoped: cancellation or late disposal from an obsolete generation cannot alter the active generation. Continue to use <code>ResourceTracker</code> for subscriptions, controls, bitmaps, and other resources that must be disposed with the render.</p>
+<p>When a plugin embeds another <code>MarkdownTextBlock</code>, call <code>context.RenderContext.TrackNestedRendering(nestedControl)</code>. The parent remains active until the nested render completes or is canceled, and the tracking subscription is owned by the parent resource tracker.</p>
+<p>Image loading and the Mermaid plugin use this mechanism, so their downloads and diagram renders are included in <code>IsRendering</code> and <code>RenderCompleted</code> automatically.</p>
 
       </div>
   </div>

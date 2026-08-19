@@ -102,16 +102,18 @@
             <li id='menu-item-markdown-2' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
             <li id='menu-item-markdown-3' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/image-loading/' class='menu-link  '>Image Loading and Security</a></span>  </li>
             <li id='menu-item-markdown-4' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
             <li id='menu-item-markdown-5' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
             <li id='menu-item-markdown-6' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
             <li id='menu-item-markdown-7' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
             <li id='menu-item-markdown-8' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
+            <li id='menu-item-markdown-9' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/plugin-ecosystem/' class='menu-link  '>Plugin Ecosystem</a></span>  </li>
           </ol>
 
@@ -192,6 +194,14 @@
 <td>Semantic document brushes. If null, a built-in palette is selected from <code>Foreground</code>.</td>
 </tr>
 <tr>
+<td><code>ImageOptions</code></td>
+<td>Allowed image sources, byte and pixel limits, and remote timeout.</td>
+</tr>
+<tr>
+<td><code>ImageLoader</code></td>
+<td>Image-loading implementation. Defaults to <code>DefaultMarkdownImageLoader.Instance</code>.</td>
+</tr>
+<tr>
 <td><code>RenderController</code></td>
 <td>Parsing and rendering pipeline. Supply a custom instance to activate plugins.</td>
 </tr>
@@ -225,17 +235,19 @@
 </tr>
 </tbody>
 </table>
-<p><code>RenderController</code>, <code>HitTestingService</code>, <code>EditingService</code>, and <code>EditorPreferences</code> reject null assignments. Changing rendering, editing, text, theme, or layout properties triggers the appropriate rerender or layout refresh.</p>
+<p><code>RenderController</code>, <code>HitTestingService</code>, <code>EditingService</code>, <code>EditorPreferences</code>, and <code>ImageLoader</code> reject null assignments. Changing rendering, editing, text, theme, image configuration, or layout properties triggers the appropriate rerender or layout refresh. See <a href="/ProMarkdown/articles/markdown/image-loading">Image Loading and Security</a> before displaying untrusted Markdown.</p>
 <h2 id="render-state">Render state</h2>
-<p>After a successful render, the control exposes:</p>
+<p>The control exposes these render snapshots and activity properties:</p>
 <ul>
 <li><code>LastRenderResult</code> — rendered Avalonia inlines, parse result, source maps, and resource tracker</li>
 <li><code>LastParseResult</code> — the Markdig document, original source, transformed source, and parent map</li>
 <li><code>LastRenderMap</code> — mappings from rendered text and visual controls to Markdown AST nodes</li>
 <li><code>ActiveEditorSession</code> — the editor currently replacing a rendered element, or null</li>
+<li><code>IsRendering</code> — true while the current render generation has synchronous or registered asynchronous work</li>
 </ul>
 <p>These values are null before the first non-empty attached render and after detaching from the visual tree. Treat them as snapshots: a Markdown, width, theme, or service change can replace them.</p>
-<h2 id="methods-and-events">Methods and events</h2>
+<p><code>RenderCompleted</code> fires when all work registered for the current generation has completed. A new render cancels the previous generation; stale asynchronous completions cannot change the current generation's state. Detaching the control also cancels active work and disposes render resources.</p>
+<h2 id="methods-commands-and-events">Methods, commands, and events</h2>
 <table class="table">
 <thead>
 <tr>
@@ -261,6 +273,22 @@
 <td>End the active session with the <code>UserRequested</code> reason.</td>
 </tr>
 <tr>
+<td><code>CopySelectionCommand</code></td>
+<td>Copy the active rendered-text selection. Its command state follows <code>CanCopyDocumentSelection</code>.</td>
+</tr>
+<tr>
+<td><code>SelectAllCommand</code></td>
+<td>Select every rendered document segment.</td>
+</tr>
+<tr>
+<td><code>SelectionChanged</code></td>
+<td>Observe document-wide selection changes across text and rich blocks.</td>
+</tr>
+<tr>
+<td><code>RenderCompleted</code></td>
+<td>Observe completion of the active render generation.</td>
+</tr>
+<tr>
 <td><code>MarkdownEdited</code></td>
 <td>Observe replacement, insertion, or removal and synchronize persisted source.</td>
 </tr>
@@ -271,8 +299,19 @@
 </tbody>
 </table>
 <p>Editing is opt-in and gesture-neutral. Set <code>IsEditingEnabled</code>, then call <code>TryBeginEdit</code> from the pointer, keyboard, or command interaction that fits your application. See <a href="/ProMarkdown/articles/markdown/editing">Source-Aware Editing</a>.</p>
+<h2 id="selection-and-clipboard">Selection and clipboard</h2>
+<p><code>MarkdownTextBlock</code> extends <code>SelectableTextBlock</code> with document-wide selection across rendered text and rich block controls. Pointer coordinates are translated through the visual tree, so selection remains aligned when the control is hosted in a scrolled view.</p>
+<p>Use <code>CanCopyDocumentSelection</code>, <code>CopySelectionCommand</code>, and <code>SelectAllCommand</code> for menus, toolbars, and keyboard routing. The command state updates whenever the document selection changes.</p>
+<p><code>MarkdownSelection</code> also provides imperative helpers:</p>
+<pre><code class="language-csharp">string selected = MarkdownSelection.GetSelectedText(markdownView);
+string document = MarkdownSelection.GetDocumentText(markdownView);
+
+await MarkdownSelection.CopyAsync(markdownView);
+await MarkdownSelection.CopyDocumentTextAsync(markdownView);
+</code></pre>
+<p><code>GetDocumentText()</code> and <code>CopyDocumentTextAsync()</code> operate on the complete rendered document without changing the active selection.</p>
 <h2 id="inherited-text-behavior">Inherited text behavior</h2>
-<p>The renderer reads <code>FontFamily</code>, <code>FontSize</code>, <code>Foreground</code>, and <code>TextWrapping</code> from the control. Selection and copy behavior come from <code>SelectableTextBlock</code>; ProMarkdown adds document-segment normalization so selection continues across rich block controls.</p>
+<p>The renderer reads <code>FontFamily</code>, <code>FontSize</code>, <code>Foreground</code>, and <code>TextWrapping</code> from the control. Standard text layout and inherited styling still come from <code>SelectableTextBlock</code>; ProMarkdown owns the cross-segment selection model and its clipboard commands.</p>
 
       </div>
   </div>

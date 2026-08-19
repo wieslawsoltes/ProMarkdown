@@ -102,16 +102,18 @@
             <li id='menu-item-markdown-2' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/markdown-text-block/' class='menu-link  '>MarkdownTextBlock</a></span>  </li>
             <li id='menu-item-markdown-3' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/image-loading/' class='menu-link  '>Image Loading and Security</a></span>  </li>
             <li id='menu-item-markdown-4' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/rendering-services/' class='menu-link  '>Rendering Services</a></span>  </li>
             <li id='menu-item-markdown-5' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/editing/' class='menu-link  '>Source-Aware Editing</a></span>  </li>
             <li id='menu-item-markdown-6' class='menu-item '>
-              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/source-mapping/' class='menu-link  '>Source Mapping and Hit Testing</a></span>  </li>
             <li id='menu-item-markdown-7' class='menu-item '>
+              <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/theming/' class='menu-link  '>Theming</a></span>  </li>
+            <li id='menu-item-markdown-8' class='menu-item '>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/task-lists/' class='menu-link  '>Interactive Task Lists</a></span>  </li>
-            <li id='menu-item-markdown-8' class='menu-item  active'>
+            <li id='menu-item-markdown-9' class='menu-item  active'>
               <span class='menu-item-row'><a href='/ProMarkdown/articles/markdown/plugin-ecosystem/' class='menu-link  '>Plugin Ecosystem</a></span>  </li>
           </ol>
 
@@ -313,7 +315,49 @@ sequenceDiagram
 :::
 </code></pre>
 <p>Accepted fenced aliases are <code>mermaid</code>, <code>mmd</code>, <code>mermaidjs</code>, and <code>diagram-mermaid</code>. The <code>diagram mermaid</code> descriptor form is also recognized.</p>
-<p>The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.</p>
+<p>The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. Diagram work participates in <code>MarkdownTextBlock.IsRendering</code>, and palette changes regenerate the SVG without displaying a stale color variant. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.</p>
+<p>Configure localized UI text and link activation when constructing the plugin:</p>
+<pre><code class="language-csharp">var mermaidOptions = new MermaidMarkdownPluginOptions
+{
+    AccessibleName = &quot;Architecture diagram&quot;,
+    ErrorText = &quot;The diagram could not be rendered.&quot;,
+    RetryText = &quot;Try again&quot;,
+    ActivateLinkAsync = (uri, cancellationToken) =&gt;
+        navigation.OpenExternalAsync(uri, cancellationToken)
+};
+
+var mermaidPlugin = new MermaidMarkdownPlugin(mermaidOptions);
+</code></pre>
+<p>Only absolute HTTPS links survive sanitization and activation checks. When <code>ActivateLinkAsync</code> is null, the control uses the current <code>TopLevel</code> launcher. A host callback can route approved HTTPS links through application navigation or confirmation UI.</p>
+<p>For tests, alternate engines, or host-managed rendering, inject <code>IMermaidSvgRenderer</code>:</p>
+<pre><code class="language-csharp">public sealed class ApplicationMermaidRenderer : IMermaidSvgRenderer
+{
+    public Task&lt;string&gt; RenderAsync(
+        MermaidSvgRenderRequest request,
+        CancellationToken cancellationToken)
+    {
+        return RenderSvgAsync(
+            request.Source,
+            request.Palette,
+            request.FontFamily,
+            request.FontSize,
+            cancellationToken);
+    }
+}
+
+var mermaidPlugin = new MermaidMarkdownPlugin(
+    new ApplicationMermaidRenderer(),
+    mermaidOptions);
+</code></pre>
+<p>The returned SVG is still passed through the plugin sanitizer. <code>MermaidSvgRenderRequest.Palette</code> is an immutable-brush snapshot that is safe to consume on a background thread.</p>
+<p><code>MermaidDiagramControl</code> is created by the plugin and can be targeted by application styles:</p>
+<pre><code class="language-xml">&lt;Style xmlns:mermaid=&quot;using:ProMarkdown.Plugin.Mermaid&quot;
+       Selector=&quot;mermaid|MermaidDiagramControl&quot;&gt;
+  &lt;Setter Property=&quot;Background&quot; Value=&quot;{DynamicResource CardBackgroundBrush}&quot; /&gt;
+  &lt;Setter Property=&quot;MinHeight&quot; Value=&quot;64&quot; /&gt;
+&lt;/Style&gt;
+</code></pre>
+<p>Its read-only <code>IsLoading</code>, <code>HasImage</code>, <code>HasError</code>, <code>ErrorText</code>, <code>SourceText</code>, <code>SourceFontSize</code>, <code>RetryText</code>, and <code>RetryCommand</code> properties support templates, selectors, automation, and diagnostics. <code>ThemePalette</code> is the styleable palette input used when the diagram rerenders.</p>
 <h2 id="built-in-syntax-highlighting">Built-in syntax highlighting</h2>
 <p><code>SyntaxHighlightingMarkdownPlugin</code> provides a dependency-light code renderer. It recognizes language families for:</p>
 <ul>

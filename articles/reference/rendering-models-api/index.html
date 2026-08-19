@@ -12,13 +12,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
 <meta name="twitter:title" content="Rendering and Source Map API | ProMarkdown">
-<meta name="twitter:description" content="Rendering and Source Map API Namespace: ProMarkdown.Services These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see Source Mapping and Hit Testing. Render inputs MarkdownRenderRequest public string? Markdown { get; init; } public required MarkdownRenderContext Context { get; init; } MarkdownRenderContext Create one context per render. All properties except ThemePalette and EditorState are required initializers. Property Type Purpose BaseUri Uri? Resolves...">
+<meta name="twitter:description" content="Rendering and Source Map API Namespace: ProMarkdown.Services These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see Source Mapping and Hit Testing. Render inputs MarkdownRenderRequest public string? Markdown { get; init; } public required MarkdownRenderContext Context { get; init; } MarkdownRenderContext Create one context per render. Typography, width, generation identity, resource tracking, and current-generation detection are required initializers. Theme, image, cancellation,...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta name="twitter:image:alt" content="Rendering and Source Map API | ProMarkdown">
 <meta property="og:title" content="Rendering and Source Map API | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Rendering and Source Map API Namespace: ProMarkdown.Services These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see Source Mapping and Hit Testing. Render inputs MarkdownRenderRequest public string? Markdown { get; init; } public required MarkdownRenderContext Context { get; init; } MarkdownRenderContext Create one context per render. All properties except ThemePalette and EditorState are required initializers. Property Type Purpose BaseUri Uri? Resolves...">
+<meta property="og:description" content="Rendering and Source Map API Namespace: ProMarkdown.Services These types carry source text through parsing, rendering, source mapping, hit testing, and cleanup. For an end-to-end example, see Source Mapping and Hit Testing. Render inputs MarkdownRenderRequest public string? Markdown { get; init; } public required MarkdownRenderContext Context { get; init; } MarkdownRenderContext Create one context per render. Typography, width, generation identity, resource tracking, and current-generation detection are required initializers. Theme, image, cancellation,...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta property="og:image:alt" content="Rendering and Source Map API | ProMarkdown">
   </head>
@@ -168,7 +168,7 @@
 public required MarkdownRenderContext Context { get; init; }
 </code></pre>
 <h3 id="markdownrendercontext">MarkdownRenderContext</h3>
-<p>Create one context per render. All properties except <code>ThemePalette</code> and <code>EditorState</code> are required initializers.</p>
+<p>Create one context per render. Typography, width, generation identity, resource tracking, and current-generation detection are required initializers. Theme, image, cancellation, and editor properties have defaults.</p>
 <table class="table">
 <thead>
 <tr>
@@ -209,6 +209,21 @@ public required MarkdownRenderContext Context { get; init; }
 <td>Optional explicit semantic palette.</td>
 </tr>
 <tr>
+<td><code>ImageOptions</code></td>
+<td><code>MarkdownImageOptions</code></td>
+<td>Image source policy and resource limits. Defaults to <code>Default</code>.</td>
+</tr>
+<tr>
+<td><code>ImageLoader</code></td>
+<td><code>IMarkdownImageLoader</code></td>
+<td>Image loader. Defaults to <code>DefaultMarkdownImageLoader.Instance</code>.</td>
+</tr>
+<tr>
+<td><code>CancellationToken</code></td>
+<td><code>CancellationToken</code></td>
+<td>Canceled when this render generation is replaced or torn down.</td>
+</tr>
+<tr>
 <td><code>AvailableWidth</code></td>
 <td><code>double</code></td>
 <td>Width available to block renderers and editors.</td>
@@ -235,6 +250,13 @@ public required MarkdownRenderContext Context { get; init; }
 </tr>
 </tbody>
 </table>
+<h3 id="asynchronous-render-activity">Asynchronous render activity</h3>
+<pre><code class="language-csharp">public IDisposable BeginAsyncOperation();
+public void TrackNestedRendering(MarkdownTextBlock control);
+</code></pre>
+<p>Call <code>BeginAsyncOperation()</code> before starting asynchronous plugin work and dispose the returned lease exactly once when the work finishes or is abandoned. The lease keeps the owning <code>MarkdownTextBlock.IsRendering</code> state active. Leases are scoped to the render generation, so late disposal from a stale generation cannot complete a newer render.</p>
+<p><code>MarkdownTextBlock</code> supplies the internal activity callback when it creates the context. A manually constructed context has no owner and therefore returns a no-op lease unless it is being propagated from a control-owned render.</p>
+<p>Pass <code>CancellationToken</code> to every cancellable operation and check <code>IsCurrentRender(RenderGeneration)</code> before mutating render-owned controls. <code>TrackNestedRendering()</code> registers a nested <code>MarkdownTextBlock</code> with the parent generation and releases the parent activity when the nested render completes, detaches, or is canceled.</p>
 <h2 id="parse-result-and-source-spans">Parse result and source spans</h2>
 <h3 id="markdownparseresult">MarkdownParseResult</h3>
 <pre><code class="language-csharp">public MarkdownParseResult(
