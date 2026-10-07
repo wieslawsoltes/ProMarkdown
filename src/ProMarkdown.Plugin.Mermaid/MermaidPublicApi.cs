@@ -35,6 +35,7 @@ public sealed record MermaidSvgRenderRequest
 }
 
 /// <summary>Renders Mermaid source into a sanitized-ready SVG document.</summary>
+/// <remarks>Custom renderers must emit paint values supported by the native SVG loader. Mermaider color normalization applies only to the built-in renderer.</remarks>
 public interface IMermaidSvgRenderer
 {
     Task<string> RenderAsync(MermaidSvgRenderRequest request, CancellationToken cancellationToken);
