@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/ProMarkdown.Sample/ProMarkdown.Sample.csproj" />
     <ProjectReference Include="../../src/ProMarkdown/ProMarkdown.csproj" />
     <ProjectReference Include="../../src/ProMarkdown.Plugin.Alerts/ProMarkdown.Plugin.Alerts.csproj" />
     <ProjectReference Include="../../src/ProMarkdown.Plugin.CustomContainers/ProMarkdown.Plugin.CustomContainers.csproj" />

@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.Styling;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.TextMate;
 using ProMarkdown.Controls;
@@ -22,6 +23,7 @@ using ProMarkdown.Plugin.Mermaid;
 using ProMarkdown.Plugin.SyntaxHighlighting;
 using ProMarkdown.Plugin.TextMate;
 using ProMarkdown.Sample.Controls;
+using ProMarkdown.Sample.ViewModels;
 using ProMarkdown.Services;
 using TextMateSharp.Grammars;
 
@@ -60,6 +62,7 @@ public partial class MainWindow : Window
     private readonly FoldingManager _foldingManager;
     private readonly DispatcherTimer _foldingTimer;
     private readonly TextMate.Installation _textMateInstallation;
+    private readonly RegistryOptions _editorRegistryOptions = new(ThemeName.LightPlus);
     private readonly EditorHoverHighlightRenderer _editorHoverHighlightRenderer = new();
     private MarkdownSourceSpan _hoveredSourceSpan = MarkdownSourceSpan.Empty;
     private bool _isSyncingFromPreviewEdit;
@@ -75,6 +78,9 @@ public partial class MainWindow : Window
         Editor.TextArea.TextView.BackgroundRenderers.Add(_editorHoverHighlightRenderer);
 
         _textMateInstallation = ConfigureTextMate(Editor);
+        DataContext = new MainWindowViewModel();
+        ActualThemeVariantChanged += OnActualThemeVariantChanged;
+        ApplyEditorTheme();
         _foldingManager = FoldingManager.Install(Editor.TextArea);
         _foldingTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(180) };
         _foldingTimer.Tick += OnFoldingTick;
@@ -102,9 +108,9 @@ public partial class MainWindow : Window
         Closed += OnWindowClosed;
     }
 
-    private static TextMate.Installation ConfigureTextMate(AvaloniaEdit.TextEditor editor)
+    private TextMate.Installation ConfigureTextMate(AvaloniaEdit.TextEditor editor)
     {
-        var registryOptions = new RegistryOptions(ThemeName.LightPlus);
+        var registryOptions = _editorRegistryOptions;
         var installation = editor.InstallTextMate(registryOptions);
         var language = registryOptions.GetLanguageByExtension(".md");
         if (language is not null)
@@ -114,6 +120,13 @@ public partial class MainWindow : Window
 
         return installation;
     }
+
+    private void OnActualThemeVariantChanged(object? sender, EventArgs eventArgs) => ApplyEditorTheme();
+
+    private void ApplyEditorTheme() => _textMateInstallation.SetTheme(
+        _editorRegistryOptions.LoadTheme(ActualThemeVariant == ThemeVariant.Dark
+            ? ThemeName.DarkPlus
+            : ThemeName.LightPlus));
 
     private void ConfigureNativeMenu()
     {
@@ -476,6 +489,7 @@ public partial class MainWindow : Window
         ClearPreviewHover();
         Editor.TextArea.TextView.BackgroundRenderers.Remove(_editorHoverHighlightRenderer);
         _textMateInstallation.Dispose();
+        ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         FoldingManager.Uninstall(_foldingManager);
         Closed -= OnWindowClosed;
     }

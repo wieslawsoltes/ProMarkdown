@@ -3,9 +3,14 @@
         xmlns:avaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:markdown="using:ProMarkdown.Controls"
         xmlns:sampleControls="using:ProMarkdown.Sample.Controls"
+        xmlns:viewModels="using:ProMarkdown.Sample.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         x:Class="ProMarkdown.Sample.Views.MainWindow"
+        x:DataType="viewModels:MainWindowViewModel"
+        RequestedThemeVariant="{Binding RequestedThemeVariant}"
+        Background="{Binding Palette.Surface}"
+        Foreground="{Binding Palette.Foreground}"
         Title="ProMarkdown Sample"
         Width="1500"
         Height="900"
@@ -14,69 +19,88 @@
         mc:Ignorable="d"
         d:DesignWidth="1500"
         d:DesignHeight="900">
-    <Grid ColumnDefinitions="*,6,*">
-        <Border Grid.Column="0"
-                Padding="16">
-            <Grid RowDefinitions="Auto,*"
-                  RowSpacing="10">
-                <TextBlock Text="Markdown editor (AvaloniaEdit + TextMate)"
+    <Grid RowDefinitions="Auto,*">
+        <Border Padding="16,10"
+                BorderBrush="{Binding Palette.Border}"
+                BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="ProMarkdown"
                            FontWeight="SemiBold"
-                           FontSize="14" />
-                <avaloniaEdit:TextEditor x:Name="Editor"
-                                         Grid.Row="1"
-                                         ShowLineNumbers="True"
-                                         WordWrap="True"
-                                         FontSize="14"
-                                         FontFamily="Cascadia Mono, Consolas, Courier New"
-                                         Background="#FFFFFFFF"
-                                         Foreground="#1F2328"
-                                         HorizontalAlignment="Stretch"
-                                         VerticalAlignment="Stretch" />
+                           VerticalAlignment="Center" />
+                <ToggleButton x:Name="ThemeToggle"
+                              Grid.Column="1"
+                              IsChecked="{Binding IsDarkTheme, Mode=TwoWay}"
+                              Content="{Binding ThemeLabel}"
+                              AutomationProperties.Name="Dark mode"
+                              ToolTip.Tip="Switch between light and dark mode" />
             </Grid>
         </Border>
+        <Grid Grid.Row="1" ColumnDefinitions="*,6,*">
+            <Border Grid.Column="0"
+                    Padding="16">
+                <Grid RowDefinitions="Auto,*"
+                      RowSpacing="10">
+                    <TextBlock Text="Markdown editor (AvaloniaEdit + TextMate)"
+                               FontWeight="SemiBold"
+                               FontSize="14" />
+                    <avaloniaEdit:TextEditor x:Name="Editor"
+                                             Grid.Row="1"
+                                             ShowLineNumbers="True"
+                                             WordWrap="True"
+                                             FontSize="14"
+                                             FontFamily="Cascadia Mono, Consolas, Courier New"
+                                             Background="{Binding Palette.Surface}"
+                                             Foreground="{Binding Palette.Foreground}"
+                                             HorizontalAlignment="Stretch"
+                                             VerticalAlignment="Stretch" />
+                </Grid>
+            </Border>
 
-        <GridSplitter Grid.Column="1"
-                      Background="#22000000"
-                      HorizontalAlignment="Stretch" />
+            <GridSplitter Grid.Column="1"
+                          Background="{Binding Palette.Border}"
+                          HorizontalAlignment="Stretch" />
 
-        <Border Grid.Column="2"
-                Padding="16,16,20,16"
-                Background="#08000000">
-            <Grid RowDefinitions="Auto,Auto,*"
-                  RowSpacing="10">
-                <TextBlock Text="Rendered preview (ProMarkdown)"
-                           FontWeight="SemiBold"
-                           FontSize="14" />
+            <Border Grid.Column="2"
+                    Padding="16,16,20,16"
+                    Background="{Binding Palette.SurfaceRaised}">
+                <Grid RowDefinitions="Auto,Auto,*"
+                      RowSpacing="10">
+                    <TextBlock Text="Rendered preview (ProMarkdown)"
+                               FontWeight="SemiBold"
+                               FontSize="14" />
 
-                <StackPanel Grid.Row="1"
-                            Orientation="Horizontal"
-                            Spacing="12"
-                            VerticalAlignment="Center">
-                    <CheckBox x:Name="PreviewEditToggle"
-                              Content="Enable true inline preview editing" />
-                    <TextBlock Text="Code editor:"
-                               VerticalAlignment="Center" />
-                    <ComboBox x:Name="CodeEditorSelector"
-                              Width="220" />
-                    <TextBlock Text="Click a preview block to edit in place, then use the formatting toolbar or block actions. Esc cancels and Ctrl/⌘+Enter applies."
-                               VerticalAlignment="Center"
-                               Foreground="#667085" />
-                </StackPanel>
+                    <StackPanel Grid.Row="1"
+                                Orientation="Horizontal"
+                                Spacing="12"
+                                VerticalAlignment="Center">
+                        <CheckBox x:Name="PreviewEditToggle"
+                                  Content="Enable true inline preview editing" />
+                        <TextBlock Text="Code editor:"
+                                   VerticalAlignment="Center" />
+                        <ComboBox x:Name="CodeEditorSelector"
+                                  Width="220" />
+                        <TextBlock Text="Click a preview block to edit in place, then use the formatting toolbar or block actions. Esc cancels and Ctrl/⌘+Enter applies."
+                                   VerticalAlignment="Center"
+                                   Foreground="{Binding Palette.MutedForeground}" />
+                    </StackPanel>
 
-                <ScrollViewer Grid.Row="2"
-                               x:Name="PreviewScrollViewer"
-                               VerticalScrollBarVisibility="Auto"
-                               HorizontalScrollBarVisibility="Disabled">
-                    <Grid x:Name="PreviewHost">
-                        <markdown:MarkdownTextBlock x:Name="Preview"
-                                                    EditorPresentationMode="Inline"
-                                                    FontSize="14"
-                                                    TextWrapping="Wrap" />
-                        <sampleControls:MarkdownHighlightOverlay x:Name="PreviewOverlay"
-                                                                 IsHitTestVisible="False" />
-                    </Grid>
-                </ScrollViewer>
-            </Grid>
-        </Border>
+                    <ScrollViewer Grid.Row="2"
+                                   x:Name="PreviewScrollViewer"
+                                   VerticalScrollBarVisibility="Auto"
+                                   HorizontalScrollBarVisibility="Disabled">
+                        <Grid x:Name="PreviewHost">
+                            <markdown:MarkdownTextBlock x:Name="Preview"
+                                                        EditorPresentationMode="Inline"
+                                                        ThemePalette="{Binding Palette}"
+                                                        Foreground="{Binding Palette.Foreground}"
+                                                        FontSize="14"
+                                                        TextWrapping="Wrap" />
+                            <sampleControls:MarkdownHighlightOverlay x:Name="PreviewOverlay"
+                                                                     IsHitTestVisible="False" />
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
