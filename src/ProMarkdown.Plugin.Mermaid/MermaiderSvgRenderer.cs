@@ -254,7 +254,7 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
                 // caller's timeout or cancellation to complete immediately.
                 destinationTransferred = true;
                 slotAcquired = false;
-                _ = ObserveAbandonedRenderAsync(renderOperation, destination);
+                _ = ObserveAbandonedRenderAsync(renderOperation, destination, operationToken);
                 throw;
             }
 
@@ -281,11 +281,18 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
         }
     }
 
-    private async Task ObserveAbandonedRenderAsync(Task renderOperation, Stream destination)
+    private async Task ObserveAbandonedRenderAsync(
+        Task renderOperation,
+        Stream destination,
+        CancellationToken operationToken)
     {
         try
         {
             await renderOperation.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
+        {
+            // Cancellation can finish after the initiating waiter has already detached.
         }
         catch (Exception exception) when (MermaidDiagramControl.IsRecoverableAsyncException(exception))
         {
