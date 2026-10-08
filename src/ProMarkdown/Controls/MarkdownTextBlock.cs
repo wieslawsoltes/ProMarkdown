@@ -75,6 +75,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     private int _renderGeneration;
     private double _lastMeasuredWidth = double.NaN;
     private double _effectiveViewportWidth = double.NaN;
+    private double _measureConstraintWidth = double.NaN;
     private Point? _pendingLinkPointerOrigin;
     private Uri? _pendingLinkUri;
     private bool _isAttachedToVisualTree;
@@ -279,6 +280,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         _renderGeneration = unchecked(_renderGeneration + 1);
         _taskListToggleForwardingCommand.SetSource(null);
         _effectiveViewportWidth = double.NaN;
+        _measureConstraintWidth = double.NaN;
         _lastRenderResult = null;
         _activeEditorSession = null;
         ClearPendingLinkInteraction();
@@ -346,8 +348,29 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
             availableSize = new Size(constrainedWidth, availableSize.Height);
         }
 
+        // Embedded block wrap widths must follow the width this control is allowed to occupy, not
+        // its own rendered Bounds: when the control sizes to its content (e.g. a left-aligned chat
+        // bubble), Bounds is itself a product of those wrap widths, so feeding it back pins every
+        // block to whatever the first, shortest render measured (a single glyph while streaming).
+        if (double.IsFinite(availableSize.Width) && availableSize.Width > 0 &&
+            (double.IsNaN(_measureConstraintWidth) ||
+             Math.Abs(_measureConstraintWidth - availableSize.Width) > 0.01))
+        {
+            _measureConstraintWidth = availableSize.Width;
+            MarkdownDocumentLayout.Flush(this);
+        }
+
         return base.MeasureOverride(availableSize);
     }
+
+    /// <summary>
+    /// The width embedded blocks wrap against: the last finite measure constraint, falling back to
+    /// the rendered bounds before the first measure.
+    /// </summary>
+    internal double LayoutWidth =>
+        double.IsFinite(_measureConstraintWidth) && _measureConstraintWidth > 0
+            ? _measureConstraintWidth
+            : Bounds.Width;
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
@@ -586,7 +609,9 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
                 ImageOptions = ImageOptions,
                 ImageLoader = ImageLoader,
                 CancellationToken = renderCancellation.Token,
-                AvailableWidth = ResolveAvailableWidth(),
+                AvailableWidth = double.IsFinite(_measureConstraintWidth) && _measureConstraintWidth > 0
+                    ? _measureConstraintWidth
+                    : ResolveAvailableWidth(),
                 RenderGeneration = renderGeneration,
                 ResourceTracker = resourceTracker,
                 IsCurrentRender = IsCurrentRender,

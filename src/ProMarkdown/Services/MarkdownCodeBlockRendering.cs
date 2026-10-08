@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
@@ -12,6 +14,8 @@ namespace ProMarkdown.Services;
 public static class MarkdownCodeBlockRendering
 {
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
+    private const string CopyGlyph = "⧉";
+    private const string CopiedGlyph = "✓";
     public static IBrush DefaultCodeTextForeground { get; } = MarkdownThemePalette.Light.Foreground;
 
     public static MarkdownCodeBlockSurface CreateSurface(
@@ -53,7 +57,8 @@ public static class MarkdownCodeBlockRendering
             ColumnDefinitions =
             {
                 new ColumnDefinition { Width = GridLength.Auto },
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
             },
             ColumnSpacing = 12
         };
@@ -74,6 +79,39 @@ public static class MarkdownCodeBlockRendering
         };
         Grid.SetColumn(metaTextBlock, 1);
         headerGrid.Children.Add(metaTextBlock);
+
+        var copyIcon = new TextBlock
+        {
+            Text = CopyGlyph,
+            FontSize = Math.Max(renderContext.FontSize - 2, 11),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        var copyButton = new Button
+        {
+            Content = copyIcon,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(4),
+            MinWidth = 0,
+            MinHeight = 0,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Foreground = metaForeground ?? palette.MutedForeground,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        ToolTip.SetTip(copyButton, "Copy code");
+        copyButton.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(copyButton)?.Clipboard is not { } clipboard)
+                return;
+
+            await clipboard.SetTextAsync(code);
+            copyIcon.Text = CopiedGlyph;
+            await Task.Delay(1000);
+            copyIcon.Text = CopyGlyph;
+        };
+        Grid.SetColumn(copyButton, 2);
+        headerGrid.Children.Add(copyButton);
 
         var bodyBorder = new Border
         {
