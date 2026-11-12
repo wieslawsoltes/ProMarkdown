@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="lunet 1.0.10.0">
+    <meta name="generator" content="lunet 1.1.2.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
     <title>Running the Sample | ProMarkdown</title>
@@ -12,13 +12,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
 <meta name="twitter:title" content="Running the Sample | ProMarkdown">
-<meta name="twitter:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta name="twitter:description" content="Running the Sample Prerequisite .NET 11 SDK and .NET 10 runtime (to run tests on both targets) Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj --framework net11.0 Use --framework net10.0 to run the sample on .NET 10. The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together....">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta name="twitter:image:alt" content="Running the Sample | ProMarkdown">
 <meta property="og:title" content="Running the Sample | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Running the Sample Prerequisite .NET 10 SDK Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together. Serve the documentation dotnet tool restore bash ./serve-docs.sh Copyright © 2026, Wieslaw Soltes aka wieslawsoltes - Content licensed under the...">
+<meta property="og:description" content="Running the Sample Prerequisite .NET 11 SDK and .NET 10 runtime (to run tests on both targets) Build and test dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx Run the Markdown sample dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj --framework net11.0 Use --framework net10.0 to run the sample on .NET 10. The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together....">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta property="og:image:alt" content="Running the Sample | ProMarkdown">
   </head>
@@ -158,7 +158,7 @@
 <h1 id="running-the-sample">Running the Sample</h1>
 <h2 id="prerequisite">Prerequisite</h2>
 <ul>
-<li>.NET 10 SDK</li>
+<li>.NET 11 SDK and .NET 10 runtime (to run tests on both targets)</li>
 </ul>
 <h2 id="build-and-test">Build and test</h2>
 <pre><code class="language-bash">dotnet restore ProMarkdown.slnx
@@ -166,8 +166,9 @@ dotnet build ProMarkdown.slnx
 dotnet test --solution ProMarkdown.slnx
 </code></pre>
 <h2 id="run-the-markdown-sample">Run the Markdown sample</h2>
-<pre><code class="language-bash">dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj
+<pre><code class="language-bash">dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj --framework net11.0
 </code></pre>
+<p>Use <code>--framework net10.0</code> to run the sample on .NET 10.</p>
 <p>The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together.</p>
 <h2 id="serve-the-documentation">Serve the documentation</h2>
 <pre><code class="language-bash">dotnet tool restore

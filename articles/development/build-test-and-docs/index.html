@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="generator" content="lunet 1.0.10.0">
+    <meta name="generator" content="lunet 1.1.2.0">
     <script>(function(){const root=document.documentElement;const key=root.getAttribute("data-lunet-theme-storage-key")||"lunet-theme";const fallback=root.getAttribute("data-lunet-theme-mode")||"system";let stored=null;try{stored=localStorage.getItem(key);}catch(_){stored=null;}const mode=(stored==="light"||stored==="dark"||stored==="system")?stored:fallback;const prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;const resolved=mode==="system"?(prefersDark?"dark":"light"):mode;root.setAttribute("data-lunet-theme-mode",mode);root.setAttribute("data-bs-theme",resolved);}());</script>
     <link rel='icon' href='/ProMarkdown/favicon.ico' sizes='32x32'>
     <title>Build, Test, and Docs | ProMarkdown</title>
@@ -12,13 +12,13 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@wieslawsoltes">
 <meta name="twitter:title" content="Build, Test, and Docs | ProMarkdown">
-<meta name="twitter:description" content="Build, Test, and Docs Solution commands dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx dotnet pack ProMarkdown.slnx -o artifacts/packages Lunet docs commands dotnet tool restore bash ./build-docs.sh bash ./check-docs.sh bash ./serve-docs.sh PowerShell equivalents are also available. CI layout build.yml validates the Markdown solution, tests, docs, and NuGet packages. docs.yml deploys the Lunet site. release.yml...">
+<meta name="twitter:description" content="Build, Test, and Docs Solution commands Install the .NET 11 SDK and the .NET 10 runtime. The solution builds and tests both net10.0 and net11.0, and each library package includes both targets. Headless UI tests use ProTest with xUnit 4 and Microsoft Testing Platform. Update ProTest and the Avalonia packages together: ProTest depends on an exact Avalonia version because its headless platform uses private APIs. dotnet restore ProMarkdown.slnx dotnet build...">
 <meta name="twitter:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta name="twitter:image:alt" content="Build, Test, and Docs | ProMarkdown">
 <meta property="og:title" content="Build, Test, and Docs | ProMarkdown">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://wieslawsoltes.github.io/ProMarkdown">
-<meta property="og:description" content="Build, Test, and Docs Solution commands dotnet restore ProMarkdown.slnx dotnet build ProMarkdown.slnx dotnet test --solution ProMarkdown.slnx dotnet pack ProMarkdown.slnx -o artifacts/packages Lunet docs commands dotnet tool restore bash ./build-docs.sh bash ./check-docs.sh bash ./serve-docs.sh PowerShell equivalents are also available. CI layout build.yml validates the Markdown solution, tests, docs, and NuGet packages. docs.yml deploys the Lunet site. release.yml...">
+<meta property="og:description" content="Build, Test, and Docs Solution commands Install the .NET 11 SDK and the .NET 10 runtime. The solution builds and tests both net10.0 and net11.0, and each library package includes both targets. Headless UI tests use ProTest with xUnit 4 and Microsoft Testing Platform. Update ProTest and the Avalonia packages together: ProTest depends on an exact Avalonia version because its headless platform uses private APIs. dotnet restore ProMarkdown.slnx dotnet build...">
 <meta property="og:image" content="https://wieslawsoltes.github.io/ProMarkdown/img/project-banner.png">
 <meta property="og:image:alt" content="Build, Test, and Docs | ProMarkdown">
   </head>
@@ -149,6 +149,8 @@
 <!-- lunet:summarize -->
 <h1 id="build-test-and-docs">Build, Test, and Docs</h1>
 <h2 id="solution-commands">Solution commands</h2>
+<p>Install the .NET 11 SDK and the .NET 10 runtime. The solution builds and tests both <code>net10.0</code> and <code>net11.0</code>, and each library package includes both targets.</p>
+<p>Headless UI tests use <a href="https://github.com/wieslawsoltes/ProTest">ProTest</a> with xUnit 4 and Microsoft Testing Platform. Update ProTest and the Avalonia packages together: ProTest depends on an exact Avalonia version because its headless platform uses private APIs.</p>
 <pre><code class="language-bash">dotnet restore ProMarkdown.slnx
 dotnet build ProMarkdown.slnx
 dotnet test --solution ProMarkdown.slnx
