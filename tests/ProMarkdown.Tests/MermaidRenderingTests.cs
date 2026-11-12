@@ -1239,15 +1239,22 @@ public sealed class MermaidRenderingTests
         }
     }
 
-    [AvaloniaFact]
-    public async Task FailedDiagramShowsSelectableSourceAndCanBeRetried()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedDiagramShowsSelectableSourceAndCanBeRetried(bool failBeforeAttachment)
     {
+        var releaseFailure = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var invocation = 0;
-        var renderer = new MermaiderSvgRenderer((_, destination, _, cancellationToken) =>
+        var renderer = new MermaiderSvgRenderer(async (_, destination, _, cancellationToken) =>
         {
             if (Interlocked.Increment(ref invocation) == 1)
+            {
+                await releaseFailure.Task.WaitAsync(cancellationToken);
                 throw new InvalidOperationException("Invalid diagram syntax.");
-            return WriteMinimalSvgAsync(destination, cancellationToken);
+            }
+
+            await WriteMinimalSvgAsync(destination, cancellationToken);
         });
         const string source = "flowchart TD\nA -->";
         const double fontSize = 10;
@@ -1258,27 +1265,50 @@ public sealed class MermaidRenderingTests
             "Inter",
             fontSize);
         var window = new Window { Width = 500, Height = 300, Content = diagram };
-        window.Show();
         try
         {
-            await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Button>()
-                .Any(button => button.IsVisible && Equals(button.Content, "Retry")));
+            if (failBeforeAttachment)
+            {
+                releaseFailure.SetResult();
+                await WaitForAsync(() => diagram.HasError);
+            }
+
+            window.Show();
+            var retry = diagram.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Retry"));
+            if (!failBeforeAttachment)
+            {
+                diagram.IsLoading.ShouldBeTrue();
+                diagram.HasError.ShouldBeFalse();
+                retry.IsEffectivelyVisible.ShouldBeFalse();
+                releaseFailure.SetResult();
+            }
+
+            // IsVisible alone ignores the hidden parent error panel during the initial render.
+            await WaitForAsync(() => retry.IsEffectivelyVisible);
+            diagram.HasError.ShouldBeTrue();
+            diagram.IsLoading.ShouldBeFalse();
+            invocation.ShouldBe(1);
             var sourceText = diagram.GetVisualDescendants().OfType<SelectableTextBlock>()
                 .Single(text => text.Text == source);
             sourceText.Text.ShouldBe(source);
+            sourceText.IsEffectivelyVisible.ShouldBeTrue();
             diagram.SourceFontSize.ShouldBe(12);
             sourceText.FontSize.ShouldBe(diagram.SourceFontSize);
 
-            var retry = diagram.GetVisualDescendants().OfType<Button>()
-                .Single(button => Equals(button.Content, "Retry"));
+            retry.Command.ShouldBeSameAs(diagram.RetryCommand);
             retry.Command!.Execute(retry.CommandParameter);
 
-            await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Image>()
-                .Any(image => image.IsVisible));
+            await WaitForAsync(() => !diagram.IsLoading);
+            diagram.HasError.ShouldBeFalse(diagram.ErrorText);
+            diagram.HasImage.ShouldBeTrue();
+            diagram.GetVisualDescendants().OfType<Image>()
+                .ShouldContain(image => image.IsEffectivelyVisible);
             invocation.ShouldBe(2);
         }
         finally
         {
+            releaseFailure.TrySetResult();
             window.Close();
         }
     }

@@ -4,7 +4,7 @@ title: "Development"
 
 # Development
 
-ProMarkdown is a .NET 10 repository containing the core Markdown library, optional plugins, a sample, and tests.
+ProMarkdown is a .NET 10 and .NET 11 repository containing the core Markdown library, optional plugins, a sample, and tests.
 
 ## Core validation path
 

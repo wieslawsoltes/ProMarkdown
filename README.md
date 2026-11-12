@@ -44,7 +44,7 @@ Reusable Avalonia markdown rendering and editing libraries built on Markdig.
 
 ## Prerequisites
 
-- .NET 10 SDK
+- .NET 11 SDK and .NET 10 runtime (to run tests on both targets)
 
 ## Build and test
 
@@ -57,8 +57,10 @@ dotnet test --solution ProMarkdown.slnx
 ## Run the sample
 
 ```bash
-dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj
+dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj --framework net11.0
 ```
+
+Use `--framework net10.0` to run the sample on .NET 10.
 
 The sample provides an editor and preview surface with the plugin ecosystem registered together.
 
