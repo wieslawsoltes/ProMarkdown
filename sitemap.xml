@@ -1,23 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/overview</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
     <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/rendering-models-api</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/extension-api</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/controls-api</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/overview</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
@@ -25,15 +13,7 @@
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/repository-structure</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/whats-new-0.1.1</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
@@ -41,7 +21,27 @@
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/services-api</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/installation</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
     <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/package-api</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/running-the-sample</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/whats-new-0.1.1</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
@@ -53,7 +53,15 @@
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/extensions/plugin-model</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/extensions/parser-plugins</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/repository-structure</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/extensions</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
@@ -65,27 +73,11 @@
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/markdown-text-block</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
     <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/image-loading</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/rendering-services</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/running-the-sample</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/markdown-text-block</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
@@ -93,15 +85,35 @@
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/getting-started/installation</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/extension-api</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/task-lists</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/rendering-services</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/extensions/plugin-model</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/theming</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/source-mapping</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
     <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/development/build-test-and-docs</loc>
+    <lastmod>2026-11-12</lastmod>
+  </url>
+  <url>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/controls-api</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
@@ -113,23 +125,11 @@
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/theming</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/task-lists</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
   <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/extensions/parser-plugins</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference/services-api</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/markdown/source-mapping</loc>
-    <lastmod>2026-11-12</lastmod>
-  </url>
-  <url>
-    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/extensions</loc>
+    <loc>https://wieslawsoltes.github.io/ProMarkdown/ProMarkdown/articles/reference</loc>
     <lastmod>2026-11-12</lastmod>
   </url>
 </urlset>
