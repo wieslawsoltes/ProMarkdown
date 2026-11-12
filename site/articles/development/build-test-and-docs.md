@@ -8,6 +8,8 @@ title: "Build, Test, and Docs"
 
 Install the .NET 11 SDK and the .NET 10 runtime. The solution builds and tests both `net10.0` and `net11.0`, and each library package includes both targets.
 
+Headless UI tests use [ProTest](https://github.com/wieslawsoltes/ProTest) with xUnit 4 and Microsoft Testing Platform. Update ProTest and the Avalonia packages together: ProTest depends on an exact Avalonia version because its headless platform uses private APIs.
+
 ```bash
 dotnet restore ProMarkdown.slnx
 dotnet build ProMarkdown.slnx
