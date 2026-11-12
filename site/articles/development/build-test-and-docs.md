@@ -6,6 +6,8 @@ title: "Build, Test, and Docs"
 
 ## Solution commands
 
+Install the .NET 11 SDK and the .NET 10 runtime. The solution builds and tests both `net10.0` and `net11.0`, and each library package includes both targets.
+
 ```bash
 dotnet restore ProMarkdown.slnx
 dotnet build ProMarkdown.slnx

@@ -4,7 +4,7 @@ title: "Installation"
 
 # Installation
 
-ProMarkdown targets .NET 10 and Avalonia 12. Add the core package to the application project that owns the Markdown view:
+ProMarkdown targets .NET 10 and .NET 11 with Avalonia 12. Add the core package to the application project that owns the Markdown view:
 
 ```bash
 dotnet add package ProMarkdown
