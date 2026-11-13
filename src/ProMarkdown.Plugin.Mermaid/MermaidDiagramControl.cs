@@ -107,7 +107,8 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _generationCancellationToken = generationCancellationToken;
         _beginAsyncOperation = beginAsyncOperation ?? throw new ArgumentNullException(nameof(beginAsyncOperation));
-        _svgSourceFactory = svgSourceFactory ?? CreateSvgSource;
+        _svgSourceFactory = svgSourceFactory ??
+            (renderer is MermaiderSvgRenderer ? CreateMermaiderSvgSource : CreateSvgSource);
         _errorText = options.ErrorText;
         _retryText = options.RetryText;
         _retryCommand = new RetryRenderCommand(this);
@@ -726,6 +727,9 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
     }
 
     private static SvgSource CreateSvgSource(string svg) => SvgSource.LoadFromSvg(MermaidSvgSanitizer.Sanitize(svg));
+
+    private static SvgSource CreateMermaiderSvgSource(string svg) =>
+        SvgSource.LoadFromSvg(MermaidSvgSanitizer.SanitizeMermaiderSvg(svg));
 
     private sealed class RetryRenderCommand(MermaidDiagramControl owner) : ICommand
     {

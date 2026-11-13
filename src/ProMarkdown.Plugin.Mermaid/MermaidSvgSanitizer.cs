@@ -10,7 +10,11 @@ internal static class MermaidSvgSanitizer
 {
     private const int MaximumSvgCharacters = 8 * 1024 * 1024;
 
-    public static string Sanitize(string svg)
+    public static string Sanitize(string svg) => SanitizeCore(svg, normalizeMermaiderColors: false);
+
+    public static string SanitizeMermaiderSvg(string svg) => SanitizeCore(svg, normalizeMermaiderColors: true);
+
+    private static string SanitizeCore(string svg, bool normalizeMermaiderColors)
     {
         ArgumentNullException.ThrowIfNull(svg);
         if (svg.Length > MaximumSvgCharacters)
@@ -77,6 +81,8 @@ internal static class MermaidSvgSanitizer
             }
         }
 
+        if (normalizeMermaiderColors)
+            MermaidSvgColorResolver.Resolve(document.Root);
         document.Declaration = null;
         return document.ToString(SaveOptions.DisableFormatting);
     }

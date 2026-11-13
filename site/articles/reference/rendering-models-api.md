@@ -19,7 +19,7 @@ public required MarkdownRenderContext Context { get; init; }
 
 ### MarkdownRenderContext
 
-Create one context per render. All properties except `ThemePalette` and `EditorState` are required initializers.
+Create one context per render. Typography, width, generation identity, resource tracking, and current-generation detection are required initializers. Theme, image, cancellation, and editor properties have defaults.
 
 | Property | Type | Purpose |
 | --- | --- | --- |
@@ -29,11 +29,27 @@ Create one context per render. All properties except `ThemePalette` and `EditorS
 | `Foreground` | `IBrush?` | Host foreground used for palette resolution. |
 | `TextWrapping` | `TextWrapping` | Host wrapping behavior. |
 | `ThemePalette` | `MarkdownThemePalette?` | Optional explicit semantic palette. |
+| `ImageOptions` | `MarkdownImageOptions` | Image source policy and resource limits. Defaults to `Default`. |
+| `ImageLoader` | `IMarkdownImageLoader` | Image loader. Defaults to `DefaultMarkdownImageLoader.Instance`. |
+| `CancellationToken` | `CancellationToken` | Canceled when this render generation is replaced or torn down. |
 | `AvailableWidth` | `double` | Width available to block renderers and editors. |
 | `RenderGeneration` | `int` | Identity of this render. |
 | `ResourceTracker` | `MarkdownRenderResourceTracker` | Owns render-scoped disposables. |
 | `IsCurrentRender` | `Func<int, bool>` | Tests whether asynchronous work still belongs to the active generation. |
 | `EditorState` | `MarkdownEditorState?` | Optional editing callbacks and active session. |
+
+### Asynchronous render activity
+
+```csharp
+public IDisposable BeginAsyncOperation();
+public void TrackNestedRendering(MarkdownTextBlock control);
+```
+
+Call `BeginAsyncOperation()` before starting asynchronous plugin work and dispose the returned lease exactly once when the work finishes or is abandoned. The lease keeps the owning `MarkdownTextBlock.IsRendering` state active. Leases are scoped to the render generation, so late disposal from a stale generation cannot complete a newer render.
+
+`MarkdownTextBlock` supplies the internal activity callback when it creates the context. A manually constructed context has no owner and therefore returns a no-op lease unless it is being propagated from a control-owned render.
+
+Pass `CancellationToken` to every cancellable operation and check `IsCurrentRender(RenderGeneration)` before mutating render-owned controls. `TrackNestedRendering()` registers a nested `MarkdownTextBlock` with the parent generation and releases the parent activity when the nested render completes, detaches, or is canceled.
 
 ## Parse result and source spans
 

@@ -33,7 +33,7 @@ For package installation, syntax, behavior, and combination examples, see [Plugi
 | `ProMarkdown.Plugin.SyntaxHighlighting` | `ProMarkdown.Plugin.SyntaxHighlighting` | `SyntaxHighlightingMarkdownPlugin` | Built-in code-block renderer |
 | `ProMarkdown.Plugin.TextMate` | `ProMarkdown.Plugin.TextMate` | `TextMateMarkdownPlugin` | TextMate code renderer and AvaloniaEdit code editor |
 
-Every class has a public parameterless constructor and this method:
+Every plugin class has a public parameterless constructor and this method:
 
 ```csharp
 public void Register(MarkdownPluginRegistry registry);
@@ -70,6 +70,23 @@ markdown.EditorPreferences
 ```
 
 `SyntaxHighlightingMarkdownPlugin` is rendering-only and does not expose an editor ID.
+
+## Mermaid public API
+
+`MermaidMarkdownPlugin` also supports host configuration and renderer injection:
+
+```csharp
+public MermaidMarkdownPlugin(MermaidMarkdownPluginOptions options);
+public MermaidMarkdownPlugin(
+    IMermaidSvgRenderer renderer,
+    MermaidMarkdownPluginOptions? options = null);
+```
+
+`IMermaidSvgRenderer.RenderAsync` receives a `MermaidSvgRenderRequest` with `Source`, a background-thread-safe `Palette` snapshot, `FontFamily`, and `FontSize`, plus the render cancellation token. The plugin sanitizes returned SVG before displaying it.
+
+`MermaidMarkdownPluginOptions` has init-only `AccessibleName`, `ErrorText`, `RetryText`, and optional `ActivateLinkAsync` properties. Link activation is restricted to absolute HTTPS URIs even when a callback is supplied.
+
+`MermaidDiagramControl` is a public, styleable `TemplatedControl` created by the plugin. It exposes the styled `ThemePalette` property and read-only direct properties for `IsLoading`, `HasImage`, `HasError`, `ErrorText`, `SourceText`, `SourceFontSize`, `RetryText`, and `RetryCommand`. The control owns its SVG resources and implements `IDisposable`; normal plugin rendering registers it with the render resource tracker automatically.
 
 ## Composition notes
 

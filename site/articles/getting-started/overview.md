@@ -17,6 +17,7 @@ Optional packages add alerts, custom containers, definition lists, figures, foot
 
 ## What to read next
 
+- [What's New in 0.1.1](whats-new-0.1.1/)
 - [User Guide](../markdown/)
 - [Plugin Ecosystem](../markdown/plugin-ecosystem/)
 - [API Reference](../reference/)

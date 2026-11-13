@@ -149,7 +149,61 @@ sequenceDiagram
 
 Accepted fenced aliases are `mermaid`, `mmd`, `mermaidjs`, and `diagram-mermaid`. The `diagram mermaid` descriptor form is also recognized.
 
-The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.
+The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. Diagram work participates in `MarkdownTextBlock.IsRendering`, and palette changes regenerate the SVG without displaying a stale color variant. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.
+
+Configure localized UI text and link activation when constructing the plugin:
+
+```csharp
+var mermaidOptions = new MermaidMarkdownPluginOptions
+{
+    AccessibleName = "Architecture diagram",
+    ErrorText = "The diagram could not be rendered.",
+    RetryText = "Try again",
+    ActivateLinkAsync = (uri, cancellationToken) =>
+        navigation.OpenExternalAsync(uri, cancellationToken)
+};
+
+var mermaidPlugin = new MermaidMarkdownPlugin(mermaidOptions);
+```
+
+Only absolute HTTPS links survive sanitization and activation checks. When `ActivateLinkAsync` is null, the control uses the current `TopLevel` launcher. A host callback can route approved HTTPS links through application navigation or confirmation UI.
+
+For tests, alternate engines, or host-managed rendering, inject `IMermaidSvgRenderer`:
+
+```csharp
+public sealed class ApplicationMermaidRenderer : IMermaidSvgRenderer
+{
+    public Task<string> RenderAsync(
+        MermaidSvgRenderRequest request,
+        CancellationToken cancellationToken)
+    {
+        return RenderSvgAsync(
+            request.Source,
+            request.Palette,
+            request.FontFamily,
+            request.FontSize,
+            cancellationToken);
+    }
+}
+
+var mermaidPlugin = new MermaidMarkdownPlugin(
+    new ApplicationMermaidRenderer(),
+    mermaidOptions);
+```
+
+The returned SVG is still passed through the plugin sanitizer. `MermaidSvgRenderRequest.Palette` is an immutable-brush snapshot that is safe to consume on a background thread.
+
+`MermaidDiagramControl` is created by the plugin and can be targeted by application styles:
+
+```xml
+<Style xmlns:mermaid="using:ProMarkdown.Plugin.Mermaid"
+       Selector="mermaid|MermaidDiagramControl">
+  <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+  <Setter Property="MinHeight" Value="64" />
+</Style>
+```
+
+Its read-only `IsLoading`, `HasImage`, `HasError`, `ErrorText`, `SourceText`, `SourceFontSize`, `RetryText`, and `RetryCommand` properties support templates, selectors, automation, and diagnostics. `ThemePalette` is the styleable palette input used when the diagram rerenders.
 
 ## Built-in syntax highlighting
 

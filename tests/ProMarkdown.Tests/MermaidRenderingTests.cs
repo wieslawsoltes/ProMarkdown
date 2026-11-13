@@ -273,22 +273,32 @@ public sealed class MermaidRenderingTests
         }
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [MemberData(nameof(SupportedDiagrams))]
     public async Task MermaiderRendersEverySupportedDiagramGrammar(string name, string source)
     {
         var renderer = new MermaiderSvgRenderer();
-        var svg = await renderer.RenderAsync(
-            source,
-            MarkdownThemePalette.Light,
-            "Inter",
-            14,
-            CancellationToken.None);
+        foreach (var palette in new[] { MarkdownThemePalette.Light, MarkdownThemePalette.Dark })
+        {
+            var svg = await renderer.RenderAsync(
+                source,
+                palette,
+                "Inter",
+                14,
+                TestContext.Current.CancellationToken);
 
-        svg.ShouldContain("<svg", customMessage: name);
-        svg.ShouldContain("viewBox", customMessage: name);
-        svg.ShouldNotContain("<script", Case.Insensitive, customMessage: name);
-        svg.ShouldNotContain("<foreignObject", Case.Insensitive, customMessage: name);
+            svg.ShouldContain("<svg", customMessage: name);
+            svg.ShouldContain("viewBox", customMessage: name);
+            svg.ShouldNotContain("<script", Case.Insensitive, customMessage: name);
+            svg.ShouldNotContain("<foreignObject", Case.Insensitive, customMessage: name);
+
+            var sanitizedSvg = MermaidSvgSanitizer.SanitizeMermaiderSvg(svg);
+            sanitizedSvg.ShouldNotContain("color-mix(", Case.Insensitive, customMessage: name);
+            using var svgSource = SvgSource.LoadFromSvg(sanitizedSvg);
+            var image = new SvgImage { Source = svgSource };
+            image.Size.Width.ShouldBeGreaterThan(0, customMessage: name);
+            image.Size.Height.ShouldBeGreaterThan(0, customMessage: name);
+        }
     }
 
     [Fact]
@@ -485,6 +495,79 @@ public sealed class MermaidRenderingTests
         svg.ShouldContain("<svg");
         renderCalls.ShouldBe(2);
         await WaitForAsync(() => renderer.CachedResultCount == 1);
+    }
+
+    public enum AbandonedRenderOutcome
+    {
+        OperationCanceled,
+        TaskCanceled,
+        Failure
+    }
+
+    [Theory]
+    [InlineData(AbandonedRenderOutcome.OperationCanceled, false)]
+    [InlineData(AbandonedRenderOutcome.TaskCanceled, false)]
+    [InlineData(AbandonedRenderOutcome.Failure, false)]
+    [InlineData(AbandonedRenderOutcome.OperationCanceled, true)]
+    [InlineData(AbandonedRenderOutcome.TaskCanceled, true)]
+    [InlineData(AbandonedRenderOutcome.Failure, true)]
+    public async Task AbandonedRenderCancellationIsQuietButFailuresRemainLogged(
+        AbandonedRenderOutcome outcome,
+        bool useTimeout)
+    {
+        const string diagnosticMessage = "Abandoned render diagnostic regression";
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Stream? abandonedDestination = null;
+        var renderer = new MermaiderSvgRenderer(async (source, destination, _, cancellationToken) =>
+        {
+            if (source == "abandoned")
+            {
+                abandonedDestination = destination;
+                entered.TrySetResult();
+                await release.Task.WaitAsync(TestContext.Current.CancellationToken);
+                throw outcome switch
+                {
+                    AbandonedRenderOutcome.OperationCanceled => new OperationCanceledException(diagnosticMessage, cancellationToken),
+                    AbandonedRenderOutcome.TaskCanceled => new TaskCanceledException(diagnosticMessage, null, cancellationToken),
+                    _ => new InvalidOperationException(diagnosticMessage)
+                };
+            }
+
+            await WriteMinimalSvgAsync(destination, cancellationToken);
+        }, useTimeout ? TimeSpan.FromMilliseconds(150) : null);
+        using var cancellation = new CancellationTokenSource();
+        using var traceOutput = new StringWriter();
+        using var listener = new TextWriterTraceListener(traceOutput);
+        Trace.Listeners.Add(listener);
+        try
+        {
+            var render = renderer.RenderAsync("abandoned", MarkdownThemePalette.Light, "Inter", 14, cancellation.Token);
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+            if (useTimeout)
+                await Should.ThrowAsync<TimeoutException>(() => render);
+            else
+            {
+                cancellation.Cancel();
+                await Should.ThrowAsync<OperationCanceledException>(() => render);
+            }
+
+            release.TrySetResult();
+            var svg = await renderer.RenderAsync("next", MarkdownThemePalette.Light, "Inter", 14,
+                TestContext.Current.CancellationToken);
+            svg.ShouldContain("<svg");
+            abandonedDestination.ShouldNotBeNull().CanWrite.ShouldBeFalse();
+            listener.Flush();
+            if (outcome == AbandonedRenderOutcome.Failure)
+                traceOutput.ToString().ShouldContain(diagnosticMessage);
+            else
+                traceOutput.ToString().ShouldNotContain(diagnosticMessage);
+        }
+        finally
+        {
+            release.TrySetResult();
+            Trace.Listeners.Remove(listener);
+        }
     }
 
     [Fact]
@@ -1156,15 +1239,22 @@ public sealed class MermaidRenderingTests
         }
     }
 
-    [AvaloniaFact]
-    public async Task FailedDiagramShowsSelectableSourceAndCanBeRetried()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedDiagramShowsSelectableSourceAndCanBeRetried(bool failBeforeAttachment)
     {
+        var releaseFailure = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var invocation = 0;
-        var renderer = new MermaiderSvgRenderer((_, destination, _, cancellationToken) =>
+        var renderer = new MermaiderSvgRenderer(async (_, destination, _, cancellationToken) =>
         {
             if (Interlocked.Increment(ref invocation) == 1)
+            {
+                await releaseFailure.Task.WaitAsync(cancellationToken);
                 throw new InvalidOperationException("Invalid diagram syntax.");
-            return WriteMinimalSvgAsync(destination, cancellationToken);
+            }
+
+            await WriteMinimalSvgAsync(destination, cancellationToken);
         });
         const string source = "flowchart TD\nA -->";
         const double fontSize = 10;
@@ -1175,27 +1265,50 @@ public sealed class MermaidRenderingTests
             "Inter",
             fontSize);
         var window = new Window { Width = 500, Height = 300, Content = diagram };
-        window.Show();
         try
         {
-            await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Button>()
-                .Any(button => button.IsVisible && Equals(button.Content, "Retry")));
+            if (failBeforeAttachment)
+            {
+                releaseFailure.SetResult();
+                await WaitForAsync(() => diagram.HasError);
+            }
+
+            window.Show();
+            var retry = diagram.GetVisualDescendants().OfType<Button>()
+                .Single(button => Equals(button.Content, "Retry"));
+            if (!failBeforeAttachment)
+            {
+                diagram.IsLoading.ShouldBeTrue();
+                diagram.HasError.ShouldBeFalse();
+                retry.IsEffectivelyVisible.ShouldBeFalse();
+                releaseFailure.SetResult();
+            }
+
+            // IsVisible alone ignores the hidden parent error panel during the initial render.
+            await WaitForAsync(() => retry.IsEffectivelyVisible);
+            diagram.HasError.ShouldBeTrue();
+            diagram.IsLoading.ShouldBeFalse();
+            invocation.ShouldBe(1);
             var sourceText = diagram.GetVisualDescendants().OfType<SelectableTextBlock>()
                 .Single(text => text.Text == source);
             sourceText.Text.ShouldBe(source);
+            sourceText.IsEffectivelyVisible.ShouldBeTrue();
             diagram.SourceFontSize.ShouldBe(12);
             sourceText.FontSize.ShouldBe(diagram.SourceFontSize);
 
-            var retry = diagram.GetVisualDescendants().OfType<Button>()
-                .Single(button => Equals(button.Content, "Retry"));
+            retry.Command.ShouldBeSameAs(diagram.RetryCommand);
             retry.Command!.Execute(retry.CommandParameter);
 
-            await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Image>()
-                .Any(image => image.IsVisible));
+            await WaitForAsync(() => !diagram.IsLoading);
+            diagram.HasError.ShouldBeFalse(diagram.ErrorText);
+            diagram.HasImage.ShouldBeTrue();
+            diagram.GetVisualDescendants().OfType<Image>()
+                .ShouldContain(image => image.IsEffectivelyVisible);
             invocation.ShouldBe(2);
         }
         finally
         {
+            releaseFailure.TrySetResult();
             window.Close();
         }
     }
@@ -1271,7 +1384,7 @@ public sealed class MermaidRenderingTests
         normalized.ShouldBe("mermaid");
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("```mermaid\nflowchart TD\nA --> B\n```")]
     [InlineData("```mmd\nflowchart TD\nA --> B\n```")]
     [InlineData(":::mermaid\nflowchart TD\nA --> B\n:::")]
@@ -1284,7 +1397,7 @@ public sealed class MermaidRenderingTests
         EnumerateMermaidControls(control.Inlines!).Count().ShouldBe(1);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NonMermaidFencesRemainOrdinarySelectableCodeBlocks()
     {
         const string source = "Console.WriteLine(\"ordinary code\");";
