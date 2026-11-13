@@ -75,6 +75,8 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
     private int _renderGeneration;
     private double _lastMeasuredWidth = double.NaN;
     private double _effectiveViewportWidth = double.NaN;
+    private double _measureConstraintWidth = double.NaN;
+    private double _arrangeSlotWidth = double.PositiveInfinity;
     private Point? _pendingLinkPointerOrigin;
     private Uri? _pendingLinkUri;
     private bool _isAttachedToVisualTree;
@@ -279,6 +281,8 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         _renderGeneration = unchecked(_renderGeneration + 1);
         _taskListToggleForwardingCommand.SetSource(null);
         _effectiveViewportWidth = double.NaN;
+        _measureConstraintWidth = double.NaN;
+        _arrangeSlotWidth = double.PositiveInfinity;
         _lastRenderResult = null;
         _activeEditorSession = null;
         ClearPendingLinkInteraction();
@@ -334,19 +338,61 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        if (TextWrapping == TextWrapping.NoWrap)
+        if (TextWrapping != TextWrapping.NoWrap)
         {
-            return base.MeasureOverride(availableSize);
+            var constrainedWidth = ResolveAvailableWidth(availableSize.Width);
+            if (constrainedWidth > 0 &&
+                (double.IsInfinity(availableSize.Width) || constrainedWidth < availableSize.Width))
+            {
+                availableSize = new Size(constrainedWidth, availableSize.Height);
+            }
         }
 
-        var constrainedWidth = ResolveAvailableWidth(availableSize.Width);
-        if (constrainedWidth > 0 &&
-            (double.IsInfinity(availableSize.Width) || constrainedWidth < availableSize.Width))
+        // Embedded block wrap widths must follow the width this control is allowed to occupy, not
+        // its own rendered Bounds: when the control sizes to its content (e.g. a left-aligned chat
+        // bubble), Bounds is itself a product of those wrap widths, so feeding it back pins every
+        // block to whatever the first, shortest render measured (a single glyph while streaming).
+        if (!_measureConstraintWidth.Equals(availableSize.Width))
         {
-            availableSize = new Size(constrainedWidth, availableSize.Height);
+            _measureConstraintWidth = availableSize.Width;
+            // A new measure offer supersedes the slot allocated under the previous offer.
+            _arrangeSlotWidth = double.PositiveInfinity;
+            MarkdownDocumentLayout.Flush(this);
         }
 
         return base.MeasureOverride(availableSize);
+    }
+
+    protected override void ArrangeCore(Rect finalRect)
+    {
+        // Capture the parent's slot before alignment reduces it to DesiredSize. Using the final
+        // Bounds here would feed an autosized control's short initial content back into wrapping.
+        var margin = Margin;
+        if (UseLayoutRounding)
+            margin = LayoutHelper.RoundLayoutThickness(margin, LayoutHelper.GetLayoutScale(this));
+        var slotWidth = LayoutHelper.ApplyLayoutConstraints(this, finalRect.Size.Deflate(margin)).Width;
+        if (!_arrangeSlotWidth.Equals(slotWidth))
+        {
+            _arrangeSlotWidth = slotWidth;
+            MarkdownDocumentLayout.Flush(this);
+        }
+
+        base.ArrangeCore(finalRect);
+    }
+
+    /// <summary>
+    /// The width available to embedded blocks, limited by both measurement and the parent's arrange
+    /// slot, falling back to rendered bounds before the first finite constraint is available.
+    /// </summary>
+    internal double LayoutWidth
+    {
+        get
+        {
+            var width = double.IsNaN(_measureConstraintWidth)
+                ? _arrangeSlotWidth
+                : Math.Min(_measureConstraintWidth, _arrangeSlotWidth);
+            return double.IsFinite(width) && width > 0 ? width : Bounds.Width;
+        }
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
@@ -545,6 +591,9 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     private void RebuildMarkdown()
     {
+        // An autosized parent may have allocated a tiny slot to the previous document. Let the
+        // new content measure against the parent's offer before its next arrange slot is known.
+        _arrangeSlotWidth = double.PositiveInfinity;
         ClearPendingLinkInteraction();
         ClearValue(CursorProperty);
         CancelRenderGeneration();
@@ -586,7 +635,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
                 ImageOptions = ImageOptions,
                 ImageLoader = ImageLoader,
                 CancellationToken = renderCancellation.Token,
-                AvailableWidth = ResolveAvailableWidth(),
+                AvailableWidth = ResolveAvailableWidth(LayoutWidth),
                 RenderGeneration = renderGeneration,
                 ResourceTracker = resourceTracker,
                 IsCurrentRender = IsCurrentRender,

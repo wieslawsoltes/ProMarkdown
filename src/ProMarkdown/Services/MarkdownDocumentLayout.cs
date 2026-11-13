@@ -113,7 +113,7 @@ internal static class MarkdownDocumentLayout
 
         private void ApplyCurrentWidth()
         {
-            var width = _owner.Bounds.Width - _owner.Padding.Left - _owner.Padding.Right;
+            var width = _owner.LayoutWidth - _owner.Padding.Left - _owner.Padding.Right;
             if (!double.IsFinite(width) || width <= 0 ||
                 Math.Abs(_lastAppliedWidth - width) <= WidthTolerance)
             {
@@ -232,18 +232,13 @@ internal static class MarkdownDocumentLayout
             }
         }
 
-        private static double ResolveChildWidth(Control child, double parentWidth)
-        {
-            var availableWidth = Math.Max(1, parentWidth - Math.Max(0, child.Bounds.X));
-            if (child is MarkdownWrappingSelectableTextBlock or MarkdownThematicBreak ||
-                !double.IsFinite(child.Bounds.Width) ||
-                child.Bounds.Width <= 0)
-            {
-                return availableWidth;
-            }
-
-            return Math.Max(1, Math.Min(availableWidth, child.Bounds.Width));
-        }
+        // child.Bounds.Width is an output of the previous layout pass, not an intrinsic constraint —
+        // capping the next width to it (as this used to) pins a rich block (e.g. a code-fence's header/
+        // body Border rows) to whatever it happened to measure during a transient resize (an inspection
+        // pane opening/closing), and never recovers even once the real available width is back. Only
+        // Bounds.X is used, to preserve a deliberate horizontal offset (e.g. list/blockquote indentation).
+        private static double ResolveChildWidth(Control child, double parentWidth) =>
+            Math.Max(1, parentWidth - Math.Max(0, child.Bounds.X));
 
         private static double GetContentWidth(Control control, double width)
         {

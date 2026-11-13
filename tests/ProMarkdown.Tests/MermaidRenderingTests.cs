@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
@@ -298,6 +299,55 @@ public sealed class MermaidRenderingTests
             var image = new SvgImage { Source = svgSource };
             image.Size.Width.ShouldBeGreaterThan(0, customMessage: name);
             image.Size.Height.ShouldBeGreaterThan(0, customMessage: name);
+        }
+    }
+
+    [Fact]
+    public async Task StateDiagramTransitionLabelsDoNotOverlapStatesOrPseudostates()
+    {
+        const string source = """
+            stateDiagram-v2
+                [*] --> Idle
+                Idle --> Editing: Type markdown
+                Editing --> Previewing: Rebuild preview
+                Previewing --> Idle: Await next change
+                Previewing --> [*]: Close sample
+            """;
+        var renderer = new MermaiderSvgRenderer();
+        var svg = await renderer.RenderAsync(source, MarkdownThemePalette.Light, "Inter", 14, CancellationToken.None);
+        var document = XDocument.Parse(svg);
+        var ns = document.Root!.Name.Namespace;
+        var labels = document.Descendants(ns + "g")
+            .Where(group => (string?)group.Attribute("class") == "edge-label")
+            .ToArray();
+        var states = document.Descendants(ns + "g")
+            .Where(group => (string?)group.Attribute("class") == "node")
+            .SelectMany(group => group.Elements().Where(shape => shape.Name.LocalName is "rect" or "circle"))
+            .ToArray();
+        labels.Length.ShouldBe(4);
+        states.ShouldNotBeEmpty();
+
+        foreach (var label in labels)
+        {
+            var labelBounds = Bounds(label.Element(ns + "rect").ShouldNotBeNull());
+            foreach (var state in states)
+            {
+                labelBounds.Intersects(Bounds(state)).ShouldBeFalse(
+                    $"Transition '{(string?)label.Attribute("data-label")}' overlaps state '{(string?)state.Parent!.Attribute("data-id")}'.");
+            }
+        }
+
+        static Rect Bounds(XElement shape)
+        {
+            if (shape.Name.LocalName == "circle")
+            {
+                var radius = (double)shape.Attribute("r")!;
+                return new Rect((double)shape.Attribute("cx")! - radius, (double)shape.Attribute("cy")! - radius,
+                    radius * 2, radius * 2);
+            }
+
+            return new Rect((double)shape.Attribute("x")!, (double)shape.Attribute("y")!,
+                (double)shape.Attribute("width")!, (double)shape.Attribute("height")!);
         }
     }
 
@@ -960,6 +1010,104 @@ public sealed class MermaidRenderingTests
             .Select(static palette => palette.Foreground.ShouldBeAssignableTo<ISolidColorBrush>().Color)
             .ShouldBe([Color.Parse("#FF101010"), Color.Parse("#FFF0F0F0")]);
         diagram.Foreground.ShouldBeSameAs(darkPalette.Foreground);
+    }
+
+    [AvaloniaFact]
+    public async Task DiagramKeepsNaturalSizeAndOnlyScalesDownWhenItsHostNarrows()
+    {
+        const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"320\" height=\"160\" viewBox=\"0 0 320 160\"><rect width=\"320\" height=\"160\" /></svg>";
+        var renderer = new MermaiderSvgRenderer(async (_, destination, _, cancellationToken) =>
+            await destination.WriteAsync(Encoding.UTF8.GetBytes(svg), cancellationToken));
+        using var diagram = new MermaidDiagramControl(renderer, "flowchart TD\nA --> B", MarkdownThemePalette.Light, "Inter", 14);
+        var window = new Window { Width = 800, Height = 600, Content = new StackPanel { Children = { diagram } } };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            window.UpdateLayout();
+            diagram.DesiredSize.ShouldBe(new Size(320, 160));
+            diagram.Bounds.Height.ShouldBe(160);
+            var invocationCount = renderer.RenderInvocationCount;
+
+            window.Width = 160;
+            await WaitForAsync(() =>
+            {
+                window.UpdateLayout();
+                return Math.Abs(diagram.Bounds.Height - 80) < 0.01;
+            });
+            diagram.DesiredSize.ShouldBe(new Size(160, 80));
+            diagram.Bounds.Height.ShouldBe(80);
+
+            window.Width = 800;
+            await WaitForAsync(() =>
+            {
+                window.UpdateLayout();
+                return Math.Abs(diagram.Bounds.Height - 160) < 0.01;
+            });
+            diagram.DesiredSize.ShouldBe(new Size(320, 160));
+            diagram.Bounds.Height.ShouldBe(160);
+            renderer.RenderInvocationCount.ShouldBe(invocationCount);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TallDiagramFitsItsAvailableHeightWithoutUpscaling()
+    {
+        const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"160\" height=\"320\" viewBox=\"0 0 160 320\"><rect width=\"160\" height=\"320\" /></svg>";
+        using var diagram = new MermaidDiagramControl(new StaticSvgRenderer(svg), "stateDiagram-v2", MarkdownThemePalette.Light,
+            "Inter", 14, new MermaidMarkdownPluginOptions(), CancellationToken.None, static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 800, Height = 160, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            window.UpdateLayout();
+
+            diagram.DesiredSize.ShouldBe(new Size(80, 160));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task NaturalSizeDiagramLinksIgnoreTheEmptySpaceAroundTheImage()
+    {
+        var activationCount = 0;
+        using var diagram = new MermaidDiagramControl(
+            new StaticSvgRenderer(LinkedSvg), "flowchart TD\nA --> B", MarkdownThemePalette.Light, "Inter", 14,
+            new MermaidMarkdownPluginOptions
+            {
+                ActivateLinkAsync = (_, _) =>
+                {
+                    Interlocked.Increment(ref activationCount);
+                    return Task.CompletedTask;
+                }
+            }, CancellationToken.None, static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            window.UpdateLayout();
+
+            window.MouseDown(new Point(40, 120), MouseButton.Left);
+            window.MouseUp(new Point(40, 120), MouseButton.Left);
+            activationCount.ShouldBe(0);
+
+            window.MouseDown(new Point(200, 120), MouseButton.Left);
+            window.MouseUp(new Point(200, 120), MouseButton.Left);
+            await WaitForAsync(() => activationCount == 1);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaFact]

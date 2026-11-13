@@ -15,6 +15,11 @@
 
 
   <ItemGroup>
+    <EmbeddedResource Include="Assets/FluentSystemIcons.LICENSE.txt" />
+    <None Include="Assets/FluentSystemIcons.LICENSE.txt" Pack="true" PackagePath="licenses/" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Markdig" />
   </ItemGroup>

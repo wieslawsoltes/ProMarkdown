@@ -2,10 +2,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Markdig.Syntax;
+using ProMarkdown.Controls;
 
 namespace ProMarkdown.Services;
 
@@ -53,7 +55,8 @@ public static class MarkdownCodeBlockRendering
             ColumnDefinitions =
             {
                 new ColumnDefinition { Width = GridLength.Auto },
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }
+                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
+                new ColumnDefinition { Width = GridLength.Auto }
             },
             ColumnSpacing = 12
         };
@@ -74,6 +77,20 @@ public static class MarkdownCodeBlockRendering
         };
         Grid.SetColumn(metaTextBlock, 1);
         headerGrid.Children.Add(metaTextBlock);
+
+        var copyButton = new MarkdownCodeCopyButton(code)
+        {
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(4),
+            MinWidth = 0,
+            MinHeight = 0,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Foreground = metaForeground ?? palette.MutedForeground,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(copyButton, 2);
+        headerGrid.Children.Add(copyButton);
 
         var bodyBorder = new Border
         {

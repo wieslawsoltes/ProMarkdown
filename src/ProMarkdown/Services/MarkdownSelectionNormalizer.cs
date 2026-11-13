@@ -560,9 +560,11 @@ internal sealed class MarkdownWrappingSelectableTextBlock : SelectableTextBlock
         var styles = new List<ValueSpan<TextRunProperties>>();
         AppendInlines(inlines, source, styles);
 
-        var maxWidth = double.IsFinite(MaxWidth) && MaxWidth > 0
-            ? MaxWidth
-            : double.PositiveInfinity;
+        // MaxWidth is the document-wide cap. Avalonia's current constraint also accounts
+        // for narrower hosts such as table columns, including their padding.
+        var maxWidth = double.IsNaN(_constraint.Width) ? double.PositiveInfinity : _constraint.Width;
+        if (double.IsFinite(MaxWidth))
+            maxWidth = Math.Min(maxWidth, Math.Max(0, MaxWidth - Padding.Left - Padding.Right));
         return new TextLayout(
             source.ToString(),
             new Typeface(FontFamily, FontStyle, FontWeight, FontStretch),

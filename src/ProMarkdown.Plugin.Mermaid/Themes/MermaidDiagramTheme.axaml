@@ -12,7 +12,7 @@
       <Border x:Name="PART_FocusBorder" Background="{TemplateBinding Background}"
               BorderBrush="{TemplateBinding Foreground}" BorderThickness="0">
         <Grid>
-          <Image x:Name="PART_DiagramImage" HorizontalAlignment="Stretch" Stretch="Uniform"
+          <Image x:Name="PART_DiagramImage" HorizontalAlignment="Stretch" Stretch="Uniform" StretchDirection="DownOnly"
                  IsVisible="{TemplateBinding HasImage}" />
           <ProgressBar x:Name="PART_LoadingIndicator" Width="64" Height="4" IsIndeterminate="True"
                        IsVisible="{TemplateBinding IsLoading}"

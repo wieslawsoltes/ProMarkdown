@@ -1416,6 +1416,38 @@ public sealed class MarkdownRenderingTests
     }
 
     [AvaloniaFact]
+    public void AutoSizedControlWrapsAgainstAvailableWidthNotItsOwnNarrowBounds()
+    {
+        var control = CreateMarkdown("A");
+        control.HorizontalAlignment = HorizontalAlignment.Left;
+        var window = new Window { Width = 600, Height = 200, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var narrowBoundsWidth = control.Bounds.Width;
+            narrowBoundsWidth.ShouldBeLessThan(100);
+
+            const string text = "This paragraph must wrap against the window's available width, not the " +
+                "tiny bounds the control measured before it had any real content to size against.";
+            control.Markdown = text;
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            var paragraph = MarkdownDocumentSelection.GetSegmentControls(control)
+                .Single(segment => GetText(segment) == text);
+
+            paragraph.MaxWidth.ShouldBeGreaterThan(narrowBoundsWidth + 200);
+            control.Bounds.Width.ShouldBeGreaterThan(narrowBoundsWidth + 200);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void ThematicBreaksStretchAndRoundedBordersKeepTheirStrokeUnclipped()
     {
         var control = CreateMarkdown("---\n\n| A |\n|---|\n| B |\n\n~~~text\nvalue\n~~~");
@@ -2326,6 +2358,107 @@ public sealed class MarkdownRenderingTests
         copied.ShouldContain("second line");
         copied.ShouldContain("Following paragraph.");
         copied.ShouldNotContain('\uFFFC');
+    }
+
+    [AvaloniaFact]
+    public void FencedCodeBlockRecoversFullWrapWidthAfterATransientNarrowLayout()
+    {
+        var control = CreateMarkdown("```shell\ndotnet run\n```");
+        var window = new Window { Width = 900, Height = 200, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var codeText = control.GetVisualDescendants()
+                .OfType<SelectableTextBlock>()
+                .Single(block => GetText(block) == "dotnet run");
+            var wideWidth = codeText.MaxWidth;
+            wideWidth.ShouldBeGreaterThan(400);
+
+            // Simulate an inspection pane opening then closing: the available width narrows
+            // transiently (capturing a small Bounds.Width on the code block's header/body Border
+            // rows) and then returns to its original value.
+            window.Width = 320;
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            window.Width = 900;
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            codeText.MaxWidth.ShouldBeGreaterThan(wideWidth - 1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TableFallbackTextLayoutPreservesColumnWidths()
+    {
+        const string text = "Long cell text that must wrap inside its table column instead of spilling into the adjacent column.";
+        var control = CreateMarkdown($"| First | Second |\n| --- | --- |\n| {text} | {text} |");
+        var window = new Window { Width = 600, Height = 600, Content = control };
+        window.Show();
+        try
+        {
+            foreach (var width in new[] { 600d, 320d, 900d })
+            {
+                window.Width = width;
+                window.UpdateLayout();
+                MarkdownDocumentLayout.Flush(control);
+                window.UpdateLayout();
+
+                var segments = MarkdownDocumentSelection.GetSegmentControls(control)
+                    .Where(segment => GetText(segment) == text)
+                    .ToArray();
+                segments.Length.ShouldBe(2);
+                foreach (var segment in segments)
+                {
+                    var cell = segment.GetVisualAncestors().OfType<Border>().First();
+                    var contentWidth = cell.Bounds.Width - cell.Padding.Left - cell.Padding.Right -
+                                       cell.BorderThickness.Left - cell.BorderThickness.Right;
+                    segment.InvalidateMeasure();
+
+                    segment.TextLayout.Width.ShouldBeLessThanOrEqualTo(contentWidth + 1);
+                    segment.TextLayout.TextLines.Count.ShouldBeGreaterThan(1);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FallbackTextLayoutRespectsExplicitWidthAndPadding()
+    {
+        var segment = new MarkdownWrappingSelectableTextBlock
+        {
+            Width = 160,
+            MaxWidth = 600,
+            Padding = new Thickness(12),
+            TextWrapping = TextWrapping.Wrap,
+            Inlines = new InlineCollection { new Run("Text that must wrap within the explicit width including its padding.") }
+        };
+        var window = new Window { Width = 600, Height = 240, Content = segment };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            segment.InvalidateMeasure();
+
+            segment.TextLayout.Width.ShouldBeLessThanOrEqualTo(136);
+            segment.TextLayout.TextLines.Count.ShouldBeGreaterThan(1);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaFact]
