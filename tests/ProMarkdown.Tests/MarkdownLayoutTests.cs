@@ -14,6 +14,133 @@ namespace ProMarkdown.Tests;
 
 public sealed class MarkdownLayoutTests
 {
+    [AvaloniaTheory]
+    [InlineData(HorizontalAlignment.Left)]
+    [InlineData(HorizontalAlignment.Center)]
+    [InlineData(HorizontalAlignment.Right)]
+    public void StreamingMarkdownCanGrowInsideAnAutoSizedBubbleBorder(HorizontalAlignment alignment)
+    {
+        var control = new MarkdownTextBlock { Markdown = "A", TextWrapping = TextWrapping.Wrap };
+        var bubble = new Border { HorizontalAlignment = alignment, Child = control };
+        var window = new Window { Width = 600, Height = 300, Content = bubble };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var initialWidth = control.Bounds.Width;
+            initialWidth.ShouldBeLessThan(100);
+
+            control.Markdown = "This paragraph must grow when streamed into an autosized chat bubble " +
+                "whose Border sizes itself to the content. It must use the parent's measurement offer.";
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            control.Bounds.Width.ShouldBeGreaterThan(initialWidth + 200);
+            control.IsMeasureValid.ShouldBeTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AutoSizedBubbleCanRecoverAfterReplacingLongContentWithShortContent()
+    {
+        const string paragraph = "This paragraph must fill the available space inside a left aligned " +
+            "bubble border and recover its width after the previous message was much shorter.";
+        var control = new MarkdownTextBlock { Markdown = paragraph, TextWrapping = TextWrapping.Wrap };
+        var bubble = new Border { HorizontalAlignment = HorizontalAlignment.Left, Child = control };
+        var window = new Window { Width = 600, Height = 300, Content = bubble };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var originalWidth = control.Bounds.Width;
+            control.Markdown = "A";
+            window.UpdateLayout();
+            control.Bounds.Width.ShouldBeLessThan(100);
+
+            control.Markdown = paragraph;
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            control.Bounds.Width.ShouldBe(originalWidth, 1);
+            control.IsMeasureValid.ShouldBeTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AutoSizedBubbleGrowsWithANewMeasureOfferWithoutRebuildingTheDocument()
+    {
+        var control = new MarkdownTextBlock
+        {
+            Markdown = "This paragraph must grow when its autosized Border is offered more space " +
+                "even when the document itself has not changed.",
+            TextWrapping = TextWrapping.Wrap
+        };
+        var bubble = new Border { HorizontalAlignment = HorizontalAlignment.Left, Child = control };
+        var host = new Decorator { Width = 200, Child = bubble };
+        var window = new Window { Width = 800, Height = 300, Content = host };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var originalWidth = control.Bounds.Width;
+            var renderResult = control.LastRenderResult;
+
+            host.Width = 600;
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            control.Bounds.Width.ShouldBeGreaterThan(originalWidth + 200);
+            control.IsMeasureValid.ShouldBeTrue();
+            control.LastRenderResult.ShouldBeSameAs(renderResult);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void StreamingCodeAfterShortTextUsesTheAvailableWidthInsideAnAutoSizedBubble()
+    {
+        var control = new MarkdownTextBlock { Markdown = "A", TextWrapping = TextWrapping.Wrap };
+        var bubble = new Border
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(12),
+            Child = control
+        };
+        var window = new Window { Width = 600, Height = 300, Content = bubble };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            control.Markdown = "```shell\ndotnet run\n```";
+            window.UpdateLayout();
+            MarkdownDocumentLayout.Flush(control);
+            window.UpdateLayout();
+
+            var block = control.Inlines!.OfType<InlineUIContainer>().Single().Child!;
+            block.Bounds.Width.ShouldBeGreaterThan(500);
+            block.Bounds.Width.ShouldBeLessThanOrEqualTo(control.Bounds.Width);
+            control.IsMeasureValid.ShouldBeTrue();
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void EmbeddedCodeRespectsAnArrangeSlotNarrowerThanItsMeasureConstraint()
     {
@@ -41,6 +168,25 @@ public sealed class MarkdownLayoutTests
         block.Bounds.Width.ShouldBe(600);
         control.IsMeasureValid.ShouldBeTrue();
         control.LastRenderResult.ShouldBeSameAs(renderResult);
+    }
+
+    [AvaloniaFact]
+    public void RebuiltCodeKeepsHonoringATighterArrangeSlotWithoutALayoutLoop()
+    {
+        var control = new MarkdownTextBlock { TextWrapping = TextWrapping.Wrap };
+        for (var message = 0; message < 4; message++)
+        {
+            control.Markdown = $"```shell\ndotnet run --project sample{message}\n```";
+            control.Measure(new Size(600, 300));
+            control.Arrange(new Rect(0, 0, 200, 300));
+            control.Measure(new Size(600, 300));
+            control.Arrange(new Rect(0, 0, 200, 300));
+
+            var block = control.Inlines!.OfType<InlineUIContainer>().Single().Child!;
+            block.Bounds.Width.ShouldBe(200);
+            control.IsMeasureValid.ShouldBeTrue();
+            control.IsArrangeValid.ShouldBeTrue();
+        }
     }
 
     [AvaloniaFact]

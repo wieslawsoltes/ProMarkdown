@@ -355,6 +355,8 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         if (!_measureConstraintWidth.Equals(availableSize.Width))
         {
             _measureConstraintWidth = availableSize.Width;
+            // A new measure offer supersedes the slot allocated under the previous offer.
+            _arrangeSlotWidth = double.PositiveInfinity;
             MarkdownDocumentLayout.Flush(this);
         }
 
@@ -589,6 +591,9 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     private void RebuildMarkdown()
     {
+        // An autosized parent may have allocated a tiny slot to the previous document. Let the
+        // new content measure against the parent's offer before its next arrange slot is known.
+        _arrangeSlotWidth = double.PositiveInfinity;
         ClearPendingLinkInteraction();
         ClearValue(CursorProperty);
         CancelRenderGeneration();
