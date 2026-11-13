@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
@@ -298,6 +299,55 @@ public sealed class MermaidRenderingTests
             var image = new SvgImage { Source = svgSource };
             image.Size.Width.ShouldBeGreaterThan(0, customMessage: name);
             image.Size.Height.ShouldBeGreaterThan(0, customMessage: name);
+        }
+    }
+
+    [Fact]
+    public async Task StateDiagramTransitionLabelsDoNotOverlapStatesOrPseudostates()
+    {
+        const string source = """
+            stateDiagram-v2
+                [*] --> Idle
+                Idle --> Editing: Type markdown
+                Editing --> Previewing: Rebuild preview
+                Previewing --> Idle: Await next change
+                Previewing --> [*]: Close sample
+            """;
+        var renderer = new MermaiderSvgRenderer();
+        var svg = await renderer.RenderAsync(source, MarkdownThemePalette.Light, "Inter", 14, CancellationToken.None);
+        var document = XDocument.Parse(svg);
+        var ns = document.Root!.Name.Namespace;
+        var labels = document.Descendants(ns + "g")
+            .Where(group => (string?)group.Attribute("class") == "edge-label")
+            .ToArray();
+        var states = document.Descendants(ns + "g")
+            .Where(group => (string?)group.Attribute("class") == "node")
+            .SelectMany(group => group.Elements().Where(shape => shape.Name.LocalName is "rect" or "circle"))
+            .ToArray();
+        labels.Length.ShouldBe(4);
+        states.ShouldNotBeEmpty();
+
+        foreach (var label in labels)
+        {
+            var labelBounds = Bounds(label.Element(ns + "rect").ShouldNotBeNull());
+            foreach (var state in states)
+            {
+                labelBounds.Intersects(Bounds(state)).ShouldBeFalse(
+                    $"Transition '{(string?)label.Attribute("data-label")}' overlaps state '{(string?)state.Parent!.Attribute("data-id")}'.");
+            }
+        }
+
+        static Rect Bounds(XElement shape)
+        {
+            if (shape.Name.LocalName == "circle")
+            {
+                var radius = (double)shape.Attribute("r")!;
+                return new Rect((double)shape.Attribute("cx")! - radius, (double)shape.Attribute("cy")! - radius,
+                    radius * 2, radius * 2);
+            }
+
+            return new Rect((double)shape.Attribute("x")!, (double)shape.Attribute("y")!,
+                (double)shape.Attribute("width")!, (double)shape.Attribute("height")!);
         }
     }
 
