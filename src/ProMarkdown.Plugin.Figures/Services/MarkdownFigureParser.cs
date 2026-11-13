@@ -20,29 +20,24 @@ internal static class MarkdownFigureParser
 
         List<MarkdownFigureDiagnostic> diagnostics = [];
         var sourceSpan = MarkdownSourceSpan.FromMarkdig(figure.Span);
-        var sourceText = sourceSpan.Slice(parseResult.OriginalMarkdown);
-        if (string.IsNullOrWhiteSpace(sourceText) && !parseResult.UsesOriginalSourceSpans)
-        {
-            sourceText = sourceSpan.Slice(parseResult.ParsedMarkdown);
-        }
+        var sourceText = sourceSpan.Slice(parseResult.UsesOriginalSourceSpans
+            ? parseResult.OriginalMarkdown
+            : parseResult.ParsedMarkdown);
 
         if (string.IsNullOrWhiteSpace(sourceText))
         {
             sourceText = BuildFallbackSource(figure, parseResult, out diagnostics);
-            sourceSpan = string.IsNullOrWhiteSpace(sourceText) ? MarkdownSourceSpan.Empty : new MarkdownSourceSpan(0, sourceText.Length);
+            return Parse(sourceText, diagnostics);
         }
 
-        return CreateDocument(
-            figure,
-            string.IsNullOrWhiteSpace(sourceText) ? string.Empty : sourceText,
-            sourceSpan.IsEmpty ? new MarkdownSourceSpan(0, sourceText.Length) : sourceSpan,
-            diagnostics);
+        return CreateDocument(figure, sourceText, sourceSpan, diagnostics);
     }
 
-    public static MarkdownFigureDocument Parse(string? markdown)
+    public static MarkdownFigureDocument Parse(string? markdown) => Parse(markdown, []);
+
+    private static MarkdownFigureDocument Parse(string? markdown, List<MarkdownFigureDiagnostic> diagnostics)
     {
         var source = MarkdownFigureSyntax.NormalizeBlockText(markdown);
-        List<MarkdownFigureDiagnostic> diagnostics = [];
         if (string.IsNullOrWhiteSpace(source))
         {
             diagnostics.Add(new MarkdownFigureDiagnostic("Figure content is empty.", MarkdownSourceSpan.Empty));
@@ -102,11 +97,9 @@ internal static class MarkdownFigureParser
         MarkdownSourceSpan containerSpan,
         List<MarkdownFigureDiagnostic> diagnostics)
     {
-        var source = MarkdownFigureSyntax.NormalizeBlockText(containerSpan.IsEmpty ? sourceText : containerSpan.Slice(sourceText));
-        if (string.IsNullOrWhiteSpace(source))
-        {
-            source = MarkdownFigureSyntax.NormalizeBlockText(sourceText);
-        }
+        // The source is already figure-local. Preserve its line endings until all AST
+        // spans have been sliced, so document offsets and CRLF do not shift the content.
+        var source = sourceText;
 
         var effectiveContainerSpan = new MarkdownSourceSpan(0, source.Length);
         var absoluteContainerSpan = containerSpan.IsEmpty ? new MarkdownSourceSpan(0, sourceText.Length) : containerSpan;
@@ -149,7 +142,7 @@ internal static class MarkdownFigureParser
         }
 
         var bodySpan = ToRelativeSpan(ResolveCombinedSpan(bodyBlocks), absoluteContainerSpan);
-        var bodyMarkdown = bodySpan.Slice(source).Trim();
+        var bodyMarkdown = MarkdownFigureSyntax.NormalizeBlockText(bodySpan.Slice(source)).Trim();
         if (string.IsNullOrWhiteSpace(bodyMarkdown))
         {
             diagnostics.Add(new MarkdownFigureDiagnostic("Figure body is empty.", bodySpan));
@@ -174,13 +167,18 @@ internal static class MarkdownFigureParser
     {
         var absoluteSpan = MarkdownSourceSpan.FromMarkdig(caption.Span);
         var relativeSpan = ToRelativeSpan(absoluteSpan, containerSpan);
-        var markdown = relativeSpan.Slice(containerSpan.Slice(sourceText));
+        return new MarkdownFigureCaption(ReadCaptionMarkdown(caption, sourceText, relativeSpan), relativeSpan, placement);
+    }
+
+    private static string ReadCaptionMarkdown(FigureCaption caption, string sourceText, MarkdownSourceSpan span)
+    {
+        var markdown = span.Slice(sourceText);
         if (string.IsNullOrWhiteSpace(markdown))
         {
             markdown = caption.Lines.ToString();
         }
 
-        return new MarkdownFigureCaption(MarkdownFigureSyntax.NormalizeInlineText(markdown), relativeSpan, placement);
+        return MarkdownFigureSyntax.NormalizeInlineText(markdown);
     }
 
     private static string BuildFallbackSource(Figure figure, MarkdownParseResult parseResult, out List<MarkdownFigureDiagnostic> diagnostics)
@@ -189,6 +187,7 @@ internal static class MarkdownFigureParser
         MarkdownFigureCaption? leadingCaption = null;
         MarkdownFigureCaption? trailingCaption = null;
         List<Block> bodyBlocks = [];
+        var sourceText = parseResult.UsesOriginalSourceSpans ? parseResult.OriginalMarkdown : parseResult.ParsedMarkdown;
 
         foreach (var child in figure)
         {
@@ -196,13 +195,13 @@ internal static class MarkdownFigureParser
             {
                 case FigureCaption caption when leadingCaption is null && bodyBlocks.Count == 0:
                     leadingCaption = new MarkdownFigureCaption(
-                        MarkdownFigureSyntax.NormalizeInlineText(caption.Lines.ToString()),
+                        ReadCaptionMarkdown(caption, sourceText, MarkdownSourceSpan.FromMarkdig(caption.Span)),
                         MarkdownSourceSpan.Empty,
                         MarkdownFigureCaptionPlacement.OpeningFence);
                     break;
                 case FigureCaption caption when trailingCaption is null:
                     trailingCaption = new MarkdownFigureCaption(
-                        MarkdownFigureSyntax.NormalizeInlineText(caption.Lines.ToString()),
+                        ReadCaptionMarkdown(caption, sourceText, MarkdownSourceSpan.FromMarkdig(caption.Span)),
                         MarkdownSourceSpan.Empty,
                         MarkdownFigureCaptionPlacement.ClosingFence);
                     break;
@@ -214,7 +213,6 @@ internal static class MarkdownFigureParser
             }
         }
 
-        var sourceText = parseResult.UsesOriginalSourceSpans ? parseResult.OriginalMarkdown : parseResult.ParsedMarkdown;
         var bodySpan = ResolveCombinedSpan(bodyBlocks);
         var bodyMarkdown = bodySpan.Slice(sourceText).Trim();
         if (string.IsNullOrWhiteSpace(bodyMarkdown))
