@@ -38,4 +38,5 @@
     <ProjectReference Include="..\ProMarkdown.Plugin.TextMate\ProMarkdown.Plugin.TextMate.csproj" />
     <ProjectReference Include="..\ProMarkdown.Plugin.SyntaxHighlighting\ProMarkdown.Plugin.SyntaxHighlighting.csproj" />
   </ItemGroup>
+  <Import Project="../../build/WindowsArm64NativeAot.targets" />
 </Project>
