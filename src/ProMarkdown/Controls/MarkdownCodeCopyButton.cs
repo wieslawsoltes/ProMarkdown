@@ -15,7 +15,7 @@ internal sealed class MarkdownCodeCopyButton : Button
     private const string CopiedLabel = "Code copied";
     private readonly string _code;
     private readonly Func<string, Task<bool>> _copyTextAsync;
-    private readonly TextBlock _icon;
+    private readonly PathIcon _icon;
     private readonly DispatcherTimer _feedbackTimer;
     private bool _isCopying;
     private int _attachmentGeneration;
@@ -25,11 +25,14 @@ internal sealed class MarkdownCodeCopyButton : Button
         ArgumentNullException.ThrowIfNull(code);
         _code = code;
         _copyTextAsync = copyTextAsync ?? CopyToClipboardAsync;
-        _icon = new TextBlock
+        _icon = new PathIcon
         {
+            Width = MarkdownCodeCopyIcons.Size,
+            Height = MarkdownCodeCopyIcons.Size,
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center
         };
+        _icon.Bind(ForegroundProperty, this.GetObservable(ForegroundProperty));
         Content = _icon;
         _feedbackTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _feedbackTimer.Tick += OnFeedbackTimerTick;
@@ -98,7 +101,7 @@ internal sealed class MarkdownCodeCopyButton : Button
     private void SetFeedback(bool copied)
     {
         var label = copied ? CopiedLabel : CopyLabel;
-        _icon.Text = copied ? "✓" : "⧉";
+        _icon.Data = copied ? MarkdownCodeCopyIcons.Checkmark : MarkdownCodeCopyIcons.Copy;
         AutomationProperties.SetName(this, label);
         ToolTip.SetTip(this, label);
     }

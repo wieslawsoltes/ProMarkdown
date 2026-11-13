@@ -80,7 +80,6 @@ public static class MarkdownCodeBlockRendering
 
         var copyButton = new MarkdownCodeCopyButton(code)
         {
-            FontSize = Math.Max(renderContext.FontSize - 2, 11),
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(4),
