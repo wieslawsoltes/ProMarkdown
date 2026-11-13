@@ -3,19 +3,17 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using Markdig.Syntax;
+using ProMarkdown.Controls;
 
 namespace ProMarkdown.Services;
 
 public static class MarkdownCodeBlockRendering
 {
     private static readonly FontFamily MonospaceFamily = new("Cascadia Mono, Consolas, Courier New");
-    private const string CopyGlyph = "⧉";
-    private const string CopiedGlyph = "✓";
     public static IBrush DefaultCodeTextForeground { get; } = MarkdownThemePalette.Light.Foreground;
 
     public static MarkdownCodeBlockSurface CreateSurface(
@@ -80,16 +78,9 @@ public static class MarkdownCodeBlockRendering
         Grid.SetColumn(metaTextBlock, 1);
         headerGrid.Children.Add(metaTextBlock);
 
-        var copyIcon = new TextBlock
+        var copyButton = new MarkdownCodeCopyButton(code)
         {
-            Text = CopyGlyph,
             FontSize = Math.Max(renderContext.FontSize - 2, 11),
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-        var copyButton = new Button
-        {
-            Content = copyIcon,
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(4),
@@ -98,17 +89,6 @@ public static class MarkdownCodeBlockRendering
             Cursor = new Cursor(StandardCursorType.Hand),
             Foreground = metaForeground ?? palette.MutedForeground,
             VerticalAlignment = VerticalAlignment.Center
-        };
-        ToolTip.SetTip(copyButton, "Copy code");
-        copyButton.Click += async (_, _) =>
-        {
-            if (TopLevel.GetTopLevel(copyButton)?.Clipboard is not { } clipboard)
-                return;
-
-            await clipboard.SetTextAsync(code);
-            copyIcon.Text = CopiedGlyph;
-            await Task.Delay(1000);
-            copyIcon.Text = CopyGlyph;
         };
         Grid.SetColumn(copyButton, 2);
         headerGrid.Children.Add(copyButton);

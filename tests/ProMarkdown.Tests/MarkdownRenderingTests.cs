@@ -2397,6 +2397,71 @@ public sealed class MarkdownRenderingTests
     }
 
     [AvaloniaFact]
+    public void TableFallbackTextLayoutPreservesColumnWidths()
+    {
+        const string text = "Long cell text that must wrap inside its table column instead of spilling into the adjacent column.";
+        var control = CreateMarkdown($"| First | Second |\n| --- | --- |\n| {text} | {text} |");
+        var window = new Window { Width = 600, Height = 600, Content = control };
+        window.Show();
+        try
+        {
+            foreach (var width in new[] { 600d, 320d, 900d })
+            {
+                window.Width = width;
+                window.UpdateLayout();
+                MarkdownDocumentLayout.Flush(control);
+                window.UpdateLayout();
+
+                var segments = MarkdownDocumentSelection.GetSegmentControls(control)
+                    .Where(segment => GetText(segment) == text)
+                    .ToArray();
+                segments.Length.ShouldBe(2);
+                foreach (var segment in segments)
+                {
+                    var cell = segment.GetVisualAncestors().OfType<Border>().First();
+                    var contentWidth = cell.Bounds.Width - cell.Padding.Left - cell.Padding.Right -
+                                       cell.BorderThickness.Left - cell.BorderThickness.Right;
+                    segment.InvalidateMeasure();
+
+                    segment.TextLayout.Width.ShouldBeLessThanOrEqualTo(contentWidth + 1);
+                    segment.TextLayout.TextLines.Count.ShouldBeGreaterThan(1);
+                }
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FallbackTextLayoutRespectsExplicitWidthAndPadding()
+    {
+        var segment = new MarkdownWrappingSelectableTextBlock
+        {
+            Width = 160,
+            MaxWidth = 600,
+            Padding = new Thickness(12),
+            TextWrapping = TextWrapping.Wrap,
+            Inlines = new InlineCollection { new Run("Text that must wrap within the explicit width including its padding.") }
+        };
+        var window = new Window { Width = 600, Height = 240, Content = segment };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            segment.InvalidateMeasure();
+
+            segment.TextLayout.Width.ShouldBeLessThanOrEqualTo(136);
+            segment.TextLayout.TextLines.Count.ShouldBeGreaterThan(1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void CopyAcrossTableCellsPreservesRowsAndColumns()
     {
         var control = CreateMarkdown("| Component | Version |\n|---|---|\n| Desktop | 1.2.3 |");
