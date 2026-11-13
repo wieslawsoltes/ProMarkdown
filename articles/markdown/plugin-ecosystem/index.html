@@ -316,6 +316,7 @@ sequenceDiagram
 </code></pre>
 <p>Accepted fenced aliases are <code>mermaid</code>, <code>mmd</code>, <code>mermaidjs</code>, and <code>diagram-mermaid</code>. The <code>diagram mermaid</code> descriptor form is also recognized.</p>
 <p>The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. Diagram work participates in <code>MarkdownTextBlock.IsRendering</code>, and palette changes regenerate the SVG without displaying a stale color variant. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.</p>
+<p>Diagrams retain their natural SVG size and scale down uniformly when the available width or height is smaller. Resizing preserves the aspect ratio and does not regenerate the SVG.</p>
 <p>Configure localized UI text and link activation when constructing the plugin:</p>
 <pre><code class="language-csharp">var mermaidOptions = new MermaidMarkdownPluginOptions
 {
