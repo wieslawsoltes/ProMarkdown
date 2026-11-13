@@ -151,6 +151,8 @@ Accepted fenced aliases are `mermaid`, `mmd`, `mermaidjs`, and `diagram-mermaid`
 
 The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. Diagram work participates in `MarkdownTextBlock.IsRendering`, and palette changes regenerate the SVG without displaying a stale color variant. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.
 
+Diagrams retain their natural SVG size and scale down uniformly when the available width or height is smaller. Resizing preserves the aspect ratio and does not regenerate the SVG.
+
 Configure localized UI text and link activation when constructing the plugin:
 
 ```csharp

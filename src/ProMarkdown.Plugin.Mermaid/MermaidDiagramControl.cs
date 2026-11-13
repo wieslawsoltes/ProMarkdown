@@ -10,7 +10,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
-using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Svg.Skia;
 using Avalonia.Threading;
@@ -181,15 +180,6 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         CancelRender(keepLoadingState: false);
         ClearPendingLinkInteraction();
         base.OnDetachedFromVisualTree(e);
-    }
-
-    protected override Size MeasureOverride(Size availableSize)
-    {
-        var measured = base.MeasureOverride(availableSize);
-        if (_svgImage?.Size is not { Width: > 0, Height: > 0 } sourceSize || !double.IsFinite(availableSize.Width))
-            return measured;
-        var width = Math.Max(1, availableSize.Width);
-        return new Size(width, Math.Max(1, width * sourceSize.Height / sourceSize.Width));
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -548,7 +538,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
             _svgImage?.Size is not { Width: > 0, Height: > 0 } sourceSize ||
             _svgSource?.Svg is not { } svg)
             return null;
-        var scale = Stretch.Uniform.CalculateScaling(image.Bounds.Size, sourceSize, StretchDirection.Both);
+        var scale = image.Stretch.CalculateScaling(image.Bounds.Size, sourceSize, image.StretchDirection);
         var scaled = sourceSize * scale;
         var offsetX = (image.Bounds.Width - scaled.Width) / 2;
         var offsetY = (image.Bounds.Height - scaled.Height) / 2;

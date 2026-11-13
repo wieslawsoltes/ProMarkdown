@@ -1013,6 +1013,104 @@ public sealed class MermaidRenderingTests
     }
 
     [AvaloniaFact]
+    public async Task DiagramKeepsNaturalSizeAndOnlyScalesDownWhenItsHostNarrows()
+    {
+        const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"320\" height=\"160\" viewBox=\"0 0 320 160\"><rect width=\"320\" height=\"160\" /></svg>";
+        var renderer = new MermaiderSvgRenderer(async (_, destination, _, cancellationToken) =>
+            await destination.WriteAsync(Encoding.UTF8.GetBytes(svg), cancellationToken));
+        using var diagram = new MermaidDiagramControl(renderer, "flowchart TD\nA --> B", MarkdownThemePalette.Light, "Inter", 14);
+        var window = new Window { Width = 800, Height = 600, Content = new StackPanel { Children = { diagram } } };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            window.UpdateLayout();
+            diagram.DesiredSize.ShouldBe(new Size(320, 160));
+            diagram.Bounds.Height.ShouldBe(160);
+            var invocationCount = renderer.RenderInvocationCount;
+
+            window.Width = 160;
+            await WaitForAsync(() =>
+            {
+                window.UpdateLayout();
+                return Math.Abs(diagram.Bounds.Height - 80) < 0.01;
+            });
+            diagram.DesiredSize.ShouldBe(new Size(160, 80));
+            diagram.Bounds.Height.ShouldBe(80);
+
+            window.Width = 800;
+            await WaitForAsync(() =>
+            {
+                window.UpdateLayout();
+                return Math.Abs(diagram.Bounds.Height - 160) < 0.01;
+            });
+            diagram.DesiredSize.ShouldBe(new Size(320, 160));
+            diagram.Bounds.Height.ShouldBe(160);
+            renderer.RenderInvocationCount.ShouldBe(invocationCount);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task TallDiagramFitsItsAvailableHeightWithoutUpscaling()
+    {
+        const string svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"160\" height=\"320\" viewBox=\"0 0 160 320\"><rect width=\"160\" height=\"320\" /></svg>";
+        using var diagram = new MermaidDiagramControl(new StaticSvgRenderer(svg), "stateDiagram-v2", MarkdownThemePalette.Light,
+            "Inter", 14, new MermaidMarkdownPluginOptions(), CancellationToken.None, static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 800, Height = 160, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            window.UpdateLayout();
+
+            diagram.DesiredSize.ShouldBe(new Size(80, 160));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task NaturalSizeDiagramLinksIgnoreTheEmptySpaceAroundTheImage()
+    {
+        var activationCount = 0;
+        using var diagram = new MermaidDiagramControl(
+            new StaticSvgRenderer(LinkedSvg), "flowchart TD\nA --> B", MarkdownThemePalette.Light, "Inter", 14,
+            new MermaidMarkdownPluginOptions
+            {
+                ActivateLinkAsync = (_, _) =>
+                {
+                    Interlocked.Increment(ref activationCount);
+                    return Task.CompletedTask;
+                }
+            }, CancellationToken.None, static () => new CompletionTrackingDisposable());
+        var window = new Window { Width = 400, Height = 240, Content = diagram };
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.HasImage);
+            window.UpdateLayout();
+
+            window.MouseDown(new Point(40, 120), MouseButton.Left);
+            window.MouseUp(new Point(40, 120), MouseButton.Left);
+            activationCount.ShouldBe(0);
+
+            window.MouseDown(new Point(200, 120), MouseButton.Left);
+            window.MouseUp(new Point(200, 120), MouseButton.Left);
+            await WaitForAsync(() => activationCount == 1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task ResizingARenderedDiagramDoesNotRegenerateSvg()
     {
         var renderer = new MermaiderSvgRenderer(
