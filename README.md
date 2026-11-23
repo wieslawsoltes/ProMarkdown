@@ -85,7 +85,7 @@ PowerShell equivalents are included for the build, check, and serve commands. De
 
 - `.github/workflows/build.yml` builds, tests, validates docs, and packs the Markdown projects.
 - `.github/workflows/docs.yml` publishes the Lunet site.
-- `.github/workflows/release.yml` validates and publishes the ProMarkdown NuGet packages for tagged releases.
+- `.github/workflows/release.yml` validates releases and publishes packages through NuGet.org Trusted Publishing.
 
 ## License
 

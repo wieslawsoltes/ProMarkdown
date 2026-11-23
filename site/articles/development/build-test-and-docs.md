@@ -69,3 +69,16 @@ PowerShell equivalents are also available.
 - `release.yml` builds tagged releases and publishes the ProMarkdown packages.
 
 Generated docs are written to `site/.lunet/build/www/` and are not committed.
+
+## NuGet Trusted Publishing
+
+The Release workflow uses the GitHub `nuget` environment. Its `NUGET_USER` variable contains the NuGet.org profile name `wieslawsoltes`. GitHub OIDC supplies a short-lived key for uploading packages and symbols.
+
+On NuGet.org, create a GitHub Actions Trusted Publishing policy with package owner `wieslawsoltes`, repository owner `wieslawsoltes`, repository `ProMarkdown`, workflow file `release.yml`, and environment `nuget`. Select **Push only new package versions** and enter these patterns on separate lines. [NuGet.org Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing)
+
+```text
+ProMarkdown
+ProMarkdown.Plugin.*
+```
+
+Push a version tag such as `v0.2.3` to start a release. For a manual release, run **Release** from `main` and enter the package version, such as `0.2.3`.
