@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <!-- Keep the Skia renderer used by the SVG package aligned with Avalonia. -->
+    <PackageReference Include="Avalonia.Skia" />
     <PackageReference Include="Mermaider" />
     <PackageReference Include="Svg.Controls.Skia.Avalonia" />
   </ItemGroup>
