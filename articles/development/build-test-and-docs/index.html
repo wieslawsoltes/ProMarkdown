@@ -187,6 +187,13 @@ bash ./serve-docs.sh
 <li><code>release.yml</code> builds tagged releases and publishes the ProMarkdown packages.</li>
 </ul>
 <p>Generated docs are written to <code>site/.lunet/build/www/</code> and are not committed.</p>
+<h2 id="nuget-trusted-publishing">NuGet Trusted Publishing</h2>
+<p>The Release workflow uses the GitHub <code>nuget</code> environment. Its <code>NUGET_USER</code> variable contains the NuGet.org profile name <code>wieslawsoltes</code>. GitHub OIDC supplies a short-lived key for uploading packages and symbols.</p>
+<p>On NuGet.org, create a GitHub Actions Trusted Publishing policy with package owner <code>wieslawsoltes</code>, repository owner <code>wieslawsoltes</code>, repository <code>ProMarkdown</code>, workflow file <code>release.yml</code>, and environment <code>nuget</code>. Select <strong>Push only new package versions</strong> and enter these patterns on separate lines. <a href="https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing">NuGet.org Trusted Publishing</a></p>
+<pre><code class="language-text">ProMarkdown
+ProMarkdown.Plugin.*
+</code></pre>
+<p>Push a version tag such as <code>v0.2.3</code> to start a release. For a manual release, run <strong>Release</strong> from <code>main</code> and enter the package version, such as <code>0.2.3</code>.</p>
 
       </div>
   </div>
