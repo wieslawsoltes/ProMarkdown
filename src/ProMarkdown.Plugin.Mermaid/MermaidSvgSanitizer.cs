@@ -14,7 +14,10 @@ internal static class MermaidSvgSanitizer
 
     public static string SanitizeMermaiderSvg(string svg) => SanitizeCore(svg, normalizeMermaiderColors: true);
 
-    private static string SanitizeCore(string svg, bool normalizeMermaiderColors)
+    public static string SanitizeMermaiderFrame(string svg) =>
+        SanitizeCore(svg, normalizeMermaiderColors: true, adjustAnimationContrast: true);
+
+    private static string SanitizeCore(string svg, bool normalizeMermaiderColors, bool adjustAnimationContrast = false)
     {
         ArgumentNullException.ThrowIfNull(svg);
         if (svg.Length > MaximumSvgCharacters)
@@ -66,6 +69,9 @@ internal static class MermaidSvgSanitizer
                 if (ContainsExternalCss(attribute.Value))
                     throw new InvalidOperationException("The Mermaid SVG contains an external style reference.");
 
+                if (normalizeMermaiderColors && name == "style")
+                    MermaidSvgFrameTransforms.Normalize(attribute);
+
                 if (!string.Equals(name, "href", StringComparison.OrdinalIgnoreCase) &&
                     !string.Equals(name, "src", StringComparison.OrdinalIgnoreCase))
                     continue;
@@ -82,7 +88,7 @@ internal static class MermaidSvgSanitizer
         }
 
         if (normalizeMermaiderColors)
-            MermaidSvgColorResolver.Resolve(document.Root);
+            MermaidSvgColorResolver.Resolve(document.Root, adjustAnimationContrast);
         document.Declaration = null;
         return document.ToString(SaveOptions.DisableFormatting);
     }

@@ -44,6 +44,23 @@ public sealed class MermaidSvgColorResolverTests
         document.Root.Element(ns + "text")!.Value.ShouldBe("color-mix(in srgb, red 50%, blue)");
     }
 
+    [Fact]
+    public void AnimationFrameAdjustsStatusGlyphButPreservesWhiteMaskPaint()
+    {
+        const string svg = """
+            <svg>
+              <defs><mask id="mask"><path stroke="#fff" /></mask></defs>
+              <g><circle r="9" fill="#edc948" /><path stroke="#fff" /></g>
+            </svg>
+            """;
+        var frame = XDocument.Parse(MermaidSvgSanitizer.SanitizeMermaiderFrame(svg));
+        frame.Root!.Element("g")!.Element("path")!.Attribute("stroke")!.Value.ShouldBe("#000");
+        frame.Descendants("mask").Single().Element("path")!.Attribute("stroke")!.Value.ShouldBe("#fff");
+
+        var staticSvg = XDocument.Parse(MermaidSvgSanitizer.SanitizeMermaiderSvg(svg));
+        staticSvg.Root!.Element("g")!.Element("path")!.Attribute("stroke")!.Value.ShouldBe("#fff");
+    }
+
     [Theory]
     [InlineData("--a:var(--a)", "color-mix(in srgb, var(--a) 50%, white)")]
     [InlineData("", "color-mix(in srgb, var(--missing) 50%, white)")]

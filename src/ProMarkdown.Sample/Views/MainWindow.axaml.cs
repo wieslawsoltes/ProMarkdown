@@ -10,6 +10,7 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.TextMate;
 using ProMarkdown.Controls;
@@ -96,9 +97,10 @@ public partial class MainWindow : Window
         CodeEditorSelector.SelectionChanged += OnCodeEditorSelectionChanged;
         PreviewEditToggle.IsCheckedChanged += OnPreviewEditToggleChanged;
 
-        PreviewHost.AddHandler(InputElement.PointerMovedEvent, OnPreviewHostPointerMoved, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
+        PreviewHost.AddHandler(InputElement.PointerMovedEvent, OnPreviewHostPointerMoved, RoutingStrategies.Bubble, handledEventsToo: true);
         PreviewHost.AddHandler(InputElement.PointerPressedEvent, OnPreviewHostPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
         PreviewHost.PointerExited += OnPreviewHostPointerExited;
+        PreviewScrollViewer.ScrollChanged += OnPreviewScrolled;
         Editor.Text = DefaultMarkdownDocument;
         UpdatePreviewBaseUri();
         Preview.Markdown = Editor.Text;
@@ -204,6 +206,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (eventArgs.Source is Visual source &&
+            source.GetSelfAndVisualAncestors().Any(visual => visual is Button or ComboBox or ComboBoxItem or Slider))
+        {
+            return;
+        }
+
         var point = eventArgs.GetPosition(Preview);
         if (Preview.IsEditingEnabled && Preview.TryBeginEdit(point))
         {
@@ -221,6 +229,15 @@ public partial class MainWindow : Window
     private void OnPreviewHostPointerExited(object? sender, PointerEventArgs eventArgs)
     {
         ClearPreviewHover();
+    }
+
+    private void OnPreviewScrolled(object? sender, ScrollChangedEventArgs eventArgs)
+    {
+        if (eventArgs.OffsetDelta != default &&
+            (_hoveredSourceSpan != MarkdownSourceSpan.Empty || PreviewOverlay.HighlightRects.Count > 0))
+        {
+            ClearPreviewHover();
+        }
     }
 
     private void OnFoldingTick(object? sender, EventArgs eventArgs)
@@ -486,6 +503,7 @@ public partial class MainWindow : Window
     private void OnWindowClosed(object? sender, EventArgs eventArgs)
     {
         _foldingTimer.Stop();
+        PreviewScrollViewer.ScrollChanged -= OnPreviewScrolled;
         ClearPreviewHover();
         Editor.TextArea.TextView.BackgroundRenderers.Remove(_editorHoverHighlightRenderer);
         _textMateInstallation.Dispose();
@@ -800,6 +818,78 @@ public partial class MainWindow : Window
 
             Editor --> Parser --> Renderer --> Preview
         :::
+
+        ## Animated Mermaid
+
+        The request-flow and chart demos use `Mermaider.Animate`'s own `animate` extension. For a static preview in Mermaid Live, paste only the diagram above the `animate` block. [Mermaider animation syntax](https://github.com/nullean/mermaider/blob/0.19.0/src/Mermaider.Animate/README.md#the-score) · [Mermaid Live Editor](https://mermaid.live/)
+
+        Play the request flow, or choose an ending to see how it handles a database timeout. Use the step buttons to jump between captions.
+
+        ```mermaid
+        flowchart LR
+            client[Client] --> api[Orders API] --> db[(Database)]
+
+        animate once crisp
+          step "The order reaches the database"
+            tour client -> api -> db "GET /orders"
+          scenario "Order succeeds" as ok
+            step "The database confirms the order"
+              send db -> api "Order saved" as ok
+          scenario "Database times out" as fail
+            step "The database stops responding"
+              fail db "Timeout"
+              with callout db "Orders are unavailable" as fail
+            step "Service recovers"
+              recover db
+        ```
+
+        ## Animated Mermaid chart
+
+        Scroll this chart through the preview or move the slider to see Tuesday's order count rise. This demo uses Mermaider's `animate scrub` mode. [Mermaider playback modes](https://github.com/nullean/mermaider/blob/0.19.0/src/Mermaider.Animate/README.md#playback)
+
+        ```mermaid
+        xychart-beta
+            title "Orders per minute"
+            x-axis [Mon, Tue, Wed]
+            y-axis "Orders" 0 --> 100
+            bar [34, 52, 48]
+
+        animate scrub
+          step "Traffic rises on Tuesday"
+            set #2 75
+        ```
+
+        ## Native Mermaid edge animation
+
+        This flowchart uses Mermaid edge IDs and animation properties. Start playback here, or paste the diagram source without the Markdown fence into Mermaid Live to watch it there. [Mermaid Live Editor](https://mermaid.live/) · [Mermaid edge animation syntax](https://mermaid.js.org/syntax/flowchart.html#turning-an-animation-on)
+
+        ```mermaid
+        ---
+        config:
+          flowchart:
+            stepDuration: 0.8
+            stepNumbers: true
+        ---
+        flowchart LR
+            client[Client] request@-->|GET /orders| api[Orders API]
+            api lookup@--> db[(Database)]
+            db reply@-.-> api
+            request@{ step: 1 }
+            lookup@{ step: 2, animation: fast }
+            reply@{ step: 3 }
+        ```
+
+        ## Mermaid classDef edge animation
+
+        This flowchart uses a Mermaid class to set the edge's dash pattern and speed. The same source runs in Mermaid Live. [Mermaid classDef animation syntax](https://mermaid.js.org/syntax/flowchart.html#using-classdef-statements-for-animations)
+
+        ```mermaid
+        flowchart LR
+            producer[Order service] delivery@-->|Order placed| worker[Queue worker]
+            worker --> archive[(Archive)]
+            classDef dispatch stroke-dasharray: 10\,6,stroke-dashoffset: 160,animation: dash 4s linear infinite;
+            class delivery dispatch
+        ```
 
         ## Mermaid fenced syntax
 

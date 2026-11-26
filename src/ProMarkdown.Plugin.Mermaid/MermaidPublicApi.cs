@@ -41,7 +41,7 @@ public interface IMermaidSvgRenderer
     Task<string> RenderAsync(MermaidSvgRenderRequest request, CancellationToken cancellationToken);
 }
 
-/// <summary>Configures Mermaid UI text and safe-link activation.</summary>
+/// <summary>Configures Mermaid presentation and safe-link activation.</summary>
 public sealed record MermaidMarkdownPluginOptions
 {
     /// <summary>Gets the accessible name announced for a rendered Mermaid diagram.</summary>
@@ -50,6 +50,10 @@ public sealed record MermaidMarkdownPluginOptions
     public string ErrorText { get; init; } = "Mermaid diagram could not be rendered.";
 
     public string RetryText { get; init; } = "Retry";
+
+    /// <summary>Whether the built-in renderer enables playback for Mermaid edge animations and Mermaider scores.</summary>
+    /// <remarks>When disabled, native edge animations stay static and Mermaider scores display their final frame.</remarks>
+    public bool EnableAnimation { get; init; } = true;
 
     public Func<Uri, CancellationToken, Task>? ActivateLinkAsync { get; init; }
 

@@ -2,10 +2,13 @@ using System.Diagnostics;
 using System.Text;
 using System.Xml.Linq;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -15,7 +18,9 @@ using Avalonia.Media;
 using Avalonia.Svg.Skia;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.Themes.Fluent;
 using Avalonia.VisualTree;
+using ProMarkdown.Controls;
 using ProMarkdown.Plugin.Mermaid;
 using ProMarkdown.Services;
 using Mermaider;
@@ -26,6 +31,1009 @@ namespace ProMarkdown.Tests;
 
 public sealed class MermaidRenderingTests
 {
+    private const string AnimationSource = """
+        flowchart LR
+            A[Client] --> B[Server]
+
+        animate once crisp
+          step "Send the request"
+            send A -> B "GET"
+          scenario "Success" as ok
+            step "Receive the reply"
+              send B -> A "OK" as ok
+          scenario "Timeout" as fail
+            step "Server stops responding"
+              fail B "Timeout"
+        """;
+
+    private const string ChartAnimationSource = """
+        xychart-beta
+            x-axis [Mon, Tue, Wed]
+            y-axis 0 --> 100
+            bar [34, 52, 48]
+
+        animate scrub
+          step "Traffic rises on Tuesday"
+            set #2 75
+        """;
+
+    [AvaloniaFact]
+    public async Task AnimatedFencePlaysAndLetsUsersJumpBetweenStepsAndEndings()
+    {
+        var preview = new MarkdownTextBlock
+        {
+            Markdown = $"```mermaid\n{AnimationSource}\n```",
+            RenderController = MarkdownRenderingServices.CreateController([new MermaidMarkdownPlugin()])
+        };
+        var window = new Window { Width = 620, Height = 380, Content = preview };
+        window.Styles.Add(new FluentTheme());
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => preview.GetVisualDescendants().OfType<MermaidDiagramControl>().Any());
+            var diagram = preview.GetVisualDescendants().OfType<MermaidDiagramControl>().Single();
+            await WaitForAsync(() => diagram.HasImage || diagram.HasError);
+            diagram.HasError.ShouldBeFalse(diagram.ErrorText);
+            var host = diagram.GetVisualDescendants().OfType<ContentControl>().Single(control => control.Name == "PART_Playback");
+            var playback = host.Content.ShouldBeOfType<MermaidPlayback>();
+            host.IsVisible.ShouldBeTrue();
+            await WaitForAsync(() => host.GetVisualDescendants().OfType<Slider>().Any());
+            var slider = host.GetVisualDescendants().OfType<Slider>().Single();
+            var image = diagram.GetVisualDescendants().OfType<Image>().Single(candidate => candidate.Name == "PART_DiagramImage");
+            var svg = image.Source.ShouldBeOfType<SvgImage>();
+            var firstFrame = svg.Source;
+            var buttons = host.GetVisualDescendants().OfType<Button>().Where(button => button.Content is PathIcon).ToArray();
+            var playPause = buttons.Single(button => ReferenceEquals(button.Command, playback.PlayPauseCommand));
+            var replay = buttons.Single(button => ReferenceEquals(button.Command, playback.ReplayCommand));
+            var next = buttons.Single(button => ReferenceEquals(button.Command, playback.NextCommand));
+            var previous = buttons.Single(button => ReferenceEquals(button.Command, playback.PreviousCommand));
+            var playPauseIcon = playPause.Content.ShouldBeOfType<PathIcon>();
+            var playIcon = playPauseIcon.Data.ShouldNotBeNull();
+            var playPausePeer = ControlAutomationPeer.CreatePeerForElement(playPause).ShouldNotBeNull();
+            playPausePeer.GetName().ShouldBe("Play");
+            foreach (var button in buttons)
+            {
+                button.Bounds.Size.ShouldBe(new Size(28, 28));
+                button.TranslatePoint(new Rect(button.Bounds.Size).Center, window)!.Value.Y
+                    .ShouldBe(slider.TranslatePoint(new Rect(slider.Bounds.Size).Center, window)!.Value.Y);
+                ToolTip.GetTip(button).ShouldBe(AutomationProperties.GetName(button));
+            }
+
+            playback.PlayPauseCommand.Execute(null);
+            await WaitForAsync(() => slider.Value > 0 && !ReferenceEquals(svg.Source, firstFrame));
+            playPausePeer.GetName().ShouldBe("Pause");
+            ToolTip.GetTip(playPause).ShouldBe("Pause");
+            playPauseIcon.Data.ShouldNotBeSameAs(playIcon);
+            playback.PlayPauseCommand.Execute(null);
+            playPausePeer.GetName().ShouldBe("Play");
+            playPauseIcon.Data.ShouldBeSameAs(playIcon);
+
+            var endings = diagram.GetVisualDescendants().OfType<ComboBox>().Single();
+            endings.SelectedIndex.ShouldBe(0);
+            var selectorCenter = endings.TranslatePoint(new Rect(endings.Bounds.Size).Center, window).ShouldNotBeNull();
+            window.MouseDown(selectorCenter, MouseButton.Left);
+            window.MouseUp(selectorCenter, MouseButton.Left);
+            var popup = endings.GetVisualDescendants().OfType<Popup>().Single();
+            endings.IsDropDownOpen.ShouldBeTrue();
+            popup.IsOpen.ShouldBeTrue();
+            await WaitForAsync(() => endings.ContainerFromIndex(1) is ComboBoxItem { IsArrangeValid: true });
+            var timeoutItem = endings.ContainerFromIndex(1).ShouldBeOfType<ComboBoxItem>();
+            var popupRoot = TopLevel.GetTopLevel(timeoutItem).ShouldNotBeNull();
+            var timeoutCenter = timeoutItem.TranslatePoint(new Rect(timeoutItem.Bounds.Size).Center, popupRoot).ShouldNotBeNull();
+            popupRoot.MouseDown(timeoutCenter, MouseButton.Left);
+            popupRoot.MouseUp(timeoutCenter, MouseButton.Left);
+            await WaitForAsync(() => !endings.IsDropDownOpen && playback.ScenarioIndex == 1 && slider.Value == 0);
+            next.Command!.Execute(null);
+            await WaitForAsync(() => slider.Value > 0);
+            next.Command!.Execute(null);
+            await WaitForAsync(() => !next.IsEffectivelyEnabled && previous.IsEffectivelyEnabled);
+            ControlAutomationPeer.CreatePeerForElement(diagram)!.GetHelpText().ShouldContain("Server stops responding");
+
+            replay.Command!.Execute(null);
+            await WaitForAsync(() => slider.Value < 0.5);
+            playPausePeer.GetName().ShouldBe("Pause");
+            await WaitForAsync(() => !playback.IsPlaying && slider.Value == slider.Maximum);
+
+            var endFrame = svg.Source;
+            var midpoint = slider.Maximum / 2;
+            slider.SetCurrentValue(RangeBase.ValueProperty, midpoint);
+            await WaitForAsync(() => Math.Abs(playback.PositionSeconds - midpoint) < 0.001 &&
+                                     !ReferenceEquals(svg.Source, endFrame));
+
+            Grid.GetRow(endings).ShouldBe(0);
+            window.Width = 300;
+            await WaitForAsync(() => Grid.GetRow(endings) == 1 && slider.Bounds.Width > 100);
+            playPause.TranslatePoint(new Rect(playPause.Bounds.Size).Center, window)!.Value.Y
+                .ShouldBe(slider.TranslatePoint(new Rect(slider.Bounds.Size).Center, window)!.Value.Y);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Fact]
+    public async Task HostAndAuthoredReducedMotionReturnTheFinalStillFrame()
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var request = new MermaidSvgRenderRequest(AnimationSource, MarkdownThemePalette.Light, "Inter", 14);
+        var moving = await renderer.RenderDiagramAsync(request, enableAnimation: true, token);
+        moving.Animation.ShouldNotBeNull();
+
+        var reduced = await renderer.RenderDiagramAsync(request, enableAnimation: false, token);
+        reduced.Animation.ShouldBeNull();
+        reduced.Svg.ShouldNotContain("@keyframes");
+        reduced.Svg.ShouldContain("2/2");
+        reduced.Svg.ShouldNotBe(moving.Svg);
+
+        var authored = new MermaidSvgRenderRequest(
+            AnimationSource.Replace("once crisp", "once still", StringComparison.Ordinal), request.Palette, "Inter", 14);
+        var still = await renderer.RenderDiagramAsync(authored, enableAnimation: true, token);
+        still.Animation.ShouldBeNull();
+        still.Svg.ShouldBe(reduced.Svg);
+    }
+
+    [Theory]
+    [InlineData("flowchart LR\nanimate --> B")]
+    [InlineData("flowchart LR\nanimate\nA --> animate")]
+    [InlineData("flowchart LR\nanimate\nstep\nA --> animate --> step")]
+    [InlineData("flowchart LR\nanimate\nsend\nA --> animate --> send")]
+    [InlineData("flowchart LR\nA --> B\nanimate")]
+    [InlineData("flowchart LR\nsubgraph S\nanimate\nend\nA --> animate")]
+    [InlineData("stateDiagram-v2\nanimate --> Other")]
+    [InlineData("sequenceDiagram\nanimate ->> Receiver: Hello")]
+    [InlineData("classDiagram\nanimate --> Other")]
+    [InlineData("erDiagram\nanimate ||--o{ Other : includes")]
+    [InlineData("gantt\n  dateFormat YYYY-MM-DD\nanimate once :task, 2024-01-01, 1d")]
+    [InlineData("mindmap\nanimate\n  child")]
+    [InlineData("block-beta\nanimate\nother")]
+    [InlineData("treeView-beta\nanimate\n    child")]
+    [InlineData("treeView-beta\nroot\nanimate once")]
+    [InlineData("treeView-beta\nroot\nanimate once %% label")]
+    [InlineData("treeView-beta\nroot\nanimate once ## Status: draft")]
+    [InlineData("treeView-beta\nroot\nanimate once :::selected")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item:2")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item[\"Read: 2\"]")]
+    [InlineData("block-beta\nA\nanimate once\n%% ordinary comment\n")]
+    [InlineData("flowchart LR\naccDescr {\nanimate once\n}\nA --> B")]
+    [InlineData("sequenceDiagram\r\naccDescr{\r\nanimate once\r\n  }\r\nA ->> B: Hello")]
+    public async Task StaticDiagramsCanContainAnimateWithoutStartingAScore(string source)
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await renderer.RenderDiagramAsync(request, enableAnimation: true, token);
+
+        result.Animation.ShouldBeNull();
+        result.IsAnimationFrame.ShouldBeFalse();
+        result.Svg.ShouldBe(await renderer.RenderAsync(request, token));
+    }
+
+    [Theory]
+    [InlineData("mindmap\nroot[First line\nanimate once\nLast line]\n child")]
+    [InlineData("mindmap\nroot[First line\n%% ]\nanimate once\nLast line]\n child")]
+    [InlineData("treeView-beta\n\"First line\nanimate once\nLast line\"\n    child")]
+    [InlineData("treeView-beta\n\"First line\n%% \"\nanimate once\nLast line\"\n    child")]
+    [InlineData("block-beta\nA[\"First line\nanimate once\nLast line\"]")]
+    [InlineData("block-beta\nA[\"First line\n%% \"\nanimate once\nLast line\"]")]
+    public async Task MultilineLabelsCanContainAnimateBeforeTheScore(string source)
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await renderer.RenderDiagramAsync(request, enableAnimation: true, token);
+        result.IsAnimationFrame.ShouldBeFalse();
+        result.Svg.ShouldBe(await renderer.RenderAsync(request, token));
+
+        var withScore = await renderer.RenderDiagramAsync(
+            new MermaidSvgRenderRequest(source + "\n\nanimate once\n  build", request.Palette, "Inter", 14),
+            enableAnimation: true, token);
+        withScore.IsAnimationFrame.ShouldBeTrue();
+        withScore.Animation.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("mindmap\nanimate once\n child")]
+    [InlineData("treeView-beta\nanimate once\n    child")]
+    [InlineData("treeView-beta\nsrc\nanimate once\n    child")]
+    [InlineData("treeView-beta\nroot\nanimate once ## Status: draft")]
+    [InlineData("treeView-beta\nroot\nanimate once :::selected\n    child")]
+    [InlineData("treeView-beta\nroot\nanimate once icon(none)\n    child")]
+    [InlineData("treeView-beta\nroot\nanimate once icon(lucide:folder)\n    child")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item:2\nA --> item")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item[\"Item\"]:2\nA --> item")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item[\"Read: 2\"] Other\nA --> item")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item[Read: 2]Other\nA --> Other")]
+    [InlineData("block-beta\ncolumns 4\nA\nanimate once item:2Other[\"Other\"]\nA --> Other")]
+    public async Task StandaloneLabelsCanMatchScoreOptionsAndPrecedeAnAnimation(string source)
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await renderer.RenderDiagramAsync(request, enableAnimation: true, token);
+        result.IsAnimationFrame.ShouldBeFalse();
+        result.Svg.ShouldBe(await renderer.RenderAsync(request, token));
+
+        var withScore = await renderer.RenderDiagramAsync(
+            new MermaidSvgRenderRequest(source + "\n\nanimate once\n  build", request.Palette, "Inter", 14),
+            enableAnimation: true, token);
+        withScore.Animation.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task OnlyLinesOutsideBlockGroupsCanStartAScore()
+    {
+        const string diagram = """
+            block-beta
+            block:group
+            A
+            block:nested:2
+            animate once
+            X
+            end
+            animate once
+            Y
+            end
+            A --> Y
+            """;
+        MermaidScoreSyntax.Parse(diagram).ShouldBeNull();
+        var source = diagram + "\n\nanimate once\n  build";
+        MermaidScoreSyntax.Parse(source).ShouldNotBeNull().Headers.Single().Line.ShouldBe(13);
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        result.Animation.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task OnlyLinesOutsideFlowchartSubgraphsCanStartAScore()
+    {
+        const string diagram = """
+            flowchart LR
+            subgraph Outer
+                subgraph Inner
+                    A["Label starts
+            end
+            animate once
+            Label ends"]
+            animate
+                    A --> animate
+                end
+            animate
+                animate --> B
+            end
+            """;
+        MermaidScoreSyntax.Parse(diagram).ShouldBeNull();
+        var source = diagram + "\n\nanimate once\n  send A -> animate \"Message\"";
+        MermaidScoreSyntax.Parse(source).ShouldNotBeNull().Headers.Single().Line.ShouldBe(15);
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        result.Animation.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("flowchart LR\nA --> B", "send A -> B \"Hello\"")]
+    [InlineData("sequenceDiagram\nA ->> B: Hello", "play")]
+    public async Task FrontMatterCanContainAnimateBeforeTheScore(string diagram, string statement)
+    {
+        const string frontMatter = "---\ntitle: \"First\nanimate once\nLast\"\n---\n";
+        var source = frontMatter + diagram;
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await renderer.RenderDiagramAsync(request, enableAnimation: true, token);
+        result.IsAnimationFrame.ShouldBeFalse();
+        result.Svg.ShouldBe(await renderer.RenderAsync(request, token));
+
+        var withScore = await renderer.RenderDiagramAsync(
+            new MermaidSvgRenderRequest($"{source}\n\nanimate once\n  {statement}", request.Palette, "Inter", 14),
+            enableAnimation: true, token);
+        withScore.Animation.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task MindmapWithARootNamedAnimateKeepsItsOneSpaceChildIndent()
+    {
+        const string source = "mindmap\nanimate\n child\n\nanimate once\n  build";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        var animation = result.Animation.ShouldNotBeNull();
+        animation.RenderFrame(animation.ScoreDuration).ShouldContain(">child<");
+    }
+
+    [Theory]
+    [InlineData("animate --> B", "animate once")]
+    [InlineData("animate\nA --> B", "animate")]
+    [InlineData("animate", "animate once")]
+    [InlineData("animate\nstep\nA --> animate --> step", "animate once")]
+    [InlineData("animate\nsend\nA --> animate --> send", "animate once")]
+    public async Task AnimationCanFollowAFlowchartNodeNamedAnimate(string statement, string header)
+    {
+        var source = $"flowchart LR\n{statement}\n\n{header}\n  fail animate \"Unavailable\"";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        result.Animation.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("animate once")]
+    [InlineData("animate")]
+    public async Task AnimationCanFollowASequenceMessageFromAParticipantNamedAnimate(string header)
+    {
+        var source = $"sequenceDiagram\nanimate ->> Receiver: Hello\n\n{header}\n  play";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        result.Animation.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task AnimationCanFollowAnAccessibilityDescriptionThatContainsAnimate()
+    {
+        const string source = """
+            flowchart LR
+            accDescr {
+            animate once
+            }
+            A --> B
+
+            animate once
+              send A -> B "Request"
+            """;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        result.Animation.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("accDescr {Orders; rush}\nA --> B", "Orders; rush", 1)]
+    [InlineData("accDescr {Orders; rush}; A --> B", "Orders; rush", 1)]
+    [InlineData("accDescr {Outdated}; accDescr {Orders; rush}; A --> B", "Orders; rush", 1)]
+    [InlineData("A --> B; accDescr {Orders; rush}", "Orders; rush", 1)]
+    [InlineData("accDescr {animate once}\nA --> B", "animate once", 1)]
+    [InlineData("accDescr {Orders; rush}; A --> B; B --> C", "Orders; rush", 2)]
+    [InlineData("A --> B; B --> C; accDescr {Orders; rush}", "Orders; rush", 2)]
+    [InlineData("accDescr {%% Urgent}\nA --> B", "%% Urgent", 1)]
+    [InlineData("accDescr {\nFirst\n  %% Urgent\nLast\n}\nA --> B", "First\n%% Urgent\nLast", 1)]
+    public async Task PlainAndScoredFlowchartsRenderCompactAccessibilityDescriptions(string body, string description, int edgeCount)
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var source = $"flowchart LR\n{body}";
+        var plain = await renderer.RenderAsync(new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14), token);
+        var scored = await renderer.RenderDiagramAsync(
+            new MermaidSvgRenderRequest(source + "\nanimate once\n  send A -> B \"Request\"", MarkdownThemePalette.Light, "Inter", 14),
+            enableAnimation: true, token);
+
+        var animation = scored.Animation.ShouldNotBeNull();
+        foreach (var svgText in new[] { plain, scored.Svg, animation.RenderFrame(TimeSpan.FromMilliseconds(100)) })
+        {
+            var svg = XElement.Parse(svgText);
+            svg.Element(svg.Name.Namespace + "desc")!.Value.ReplaceLineEndings("\n").ShouldBe(description);
+            svg.Descendants().Count(element => (string?)element.Attribute("class") == "edge").ShouldBe(edgeCount);
+            svg.Descendants().ShouldContain(element => (string?)element.Attribute("data-from") == "A" &&
+                (string?)element.Attribute("data-to") == "B");
+        }
+    }
+
+    [Fact]
+    public async Task CompactAccessibilityDescriptionPreservesAuthoredScoreDiagnosticLine()
+    {
+        const string source = "flowchart LR\naccDescr {Orders; rush}; A --> B\nanimate once\n  send A -> Missing \"Request\"";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+
+        error.Diagnostics.ShouldContain(diagnostic => diagnostic.Line == 4 && diagnostic.Message.Contains("Missing", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("accDescr {Orders; rush}\nA --> B\nB / broken", 4, 3, "B / broken")]
+    [InlineData("accDescr {Orders; rush}; A --> B; B / broken", 2, 37, "accDescr {Orders; rush}; A --> B; B / broken")]
+    [InlineData("B / broken\naccDescr {Orders; rush}", 2, 3, "B / broken")]
+    [InlineData("accDescr {B / broken}\nA --> B\nB / broken", 4, 3, "B / broken")]
+    [InlineData("accDescr {\nB / broken\n}\naccDescr {Orders}\nA --> B\nB / broken", 7, 3, "B / broken")]
+    [InlineData("accDescr {Orders}\nA --> B\n  C[\"First line\n    Second line\"] / broken", 5, 15, "Second line\"] / broken")]
+    [InlineData("accDescr {Orders}\r\nA --> B\r\n  C[\"First line\r\n    Second line\"] / broken", 5, 15, "Second line\"] / broken")]
+    [InlineData("accDescr {Orders}\nA --> B\n  C[\"First line\n   \n    Second line\"] / broken", 6, 15, "Second line\"] / broken")]
+    [InlineData("accDescr {C[\"First line\nSecond line\"] / broken}\nA --> B\n  C[\"First line\n    Second line\"] / broken", 6, 15, "Second line\"] / broken")]
+    [InlineData("A --> B\nC[\"First line\nSecond line\"] / broken", 4, 15, "Second line\"] / broken")]
+    [InlineData("accDescr {\nOrders\n}\nA --> B\nC[\"First line\nSecond line\"] / broken", 7, 15, "Second line\"] / broken")]
+    public async Task PlainAndScoredFlowchartsPreserveAuthoredDiagramErrorLocation(
+        string body, int line, int column, string sourceLine)
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var source = $"flowchart LR\n{body}";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+        var scored = new MermaidSvgRenderRequest(source + "\nanimate once\n  build", MarkdownThemePalette.Light, "Inter", 14);
+
+        var plainError = await Should.ThrowAsync<Mermaider.MermaidParseException>(() => renderer.RenderAsync(request, token));
+        var scoreError = await Should.ThrowAsync<Mermaider.MermaidParseException>(() => renderer.RenderDiagramAsync(scored, true, token));
+        foreach (var error in new[] { plainError, scoreError })
+        {
+            error.Line.ShouldBe(line);
+            error.Column.ShouldBe(column);
+            error.SourceLine.ShouldBe(sourceLine);
+        }
+    }
+
+    [Theory]
+    [InlineData("A --> B", "")]
+    [InlineData("A --> B", "\nanimate once\n  build")]
+    [InlineData("A e1@--> B", "\ne1@{ animate: true }")]
+    public async Task FlowchartDiagnosticsSkipMatchingStatementsInFrontMatter(string link, string suffix)
+    {
+        var source = $"---\ntitle: |\n  B / broken\n---\nflowchart LR\n{link}\nB / broken{suffix}";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.MermaidParseException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, true, TestContext.Current.CancellationToken));
+
+        error.Line.ShouldBe(7);
+        error.Column.ShouldBe(3);
+        error.SourceLine.ShouldBe("B / broken");
+    }
+
+    [Theory]
+    [InlineData("accTitle: Notes on [\"")]
+    [InlineData("accDescr : Notes on [\"")]
+    public async Task AnimationCanFollowAccessibilityTextThatLooksLikeALabel(string directive)
+    {
+        var source = $"flowchart LR\n{directive}\nA --> B\nanimate once\n  build";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var result = await new MermaiderSvgRenderer().RenderDiagramAsync(
+            request, enableAnimation: true, TestContext.Current.CancellationToken);
+
+        result.Animation.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("sequenceDiagram\nA ->> B: Hello", "unknown", "play")]
+    [InlineData("sequenceDiagram\nA ->> B: Hello", "mode:invalid", "play")]
+    [InlineData("flowchart LR\nanimate\nstep\nA --> animate --> step", "mode:invalid", "build")]
+    public async Task InvalidScoreOptionsRetainTheAnimationDiagnostic(string diagram, string option, string statement)
+    {
+        var source = $"{diagram}\nanimate once {option}\n  {statement}";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+        error.Message.ShouldContain($"Unknown option '{option}'");
+    }
+
+    [Theory]
+    [InlineData("treeView-beta\nroot\n    child", "animate once unknown\n  build", "Unknown option 'unknown'", 5)]
+    [InlineData("treeView-beta\nroot\n    child", "animate \"once", "A quoted text is not closed", 5)]
+    [InlineData("treeView-beta\nroot\n    child", "animate once\n  expand Missing", "There is no node 'Missing'", 6)]
+    [InlineData("treeView-beta\nroot\n    child", "animate %% first score\n  expand Missing", "There is no node 'Missing'", 6)]
+    [InlineData("block-beta\nA B", "animate once unknown\n  build", "Unknown option 'unknown'", 4)]
+    [InlineData("block-beta\nA B\nA --> B", "animate once 3:2\n  build", "Unknown option '3:2'", 5)]
+    [InlineData("block-beta\nA B", "animate once \"bad item:2\"\n  build", "Unknown option 'bad item:2'", 4)]
+    [InlineData("treeView-beta\nroot\n    child", "animate once \"bad ## Status: draft\"\n  build", "Unknown option 'bad ## Status: draft'", 5)]
+    [InlineData("treeView-beta\nroot\n    child", "animate once \"bad icon(none)\"\n  build", "Unknown option 'bad icon(none)'", 5)]
+    [InlineData("block-beta\nA B\nA --> B", "animate once\n  fail Missing \"Unavailable\"", "There is no node 'Missing'", 6)]
+    public async Task ConfiguredTreeAndBlockScoresRetainErrors(
+        string diagram, string score, string expectedMessage, int expectedLine)
+    {
+        var request = new MermaidSvgRenderRequest($"{diagram}\n\n{score}", MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+
+        error.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Line == expectedLine && diagnostic.Message.Contains(expectedMessage, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("treeView-beta\nroot\n    child", "animate once")]
+    [InlineData("block-beta\nA B\nA --> B", "animate once")]
+    [InlineData("treeView-beta\nroot\n    child", "animate %% first score")]
+    [InlineData("block-beta\nA B\nA --> B", "animate once %% play: first score")]
+    [InlineData("block-beta\nA B\nA --> B", "animate once\u00a0crisp %% first score")]
+    public async Task SecondHeaderCannotReplaceAScoreThatAlreadyHasAStep(string diagram, string header)
+    {
+        var score = $"""
+            {header}
+              step "First score"
+                build
+            animate once
+              build
+            """;
+        var request = new MermaidSvgRenderRequest($"{diagram}\n\n{score}", MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+
+        error.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Line == 8 && diagnostic.Message.Contains("Unknown verb 'animate'", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("flowchart LR\nA --> B", "animate", "build", "animate once")]
+    [InlineData("flowchart LR\nA --> B", "animate", "build", "animate")]
+    [InlineData("sequenceDiagram\nA ->> B: Hello", "animate %% first score", "play", "animate once")]
+    public async Task SecondHeaderCannotReplaceAnActiveBareScore(
+        string diagram, string firstHeader, string statement, string secondHeader)
+    {
+        var source = $"{diagram}\n\n{firstHeader}\n  {statement}\n{secondHeader}\n  {statement}";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+
+        error.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Line == 6 && diagnostic.Message.Contains("Unknown verb 'animate'", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("\nanimate once\n  build")]
+    public async Task BareFlowchartScoreReportsAnEmptyCaptionedStep(string followingScore)
+    {
+        var source = "flowchart LR\nA --> B\nanimate\n  step \"Empty\"" + followingScore;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+
+        error.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Line == 4 && diagnostic.Message.Contains("This step is empty", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("\nanimate once\n  build", false)]
+    [InlineData("", true)]
+    [InlineData("\nanimate once\n  build", true)]
+    public async Task RejectedFlowchartFallbackReportsOnlyTheActualBareScore(string followingScore, bool repeatInDescription)
+    {
+        var diagram = "flowchart LR\n" +
+            (repeatInDescription ? "accDescr {\nstep \"Empty\"\n}\n" : "") +
+            "animate\nstep\nA --> animate --> step";
+        var source = diagram + "\n\nanimate\n  step \"Empty\"" + followingScore;
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+        var token = TestContext.Current.CancellationToken;
+        var renderer = new MermaiderSvgRenderer();
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            renderer.RenderDiagramAsync(request, enableAnimation: true, token));
+
+        var expectedLine = repeatInDescription ? 10 : 7;
+        error.Diagnostics.ShouldAllBe(diagnostic => diagnostic.Line >= expectedLine);
+        error.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Line == expectedLine && diagnostic.Message.Contains("This step is empty", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("\nanimate once\n  build")]
+    public async Task RejectedFlowchartFallbackSkipsDescriptionsBetweenScoreCandidates(string followingScore)
+    {
+        const string diagram = """
+            flowchart LR
+            animate
+            step
+            A --> animate --> step
+            animate
+            step
+            C --> D
+            accDescr {
+            step "Empty"
+            }
+
+            animate
+              step "Empty"
+            """;
+        var request = new MermaidSvgRenderRequest(diagram + followingScore, MarkdownThemePalette.Light, "Inter", 14);
+        var token = TestContext.Current.CancellationToken;
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, token));
+
+        error.Diagnostics.ShouldAllBe(diagnostic => diagnostic.Line >= 13);
+        error.Diagnostics.ShouldContain(diagnostic =>
+            diagnostic.Line == 13 && diagnostic.Message.Contains("This step is empty", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FlowchartNodeDeclarationsCanExceedTheAnimationStepLimit(bool appendScore)
+    {
+        var diagram = "flowchart LR\nA --> B\n" +
+            string.Join('\n', Enumerable.Range(0, 65).Select(index => $"animate\nstep\nItem{index}"));
+        var source = appendScore ? diagram + "\n\nanimate once\n  send A -> B \"Message\"" : diagram;
+        var syntax = MermaidScoreSyntax.Parse(source).ShouldNotBeNull();
+        var error = Should.Throw<Mermaider.Animate.AnimationException>(() =>
+            Mermaider.Animate.MermaidAnimator.Compile(syntax.PrepareSource(source, syntax.Headers[0])));
+        syntax.GetNextCandidateIndex(0, error, out var requiresValidFlowchart).ShouldBe(65);
+        requiresValidFlowchart.ShouldBeTrue();
+
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+        var renderer = new MermaiderSvgRenderer();
+        var token = TestContext.Current.CancellationToken;
+        var result = await renderer.RenderDiagramAsync(request, enableAnimation: true, token);
+
+        if (appendScore)
+            result.Animation.ShouldNotBeNull();
+        else
+            result.Svg.ShouldBe(await renderer.RenderAsync(request, token));
+    }
+
+    [Fact]
+    public async Task BareFlowchartScoresStillEnforceTheAnimationStepLimit()
+    {
+        var source = "flowchart LR\nA --> B\nanimate\n" + string.Join('\n', Enumerable.Repeat("  build", 65));
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+
+        error.Message.ShouldContain("The score has 65 steps; the limit is 64.");
+    }
+
+    [Theory]
+    [InlineData("animate once\n    build", 3)]
+    [InlineData("animate once unknown\n    fourth label", 3)]
+    [InlineData("animate once\n    fourth label", 4)]
+    public void ScoreDiagnosticsCanSkipSeveralTreeLabelsInOnePass(string finalCandidate, int nextIndex)
+    {
+        var source = $"""
+            treeView-beta
+            root
+            animate once
+                first label
+            animate %% second label
+                second label
+            animate once
+                third label
+            {finalCandidate}
+            """;
+        var syntax = MermaidScoreSyntax.Parse(source).ShouldNotBeNull();
+        syntax.Headers.Count.ShouldBe(4);
+        var error = Should.Throw<Mermaider.Animate.AnimationException>(() =>
+            Mermaider.Animate.MermaidAnimator.Compile(syntax.PrepareSource(source, syntax.Headers[0])));
+
+        syntax.GetNextCandidateIndex(0, error, out var requiresValidFlowchart).ShouldBe(nextIndex);
+        requiresValidFlowchart.ShouldBeFalse();
+    }
+
+    [Theory]
+    [InlineData("  typo")]
+    [InlineData("typo")]
+    public async Task BareScoresInSequenceDiagramsReportUnknownCommands(string statement)
+    {
+        var source = $"sequenceDiagram\nA ->> B: Hello\nanimate\n{statement}";
+        var request = new MermaidSvgRenderRequest(source, MarkdownThemePalette.Light, "Inter", 14);
+
+        var error = await Should.ThrowAsync<Mermaider.Animate.AnimationException>(() =>
+            new MermaiderSvgRenderer().RenderDiagramAsync(request, enableAnimation: true, TestContext.Current.CancellationToken));
+        error.Message.ShouldContain("line 4");
+        error.Message.ShouldContain("Unknown verb 'typo'");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task SeekSurvivesLeavingTheViewportDuringFrameRendering(bool scrubsOnScroll, bool newerSeek)
+    {
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(4), scrubsOnScroll);
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = 1;
+        await frames.WaitForFirstRequestAsync();
+        playback.UpdateViewport(false, 0);
+        if (newerSeek)
+            playback.PositionSeconds = 2;
+        playback.UpdateViewport(true, 0.75);
+        frames.ReleaseDelayedRequest();
+
+        await WaitForAsync(() => playback.PositionSeconds == (newerSeek ? 2 : 1));
+        frames.DisplayedFrames.ShouldBe(1);
+        frames.FrameRequests.ShouldBe(2);
+    }
+
+    [AvaloniaFact]
+    public async Task SeekBackToDisplayedFrameSupersedesAnInFlightSeek()
+    {
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(4));
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = 2;
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(TimeSpan.FromSeconds(2));
+        playback.PositionSeconds = 0;
+        frames.ReleaseDelayedRequest();
+
+        await WaitForAsync(() => frames.DisplayedFrames == 1);
+        playback.PositionSeconds.ShouldBe(0);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, 2.999)]
+    [InlineData(true, 0.999)]
+    public async Task StepCommandsNavigateFromThePendingSeek(bool backwards, double expectedPosition)
+    {
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(3), steps:
+        [
+            new("First", TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new("Second", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2)),
+            new("Third", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3))
+        ]);
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+
+        var command = backwards ? playback.PreviousCommand : playback.NextCommand;
+        bool? announcedCanExecute = null;
+        command.CanExecuteChanged += (_, _) => announcedCanExecute = command.CanExecute(null);
+        if (backwards)
+            playback.PositionSeconds = 2.5;
+        else
+            command.Execute(null);
+        await frames.WaitForFirstRequestAsync();
+
+        if (backwards)
+            command.Execute(null);
+        command.Execute(null);
+        announcedCanExecute.ShouldBe(false);
+        frames.ReleaseDelayedRequest();
+
+        (await frames.WaitForSecondRequestAsync()).ShouldBe(TimeSpan.FromSeconds(expectedPosition));
+        await WaitForAsync(() => frames.DisplayedFrames == 1);
+        playback.PositionSeconds.ShouldBe(expectedPosition);
+    }
+
+    [AvaloniaFact]
+    public async Task LatestVisibleScrollPositionIsRenderedAfterAnInFlightSeek()
+    {
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(4), scrubsOnScroll: true);
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = 2;
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(TimeSpan.FromSeconds(2));
+        playback.UpdateViewport(true, 0.25);
+        playback.UpdateViewport(true, 0.75);
+        frames.ReleaseDelayedRequest();
+
+        var scrollPosition = await frames.WaitForSecondRequestAsync();
+        scrollPosition.TotalSeconds.ShouldBe(3, 0.083);
+        await WaitForAsync(() => playback.PositionSeconds == scrollPosition.TotalSeconds);
+        frames.DisplayedFrames.ShouldBe(2);
+    }
+
+    [AvaloniaFact]
+    public async Task PlayStartsAtTheInFlightSeekTarget()
+    {
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(30));
+        var playback = frames.Playback;
+        var target = TimeSpan.FromSeconds(2);
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = target.TotalSeconds;
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(target);
+        playback.PlayPauseCommand.Execute(null);
+        frames.ReleaseDelayedRequest();
+
+        (await frames.WaitForSecondRequestAsync()).ShouldBeGreaterThan(target);
+        playback.IsPlaying.ShouldBeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task PlayRestartsWhenAnInFlightSeekTargetsTheEnd()
+    {
+        var duration = TimeSpan.FromSeconds(4);
+        using var frames = new DelayedPlaybackFrame(duration);
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = duration.TotalSeconds;
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(duration);
+        playback.PlayPauseCommand.Execute(null);
+        frames.ReleaseDelayedRequest();
+
+        (await frames.WaitForSecondRequestAsync()).ShouldBe(TimeSpan.Zero);
+        playback.IsPlaying.ShouldBeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task RepeatingPlaybackWrapsAfterSeekingToTheEndOfANearMaximumTimeline()
+    {
+        var seconds = Math.BitDecrement(TimeSpan.MaxValue.TotalSeconds);
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(seconds), repeats: true);
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = seconds;
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(TimeSpan.FromSeconds(seconds));
+        playback.PlayPauseCommand.Execute(null);
+        frames.ReleaseDelayedRequest();
+
+        var wrapped = await frames.WaitForSecondRequestAsync();
+        wrapped.ShouldBeGreaterThanOrEqualTo(TimeSpan.Zero);
+        wrapped.ShouldBeLessThan(TimeSpan.FromSeconds(5));
+        playback.IsPlaying.ShouldBeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PausePreservesTheReplaySeek(bool queued)
+    {
+        using var frames = new DelayedPlaybackFrame(TimeSpan.FromSeconds(4), delayedRequest: queued ? 1 : 2);
+        var playback = frames.Playback;
+        var seekTarget = TimeSpan.FromSeconds(2);
+        playback.UpdateViewport(true, 0);
+        playback.PositionSeconds = seekTarget.TotalSeconds;
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(seekTarget);
+        if (!queued)
+            await WaitForAsync(() => playback.PositionSeconds == seekTarget.TotalSeconds);
+
+        playback.ReplayCommand.Execute(null);
+        if (!queued)
+            (await frames.WaitForSecondRequestAsync()).ShouldBe(TimeSpan.Zero);
+        playback.PlayPauseCommand.Execute(null);
+        frames.ReleaseDelayedRequest();
+
+        (await frames.WaitForSecondRequestAsync()).ShouldBe(TimeSpan.Zero);
+        await WaitForAsync(() => frames.DisplayedFrames == (queued ? 1 : 2));
+        playback.PositionSeconds.ShouldBe(0);
+        playback.IsPlaying.ShouldBeFalse();
+        frames.FrameRequests.ShouldBe(2);
+    }
+
+    [AvaloniaFact]
+    public async Task FinalFrameOfOneShotPlaybackSurvivesLeavingTheViewport()
+    {
+        var duration = TimeSpan.FromMilliseconds(30);
+        using var frames = new DelayedPlaybackFrame(duration);
+        var playback = frames.Playback;
+        playback.UpdateViewport(true, 0);
+        playback.PlayPauseCommand.Execute(null);
+        (await frames.WaitForFirstRequestAsync()).ShouldBe(duration);
+        playback.IsPlaying.ShouldBeFalse();
+        playback.UpdateViewport(false, 0);
+        playback.UpdateViewport(true, 0);
+        frames.ReleaseDelayedRequest();
+
+        await WaitForAsync(() => playback.PositionSeconds == duration.TotalSeconds);
+        playback.IsPlaying.ShouldBeFalse();
+        frames.DisplayedFrames.ShouldBe(1);
+        frames.FrameRequests.ShouldBe(2);
+    }
+
+    [Theory]
+    [InlineData(false, true, "#fff")]
+    [InlineData(true, true, "#000")]
+    [InlineData(true, false, "#000")]
+    public async Task AnimatedLabelsContrastWithTheirThemeFill(bool dark, bool enableAnimation, string expectedForeground)
+    {
+        var renderer = new MermaiderSvgRenderer();
+        var palette = dark ? MarkdownThemePalette.Dark : MarkdownThemePalette.Light;
+        var token = TestContext.Current.CancellationToken;
+
+        foreach (var (source, label) in new[] { (AnimationSource, "GET"), (ChartAnimationSource, "75") })
+        {
+            var request = new MermaidSvgRenderRequest(source, palette, "Inter", 14);
+            var result = await renderer.RenderDiagramAsync(request, enableAnimation, token);
+            result.IsAnimationFrame.ShouldBeTrue();
+            var svg = result.Animation is { } animation ? animation.RenderFrame(animation.ScoreDuration) : result.Svg;
+            var frame = XDocument.Parse(MermaidSvgSanitizer.SanitizeMermaiderFrame(svg));
+            var ns = frame.Root!.Name.Namespace;
+            var text = frame.Descendants(ns + "text").Single(element => element.Value == label);
+            text.Attribute("fill")!.Value.ShouldBe(expectedForeground);
+            text.Parent!.Element(ns + "rect")!.Attribute("fill")!.Value.ShouldStartWith("var(--accent");
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ScrollingAnAnimatedChartReusesFramesWhenChangingDirection()
+    {
+        var frameLoads = 0;
+        using var diagram = new MermaidDiagramControl(
+            new MermaiderSvgRenderer(), ChartAnimationSource, MarkdownThemePalette.Light, "Inter", 14,
+            svg =>
+            {
+                Interlocked.Increment(ref frameLoads);
+                return SvgSource.LoadFromSvg(MermaidSvgSanitizer.SanitizeMermaiderSvg(svg));
+            });
+        var scroll = new ScrollContentPresenter
+        {
+            Height = 220,
+            CanVerticallyScroll = true,
+            ClipToBounds = true,
+            Content = new StackPanel
+            {
+                Children = { new Border { Height = 300 }, diagram, new Border { Height = 480 } }
+            }
+        };
+        var window = new Window { Width = 500, Height = 240, Content = scroll };
+        window.Styles.Add(new FluentTheme());
+        window.Show();
+        try
+        {
+            await WaitForAsync(() => diagram.GetVisualDescendants().OfType<Slider>().Any());
+            window.UpdateLayout();
+            var slider = diagram.GetVisualDescendants().OfType<Slider>().Single();
+            slider.Value.ShouldBe(0);
+            scroll.Offset = new Vector(0, 320);
+            window.UpdateLayout();
+            await WaitForAsync(() => slider.Value > 0);
+            var position = slider.Value;
+            scroll.Offset = new Vector(0, 430);
+            window.UpdateLayout();
+            await WaitForAsync(() => slider.Value > position);
+
+            var loads = Volatile.Read(ref frameLoads);
+            scroll.Offset = new Vector(0, 320);
+            window.UpdateLayout();
+            await WaitForAsync(() => slider.Value == position);
+            Volatile.Read(ref frameLoads).ShouldBe(loads);
+
+            scroll.Offset = default;
+            window.UpdateLayout();
+            scroll.Offset = new Vector(0, 430);
+            window.UpdateLayout();
+            await WaitForAsync(() => slider.Value > position);
+            Volatile.Read(ref frameLoads).ShouldBe(loads + 1);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Fact]
+    public void GeneratedScaleGrowsTheRenderedBarAroundItsBaseline()
+    {
+        const string frame = """
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+              <rect x="40" y="60" width="20" height="20" fill="#00ff00"
+                    style="opacity:1;transform:translate(0px,0px) scale(1,2);transform-box:view-box;transform-origin:50px 80px" />
+            </svg>
+            """;
+        using var source = SvgSource.LoadFromSvg(MermaidSvgSanitizer.SanitizeMermaiderSvg(frame));
+        using var pixels = new SkiaSharp.SKBitmap(100, 100);
+        using var canvas = new SkiaSharp.SKCanvas(pixels);
+        canvas.Clear(SkiaSharp.SKColors.Transparent);
+        canvas.DrawPicture(source.Picture);
+        canvas.Flush();
+
+        pixels.GetPixel(50, 45).ShouldBe(SkiaSharp.SKColors.Lime);
+        pixels.GetPixel(50, 75).ShouldBe(SkiaSharp.SKColors.Lime);
+        pixels.GetPixel(50, 85).Alpha.ShouldBe((byte)0);
+    }
+
+    [AvaloniaFact]
+    public async Task InvalidAnimationScoreShowsTheDiagnosticAndLeavesSourceAvailable()
+    {
+        var source = AnimationSource.Replace("fail B", "fail Unknown", StringComparison.Ordinal);
+        using var diagram = new MermaidDiagramControl(
+            new MermaiderSvgRenderer(), source, MarkdownThemePalette.Light, "Inter", 14);
+        await WaitForAsync(() => diagram.HasError);
+        diagram.HasImage.ShouldBeFalse();
+        diagram.ErrorText.ShouldContain("line");
+        diagram.ErrorText.ShouldContain("Unknown");
+        diagram.SourceText.ShouldBe(source);
+    }
+
     public static TheoryData<string, string> SupportedDiagrams => new()
     {
         { "flowchart", "graph TD\nA[Start] --> B[End]" },
@@ -126,6 +1134,48 @@ public sealed class MermaidRenderingTests
 
             exception.Message.ShouldBe("fatal renderer failure");
             diagram.HasError.ShouldBeFalse();
+        }
+        finally
+        {
+            Dispatcher.UIThread.UnhandledException -= OnUnhandledException;
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task PlaybackErrorHandlerFailuresReachTheDispatcherExceptionBoundary()
+    {
+        var frameFailure = new InvalidOperationException("frame rendering failed");
+        var handlerFailure = new InvalidOperationException("playback error handler failed");
+        var observed = new TaskCompletionSource<Exception>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs args)
+        {
+            if (!ReferenceEquals(args.Exception, handlerFailure))
+                return;
+            args.Handled = true;
+            observed.TrySetResult(args.Exception);
+        }
+
+        Dispatcher.UIThread.UnhandledException += OnUnhandledException;
+        try
+        {
+            var token = TestContext.Current.CancellationToken;
+            var duration = TimeSpan.FromSeconds(2);
+            using var playback = new MermaidPlayback(
+                new MermaidAnimation((_, _) => throw frameFailure, duration, duration, [], Repeats: false),
+                token,
+                _ => throw new InvalidOperationException("A failed frame cannot be loaded."),
+                _ => throw new InvalidOperationException("A failed frame cannot be presented."),
+                exception =>
+                {
+                    exception.ShouldBeSameAs(frameFailure);
+                    throw handlerFailure;
+                });
+
+            playback.UpdateViewport(visible: true, scrollProgress: 0);
+            playback.PositionSeconds = 1;
+
+            var exception = await observed.Task.WaitAsync(TimeSpan.FromSeconds(2), token);
+            exception.ShouldBeSameAs(handlerFailure);
         }
         finally
         {
@@ -1735,6 +2785,67 @@ public sealed class MermaidRenderingTests
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public void Dispose() => Disposed.TrySetResult();
+    }
+
+    private sealed class DelayedPlaybackFrame : IDisposable
+    {
+        private const string Svg =
+            """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect width="20" height="20" /></svg>""";
+
+        private readonly TaskCompletionSource<TimeSpan> _firstRequest = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<TimeSpan> _secondRequest = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly CancellationToken _token = TestContext.Current.CancellationToken;
+        private readonly int _delayedRequest;
+        private SvgSource? _currentFrame;
+        private int _frameRequests;
+
+        public DelayedPlaybackFrame(TimeSpan duration, bool scrubsOnScroll = false,
+            IReadOnlyList<Mermaider.Animate.AnimationStep>? steps = null, int delayedRequest = 1, bool repeats = false)
+        {
+            _delayedRequest = delayedRequest;
+            var animation = new MermaidAnimation(CreateFrame, duration, duration, steps ?? [],
+                Repeats: repeats, ScrubsOnScroll: scrubsOnScroll);
+            Playback = new MermaidPlayback(animation, _token, text => SvgSource.LoadFromSvg(text), ReplaceFrame,
+                exception => throw new InvalidOperationException("A test frame failed to render.", exception));
+        }
+
+        public MermaidPlayback Playback { get; }
+        public int DisplayedFrames { get; private set; }
+        public int FrameRequests => Volatile.Read(ref _frameRequests);
+
+        public Task<TimeSpan> WaitForFirstRequestAsync() => _firstRequest.Task.WaitAsync(TimeSpan.FromSeconds(5), _token);
+
+        public Task<TimeSpan> WaitForSecondRequestAsync() => _secondRequest.Task.WaitAsync(TimeSpan.FromSeconds(5), _token);
+
+        public void ReleaseDelayedRequest() => _release.TrySetResult();
+
+        public void Dispose()
+        {
+            Playback.Dispose();
+            ReleaseDelayedRequest();
+            _currentFrame?.Dispose();
+        }
+
+        private string CreateFrame(TimeSpan time, Int128 elapsedTicks)
+        {
+            var request = Interlocked.Increment(ref _frameRequests);
+            if (request == 1)
+                _firstRequest.SetResult(time);
+            else if (request == 2)
+                _secondRequest.SetResult(time);
+            if (request == _delayedRequest)
+                _release.Task.Wait(_token);
+            return Svg;
+        }
+
+        private SvgSource? ReplaceFrame(SvgSource image)
+        {
+            DisplayedFrames++;
+            var previous = _currentFrame;
+            _currentFrame = image;
+            return previous;
+        }
     }
 
     private static async Task WriteMinimalSvgAsync(Stream destination, CancellationToken cancellationToken)

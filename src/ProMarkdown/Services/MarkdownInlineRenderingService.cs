@@ -626,21 +626,6 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         int columnIndex,
         RenderState state)
     {
-        var textBlock = new TextBlock
-        {
-            FontSize = state.Options.FontSize,
-            FontFamily = state.Options.FontFamily,
-            Foreground = state.Palette.Foreground,
-            FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal,
-            TextWrapping = TextWrapping.Wrap,
-            TextAlignment = alignment switch
-            {
-                TableColumnAlign.Center => TextAlignment.Center,
-                TableColumnAlign.Right => TextAlignment.Right,
-                _ => TextAlignment.Left
-            }
-        };
-
         var inlines = new InlineCollection();
         if (cellData.Cell is not null)
         {
@@ -648,7 +633,35 @@ public sealed class MarkdownInlineRenderingService : IMarkdownInlineRenderingSer
         }
 
         MarkdownSelectionNormalizer.IsolateTextSegments(inlines, state.Options, state.ParseResult);
-        textBlock.Inlines = inlines;
+        TextBlock textBlock;
+        if (inlines.Count == 1 &&
+            inlines[0] is InlineUIContainer { Child: MarkdownWrappingSelectableTextBlock segment } container &&
+            !segment.IsSet(TextBlock.FontWeightProperty))
+        {
+            // A whole-cell text segment can fill the cell directly without being remeasured
+            // as an inline control inside another TextBlock.
+            container.ClearValue(InlineUIContainer.ChildProperty);
+            textBlock = segment;
+        }
+        else
+        {
+            textBlock = new TextBlock
+            {
+                FontSize = state.Options.FontSize,
+                FontFamily = state.Options.FontFamily,
+                Foreground = state.Palette.Foreground,
+                TextWrapping = TextWrapping.Wrap,
+                Inlines = inlines
+            };
+        }
+
+        textBlock.FontWeight = isHeader ? FontWeight.SemiBold : FontWeight.Normal;
+        textBlock.TextAlignment = alignment switch
+        {
+            TableColumnAlign.Center => TextAlignment.Center,
+            TableColumnAlign.Right => TextAlignment.Right,
+            _ => TextAlignment.Left
+        };
         MarkdownDocumentSelection.RegisterTableCellSegments(
             textBlock,
             tableSelectionGroup,

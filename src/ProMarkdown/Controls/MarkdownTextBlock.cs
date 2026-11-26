@@ -380,6 +380,19 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
         base.ArrangeCore(finalRect);
     }
 
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        // A wider arrange slot can remeasure wrapped inlines at a different width and
+        // invalidate their parents again. Keep the measured wrap constraint for the text.
+        if (TextWrapping != TextWrapping.NoWrap && _measureConstraintWidth < finalSize.Width)
+        {
+            base.ArrangeOverride(finalSize.WithWidth(_measureConstraintWidth));
+            return finalSize;
+        }
+
+        return base.ArrangeOverride(finalSize);
+    }
+
     /// <summary>
     /// The width available to embedded blocks, limited by both measurement and the parent's arrange
     /// slot, falling back to rendered bounds before the first finite constraint is available.
@@ -397,7 +410,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
-        if (ShouldBypassSelectionPointerHandling())
+        if (MarkdownDocumentSelection.ShouldBypassDocumentInput(this, e.Source))
         {
             return;
         }
@@ -420,7 +433,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     protected override void OnPointerMoved(PointerEventArgs e)
     {
-        if (ShouldBypassSelectionPointerHandling())
+        if (MarkdownDocumentSelection.ShouldBypassDocumentInput(this, e.Source))
         {
             return;
         }
@@ -439,7 +452,7 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
 
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
-        if (ShouldBypassSelectionPointerHandling())
+        if (MarkdownDocumentSelection.ShouldBypassDocumentInput(this, e.Source))
         {
             return;
         }
@@ -490,13 +503,6 @@ public sealed class MarkdownTextBlock : SelectableTextBlock
             _lastMeasuredWidth = width;
             InvalidateMeasure();
         }
-    }
-
-    private bool ShouldBypassSelectionPointerHandling()
-    {
-        // While an inline editor is active, let embedded controls own pointer input instead of
-        // letting SelectableTextBlock enter text-selection mode and interfere with popups.
-        return _activeEditorSession is not null;
     }
 
     private void UpdateLinkCursor(Point point)

@@ -84,7 +84,7 @@ public MermaidMarkdownPlugin(
 
 `IMermaidSvgRenderer.RenderAsync` receives a `MermaidSvgRenderRequest` with `Source`, a background-thread-safe `Palette` snapshot, `FontFamily`, and `FontSize`, plus the render cancellation token. The plugin sanitizes returned SVG before displaying it.
 
-`MermaidMarkdownPluginOptions` has init-only `AccessibleName`, `ErrorText`, `RetryText`, and optional `ActivateLinkAsync` properties. Link activation is restricted to absolute HTTPS URIs even when a callback is supplied.
+`MermaidMarkdownPluginOptions` has init-only `AccessibleName`, `ErrorText`, `RetryText`, `EnableAnimation`, and optional `ActivateLinkAsync` properties. `EnableAnimation` defaults to `true` and enables playback in the built-in renderer. Link activation is restricted to absolute HTTPS URIs even when a callback is supplied. [Mermaid playback formats and options](../markdown/plugin-ecosystem/#mermaid)
 
 `MermaidDiagramControl` is a public, styleable `TemplatedControl` created by the plugin. It exposes the styled `ThemePalette` property and read-only direct properties for `IsLoading`, `HasImage`, `HasError`, `ErrorText`, `SourceText`, `SourceFontSize`, `RetryText`, and `RetryCommand`. The control owns its SVG resources and implements `IDisposable`; normal plugin rendering registers it with the render resource tracker automatically.
 
