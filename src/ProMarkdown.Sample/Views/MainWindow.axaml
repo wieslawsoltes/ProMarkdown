@@ -84,10 +84,10 @@
                                    Foreground="{Binding Palette.MutedForeground}" />
                     </StackPanel>
 
-                    <ScrollViewer Grid.Row="2"
-                                   x:Name="PreviewScrollViewer"
-                                   VerticalScrollBarVisibility="Auto"
-                                   HorizontalScrollBarVisibility="Disabled">
+                    <sampleControls:PreviewScrollViewer Grid.Row="2"
+                                                        x:Name="PreviewScrollViewer"
+                                                        VerticalScrollBarVisibility="Auto"
+                                                        HorizontalScrollBarVisibility="Disabled">
                         <Grid x:Name="PreviewHost">
                             <markdown:MarkdownTextBlock x:Name="Preview"
                                                         EditorPresentationMode="Inline"
@@ -98,7 +98,7 @@
                             <sampleControls:MarkdownHighlightOverlay x:Name="PreviewOverlay"
                                                                      IsHitTestVisible="False" />
                         </Grid>
-                    </ScrollViewer>
+                    </sampleControls:PreviewScrollViewer>
                 </Grid>
             </Border>
         </Grid>

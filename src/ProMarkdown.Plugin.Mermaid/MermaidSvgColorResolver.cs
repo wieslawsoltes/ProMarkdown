@@ -12,7 +12,7 @@ internal static class MermaidSvgColorResolver
     private const int MaximumProcessedCharacters = 64 * 1024 * 1024;
     private const int MaximumResolvedValueCharacters = 8 * 1024 * 1024;
 
-    public static void Resolve(XElement root)
+    public static void Resolve(XElement root, bool adjustAnimationContrast)
     {
         var variables = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var element in root.Descendants())
@@ -28,6 +28,8 @@ internal static class MermaidSvgColorResolver
         {
             if (element.Name.LocalName == "style")
                 element.Value = context.ResolveMixes(element.Value);
+            if (adjustAnimationContrast && element.Name.LocalName == "g")
+                context.AdjustAnimationContrast(element);
 
             foreach (var attribute in element.Attributes())
             {
@@ -85,6 +87,28 @@ internal static class MermaidSvgColorResolver
         private readonly Dictionary<string, string> _resolvedValues = new(StringComparer.Ordinal);
         private int _remainingEvaluations = MaximumExpressionEvaluations;
         private int _remainingCharacters = MaximumProcessedCharacters;
+
+        public void AdjustAnimationContrast(XElement group)
+        {
+            if (group.FirstNode is not XElement background ||
+                background.NextNode is not XElement glyph ||
+                glyph.NextNode is not null)
+                return;
+
+            // Mermaider 0.19 emits animation pills and status symbols with a fixed white glyph.
+            var glyphPaint = (background.Name.LocalName, glyph.Name.LocalName) switch
+            {
+                ("rect", "text") when (string?)background.Attribute("rx") == "10" => glyph.Attribute("fill"),
+                ("circle", "path") when (string?)background.Attribute("r") == "9" => glyph.Attribute("stroke"),
+                _ => null
+            };
+            if (glyphPaint?.Value != "#fff" || background.Attribute("fill") is not { } backgroundPaint)
+                return;
+
+            var color = ParseColor(backgroundPaint.Value.AsSpan(), depth: 0);
+            if (color.A == 1 && 1.05 / (color.RelativeLuminance + 0.05) < 4.5)
+                glyphPaint.Value = "#000";
+        }
 
         public string ResolveMixes(string value, int depth = 0, bool resolveVariables = false)
         {
@@ -275,6 +299,8 @@ internal static class MermaidSvgColorResolver
 
     private readonly record struct Rgba(double R, double G, double B, double A)
     {
+        public double RelativeLuminance => 0.2126 * Linearize(R) + 0.7152 * Linearize(G) + 0.0722 * Linearize(B);
+
         public string ToCss()
         {
             var r = (int)Math.Round(R, MidpointRounding.AwayFromZero);
@@ -283,6 +309,12 @@ internal static class MermaidSvgColorResolver
             return A == 1
                 ? $"#{r:X2}{g:X2}{b:X2}"
                 : string.Create(CultureInfo.InvariantCulture, $"rgba({r},{g},{b},{A:0.######})");
+        }
+
+        private static double Linearize(double channel)
+        {
+            var srgb = channel / 255;
+            return srgb <= 0.04045 ? srgb / 12.92 : Math.Pow((srgb + 0.055) / 1.055, 2.4);
         }
     }
 }

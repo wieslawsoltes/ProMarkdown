@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Svg.Skia;
 using Avalonia.Threading;
@@ -56,12 +57,16 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
     private readonly CancellationToken _generationCancellationToken;
     private readonly Func<IDisposable> _beginAsyncOperation;
     private readonly Func<string, SvgSource> _svgSourceFactory;
+    private readonly Func<string, SvgSource> _animationFrameSourceFactory;
     private readonly ICommand _retryCommand;
     private readonly string _sourceText;
     private readonly double _sourceFontSize;
     private readonly string _retryText;
     private IDisposable? _initialOperation;
     private Image? _imageControl;
+    private ContentControl? _playbackHost;
+    private MermaidPlayback? _playback;
+    private Rect _effectiveViewport;
     private SvgSource? _svgSource;
     private AvaloniaSvgImage? _svgImage;
     private CancellationTokenSource? _renderCancellation;
@@ -108,6 +113,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         _beginAsyncOperation = beginAsyncOperation ?? throw new ArgumentNullException(nameof(beginAsyncOperation));
         _svgSourceFactory = svgSourceFactory ??
             (renderer is MermaiderSvgRenderer ? CreateMermaiderSvgSource : CreateSvgSource);
+        _animationFrameSourceFactory = svgSourceFactory ?? CreateMermaiderFrameSource;
         _errorText = options.ErrorText;
         _retryText = options.RetryText;
         _retryCommand = new RetryRenderCommand(this);
@@ -159,6 +165,10 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
     {
         base.OnApplyTemplate(e);
         _imageControl = e.NameScope.Find<Image>("PART_DiagramImage");
+        if (_playbackHost is not null)
+            _playbackHost.Content = null;
+        _playbackHost = e.NameScope.Find<ContentControl>("PART_Playback");
+        ApplyPlayback();
         ApplyImage();
     }
 
@@ -177,9 +187,18 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _effectiveViewport = default;
+        UpdatePlaybackViewport();
         CancelRender(keepLoadingState: false);
         ClearPendingLinkInteraction();
         base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (_playback is not null && (change.Property == BoundsProperty || change.Property == IsVisibleProperty))
+            UpdatePlaybackViewport();
     }
 
     protected override void OnPointerMoved(PointerEventArgs e)
@@ -254,7 +273,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
-        if (_links.Count == 0)
+        if (_links.Count == 0 || _playback is not null && !ReferenceEquals(e.Source, this))
         {
             base.OnKeyDown(e);
             return;
@@ -301,6 +320,8 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         _isDisposed = true;
         ActualThemeVariantChanged -= OnActualThemeVariantChanged;
         CancelRender(keepLoadingState: false);
+        SetPlayback(null);
+        _playbackHost = null;
         Interlocked.Exchange(ref _initialOperation, null)?.Dispose();
         ClearPendingLinkInteraction();
         if (_imageControl is not null)
@@ -337,6 +358,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         if (_isDisposed || _generationCancellationToken.IsCancellationRequested)
             return;
         CancelRender(keepLoadingState: true);
+        SetPlayback(null);
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_generationCancellationToken);
         _renderCancellation = cancellation;
         var version = ++_renderVersion;
@@ -379,6 +401,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
             var renderTask = StartRendererTask(
                 _renderer,
                 request,
+                _options.EnableAnimation,
                 cancellation.Token);
             if (!HasImage && _renderer is MermaiderSvgRenderer cachedRenderer &&
                 cachedRenderer.TryGetCachedVariant(SourceText, _fontFamily, _fontSize, out var cachedSvg))
@@ -386,9 +409,10 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
                 await ShowCachedVariantAsync(version, cancellation, cachedSvg).ConfigureAwait(false);
             }
 
-            var svg = await AwaitRendererAsync(renderTask, cancellation.Token).ConfigureAwait(false);
+            var result = await AwaitRendererAsync(renderTask, cancellation.Token).ConfigureAwait(false);
             renderedSvg = true;
-            preparedSource = await Task.Run(() => _svgSourceFactory(svg), cancellation.Token).ConfigureAwait(false);
+            var sourceFactory = result.IsAnimationFrame ? _animationFrameSourceFactory : _svgSourceFactory;
+            preparedSource = await Task.Run(() => sourceFactory(result.Svg), cancellation.Token).ConfigureAwait(false);
             if (preparedSource.Picture is null)
                 throw new InvalidOperationException("The sanitized Mermaid SVG could not be parsed.");
 
@@ -401,6 +425,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
                 preparedSource = null;
                 _svgImage = new AvaloniaSvgImage { Source = _svgSource };
                 SetLinks(ExtractLinks(_svgSource.Svg?.SourceDocument));
+                SetPlayback(result.Animation);
                 ApplyImage();
                 SetHasImage(true);
                 _hasCurrentPaletteImage = true;
@@ -445,16 +470,19 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         }
     }
 
-    private static Task<string> StartRendererTask(
+    private static Task<MermaidDiagramRenderResult> StartRendererTask(
         IMermaidSvgRenderer renderer,
         MermaidSvgRenderRequest request,
+        bool enableAnimation,
         CancellationToken cancellationToken) =>
         Task.Run(
-            () => renderer.RenderAsync(request, cancellationToken),
+            async () => renderer is MermaiderSvgRenderer builtIn
+                ? await builtIn.RenderDiagramAsync(request, enableAnimation, cancellationToken).ConfigureAwait(false)
+                : new MermaidDiagramRenderResult(await renderer.RenderAsync(request, cancellationToken).ConfigureAwait(false)),
             CancellationToken.None);
 
-    private static async Task<string> AwaitRendererAsync(
-        Task<string> renderTask,
+    private static async Task<MermaidDiagramRenderResult> AwaitRendererAsync(
+        Task<MermaidDiagramRenderResult> renderTask,
         CancellationToken cancellationToken)
     {
         try
@@ -468,7 +496,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         }
     }
 
-    private static async void ObserveAbandonedRenderer(Task<string> renderTask)
+    private static async void ObserveAbandonedRenderer(Task renderTask)
     {
         try
         {
@@ -530,6 +558,76 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
     {
         if (_imageControl is not null)
             _imageControl.Source = _svgImage;
+    }
+
+    private void SetPlayback(MermaidAnimation? animation)
+    {
+        if (_playback is not null)
+        {
+            EffectiveViewportChanged -= OnPlaybackViewportChanged;
+            _playback.Dispose();
+            _playback = null;
+        }
+
+        if (animation is not null)
+        {
+            _playback = new MermaidPlayback(
+                animation, _generationCancellationToken, _animationFrameSourceFactory, ShowPlaybackFrame, ShowPlaybackError);
+            EffectiveViewportChanged += OnPlaybackViewportChanged;
+        }
+
+        ApplyPlayback();
+    }
+
+    private void ApplyPlayback()
+    {
+        if (_playbackHost is not null)
+        {
+            _playbackHost.Content = _playback;
+            _playbackHost.IsVisible = _playback is not null;
+        }
+        _automationPeer?.RefreshLinks();
+        UpdatePlaybackViewport();
+    }
+
+    private void OnPlaybackViewportChanged(object? sender, EffectiveViewportChangedEventArgs args)
+    {
+        _effectiveViewport = args.EffectiveViewport;
+        UpdatePlaybackViewport();
+    }
+
+    private void UpdatePlaybackViewport()
+    {
+        if (_playback is null)
+            return;
+
+        var bounds = new Rect(Bounds.Size);
+        var intersection = bounds.Intersect(_effectiveViewport);
+        var visible = IsEffectivelyVisible && intersection.Width > 0 && intersection.Height > 0;
+        var travel = _effectiveViewport.Height + bounds.Height;
+        var progress = visible && travel > 0 ? _effectiveViewport.Bottom / travel : 0;
+        _playback.UpdateViewport(visible, progress);
+    }
+
+    private SvgSource? ShowPlaybackFrame(SvgSource frame)
+    {
+        var image = _svgImage!;
+        var previousSize = image.Size;
+        var previous = _svgSource;
+        _svgSource = frame;
+        image.Source = frame;
+        _imageControl?.InvalidateVisual();
+        if (image.Size != previousSize)
+            _imageControl?.InvalidateMeasure();
+        return previous;
+    }
+
+    private void ShowPlaybackError(Exception exception)
+    {
+        Trace.TraceWarning("A Mermaid animation frame could not be rendered: {0}", exception);
+        SetPlayback(null);
+        SetHasError(true);
+        SetErrorText($"{_options.ErrorText} {GetErrorMessage(exception)}".Trim());
     }
 
     private Uri? TryHitTestLink(Point point)
@@ -721,6 +819,9 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
     private static SvgSource CreateMermaiderSvgSource(string svg) =>
         SvgSource.LoadFromSvg(MermaidSvgSanitizer.SanitizeMermaiderSvg(svg));
 
+    private static SvgSource CreateMermaiderFrameSource(string svg) =>
+        SvgSource.LoadFromSvg(MermaidSvgSanitizer.SanitizeMermaiderFrame(svg));
+
     private sealed class RetryRenderCommand(MermaidDiagramControl owner) : ICommand
     {
         public event EventHandler? CanExecuteChanged { add { } remove { } }
@@ -740,20 +841,25 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
     {
         private IReadOnlyList<AutomationPeer>? _links;
 
-        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Image;
+        protected override AutomationControlType GetAutomationControlTypeCore() =>
+            owner._playback is null ? AutomationControlType.Image : AutomationControlType.Group;
 
         protected override string? GetNameCore() => owner._options.AccessibleName;
 
-        protected override string? GetHelpTextCore() => owner.SourceText;
+        protected override string? GetHelpTextCore() => owner._playback is { } playback && playback.StoryDescription is { Length: > 0 } story
+            ? story
+            : owner.SourceText;
 
         protected override IReadOnlyList<AutomationPeer> GetChildrenCore()
         {
             if (_links is not null)
                 return _links;
 
-            var links = new AutomationPeer[owner._links.Count];
-            for (var index = 0; index < links.Length; index++)
+            var links = new AutomationPeer[owner._links.Count + (owner._playbackHost?.IsVisible == true ? 1 : 0)];
+            for (var index = 0; index < owner._links.Count; index++)
                 links[index] = new MermaidLinkAutomationPeer(owner, this, index);
+            if (owner._playbackHost is { IsVisible: true } playbackHost)
+                links[^1] = GetOrCreate(playbackHost);
             _links = links;
             return links;
         }
@@ -761,7 +867,7 @@ public sealed class MermaidDiagramControl : TemplatedControl, IMarkdownInputBoun
         internal void RefreshLinks()
         {
             _links = null;
-            RaiseChildrenChangedEvent();
+            InvalidateChildren();
         }
 
     }

@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using ProMarkdown.Services;
 using Mermaider;
+using Mermaider.Animate;
 using Mermaider.Models;
 using Color = Avalonia.Media.Color;
 using HslColor = Avalonia.Media.HslColor;
@@ -140,8 +142,7 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
         ArgumentNullException.ThrowIfNull(palette);
         ArgumentNullException.ThrowIfNull(fontFamily);
         cancellationToken.ThrowIfCancellationRequested();
-        if (source.Length > MaximumSourceCharacters)
-            throw new InvalidOperationException("The Mermaid source exceeds the configured size limit.");
+        ValidateSourceLength(source);
 
         var key = RenderKey.Create(source, palette, fontFamily, fontSize);
         CacheEntry? entry = null;
@@ -221,6 +222,231 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
             cancellationToken);
     }
 
+    internal async Task<MermaidDiagramRenderResult> RenderDiagramAsync(
+        MermaidSvgRenderRequest request,
+        bool enableAnimation,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateSourceLength(request.Source);
+        Exception? rejectedScore = null;
+        var firstSkippedIndex = -1;
+        var syntax = MermaidScoreSyntax.Parse(request.Source);
+        if (syntax is not null)
+        {
+            var score = await RunBoundedRenderAsync(token => Task.FromResult(TryRenderScore(syntax, request, enableAnimation, token)),
+                cancellationToken).ConfigureAwait(false);
+            if (score.Result is { } result)
+                return result;
+            rejectedScore = score.Error;
+            firstSkippedIndex = score.FirstSkippedIndex;
+        }
+
+        try
+        {
+            return await RenderNonScoreAsync(request, enableAnimation, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MermaidParseException error) when (rejectedScore is not null)
+        {
+            if (syntax is not null && firstSkippedIndex >= 0)
+            {
+                var rechecked = await RunBoundedRenderAsync(token => Task.FromResult(
+                    RecheckSkippedScore(syntax, request, enableAnimation, firstSkippedIndex, syntax.Headers.Count, error, token)),
+                    cancellationToken).ConfigureAwait(false);
+                if (rechecked.Result is { } result)
+                    return result;
+                if (rechecked.Error is { } scoreError)
+                    ExceptionDispatchInfo.Throw(scoreError);
+            }
+            ExceptionDispatchInfo.Throw(rejectedScore);
+            throw;
+        }
+    }
+
+    private static (MermaidDiagramRenderResult? Result, Exception? Error, int FirstSkippedIndex) TryRenderScore(
+        MermaidScoreSyntax syntax, MermaidSvgRenderRequest request, bool enableAnimation, CancellationToken cancellationToken)
+    {
+        Exception? rejectedScore = null;
+        var requiresValidFlowchart = false;
+        var firstSkippedIndex = -1;
+        var index = 0;
+        while (index < syntax.Headers.Count)
+        {
+            var header = syntax.Headers[index];
+            if (header.IsEmptyLabel)
+            {
+                index++;
+                continue;
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var source = syntax.PrepareSource(request.Source, header);
+                return (RenderScore(source, header.Start, request, enableAnimation, cancellationToken), null, -1);
+            }
+            catch (Exception error) when (error is AnimationException or MermaidParseException)
+            {
+                if (requiresValidFlowchart && error is MermaidParseException prefixError && rejectedScore is not null)
+                {
+                    if (firstSkippedIndex >= 0)
+                    {
+                        var rechecked = RecheckSkippedScore(syntax, request, enableAnimation, firstSkippedIndex, index, prefixError, cancellationToken);
+                        if (rechecked.Result is { } result)
+                            return (result, null, -1);
+                        if (rechecked.Error is { } scoreError)
+                            ExceptionDispatchInfo.Throw(scoreError);
+                    }
+                    ExceptionDispatchInfo.Throw(rejectedScore);
+                }
+
+                var next = syntax.GetNextCandidateIndex(index, error, out requiresValidFlowchart);
+                if (next < 0)
+                    throw;
+                rejectedScore = error;
+                firstSkippedIndex = requiresValidFlowchart && next > index + 1 ? index + 1 : -1;
+                index = next;
+            }
+        }
+        return (null, rejectedScore, firstSkippedIndex);
+    }
+
+    private static (MermaidDiagramRenderResult? Result, AnimationException? Error) RecheckSkippedScore(
+        MermaidScoreSyntax syntax, MermaidSvgRenderRequest request, bool enableAnimation, int firstIndex, int endIndex,
+        MermaidParseException diagramError, CancellationToken cancellationToken)
+    {
+        if (syntax.FindRejectedStatementLine(request.Source, firstIndex, endIndex, diagramError) is not { } invalidDiagramLine)
+            return default;
+
+        // A failed diagram parse can place the error inside a skipped bare score.
+        // Recompile once from the nearest header so the diagnostic has the right context.
+        for (var index = endIndex - 1; index >= firstIndex; index--)
+        {
+            var header = syntax.Headers[index];
+            if (header.IsEmptyLabel || header.Line > invalidDiagramLine)
+                continue;
+
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var source = syntax.PrepareSource(request.Source, header);
+                return (RenderScore(source, header.Start, request, enableAnimation, cancellationToken), null);
+            }
+            catch (AnimationException error)
+            {
+                return (null, error);
+            }
+            catch (MermaidParseException)
+            {
+                return default;
+            }
+        }
+
+        return default;
+    }
+
+    private async Task<MermaidDiagramRenderResult> RenderNonScoreAsync(
+        MermaidSvgRenderRequest request, bool enableAnimation, CancellationToken cancellationToken)
+    {
+        if (request.Source.Contains('@') && MermaidNativeEdgeSyntax.EdgeIdCandidate().IsMatch(request.Source))
+        {
+            var native = await RunBoundedRenderAsync<MermaidDiagramRenderResult?>(async token =>
+            {
+                var syntax = MermaidNativeEdgeSyntax.Parse(request.Source, enableAnimation, token);
+                if (syntax is null)
+                    return null;
+
+                var limits = GetAdaptedRenderLimits(request.Source, syntax.Source);
+                var options = CreateOptions(request.Palette, request.FontFamily, request.FontSize, limits);
+                var svg = await RenderToStringAsync(syntax.RenderSource, options, token).ConfigureAwait(false);
+                svg = MermaidAccessibilitySyntax.RestoreDescription(svg, syntax.RenderSource.DescriptionPercentMarker);
+                return MermaidNativeEdgeFrames.Create(svg, syntax, enableAnimation,
+                    options.Line!, options.Bg!, token);
+            }, cancellationToken).ConfigureAwait(false);
+            if (native is { } result)
+                return result;
+        }
+        return new MermaidDiagramRenderResult(await RenderAsync(request, cancellationToken).ConfigureAwait(false));
+    }
+
+    private static MermaidDiagramRenderResult RenderScore(
+        string source, int authoredScoreStart, MermaidSvgRenderRequest request, bool enableAnimation, CancellationToken cancellationToken)
+    {
+        // Preparing a candidate can insert indentation before the score, leaving its suffix intact.
+        var diagramEnd = authoredScoreStart + source.Length - request.Source.Length;
+        var normalization = MermaidNativeEdgeSyntax.NormalizeForRenderer(source, cancellationToken, diagramEnd);
+        var limits = RenderLimits;
+        if (normalization.HasChanges)
+        {
+            var diagramPrefix = MermaidScoreSyntax.ProtectScoreHeaders(normalization.Source);
+            source = string.Concat(diagramPrefix, source.AsSpan(diagramEnd));
+            limits = GetAdaptedRenderLimits(request.Source, source);
+        }
+
+        var options = new AnimateOptions
+        {
+            Render = CreateOptions(request.Palette, request.FontFamily, request.FontSize, limits),
+            Motion = enableAnimation ? null : MotionPreset.None
+        };
+        var diagram = CompileScore(source, options, normalization);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var characters = diagram.Svg.Length;
+        var hasAnimation = enableAnimation && GetGeneratedStyle(diagram.Svg).Contains("@keyframes ", StringComparison.Ordinal);
+        for (var index = 1; index < diagram.Scenarios.Count; index++)
+        {
+            var ending = diagram.Scenarios[index].Animation.Svg;
+            if (ending.Length > MaximumSvgCharacters - characters)
+                throw new InvalidOperationException("The generated Mermaid animation exceeds the configured size limit.");
+            characters += ending.Length;
+            hasAnimation = hasAnimation || enableAnimation && GetGeneratedStyle(ending).Contains("@keyframes ", StringComparison.Ordinal);
+        }
+        if (characters > MaximumSvgCharacters)
+            throw new InvalidOperationException("The generated Mermaid animation exceeds the configured size limit.");
+
+        // The 0.19 API exposes the timeline even for an authored "still" score.
+        // Only a moving score produces the generated keyframe stylesheet.
+        if (!hasAnimation)
+            return new MermaidDiagramRenderResult(
+                MermaidAccessibilitySyntax.RestoreDescription(diagram.Svg, normalization.DescriptionPercentMarker),
+                IsAnimationFrame: true);
+
+        var animation = MermaidAnimation.FromScore(diagram, normalization.DescriptionPercentMarker);
+        return new MermaidDiagramRenderResult(
+            animation.RenderFrame(TimeSpan.Zero), animation, IsAnimationFrame: true);
+    }
+
+    private static AnimatedDiagram CompileScore(string source, AnimateOptions options, MermaidSourceNormalization normalization)
+    {
+        try
+        {
+            return MermaidAnimator.Compile(source, options);
+        }
+        catch (AnimationException error) when (normalization.LineOffset is var lineOffset && lineOffset != 0)
+        {
+            throw new AnimationException(error.Diagnostics.Select(diagnostic => diagnostic.Line > 0
+                ? new AnimationDiagnostic(diagnostic.Line - lineOffset, diagnostic.Message)
+                : diagnostic).ToArray());
+        }
+        catch (MermaidParseException error)
+        {
+            var mapped = normalization.MapParseError(error);
+            if (ReferenceEquals(mapped, error))
+                throw;
+            throw mapped;
+        }
+    }
+
+    internal static ReadOnlySpan<char> GetGeneratedStyle(string svg)
+    {
+        const string openingTag = "<style>";
+        var opening = svg.IndexOf(openingTag, StringComparison.Ordinal);
+        if (opening < 0)
+            return [];
+        var content = svg.AsSpan(opening + openingTag.Length);
+        var closing = content.IndexOf("</style>", StringComparison.Ordinal);
+        return closing < 0 ? [] : content[..closing];
+    }
+
     private async Task<string> RenderUncachedAsync(
         string source,
         MarkdownThemePalette palette,
@@ -228,42 +454,68 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
         double fontSize,
         CancellationToken cancellationToken)
     {
+        var options = CreateOptions(palette, fontFamily, fontSize);
+        return await RunBoundedRenderAsync(async token =>
+        {
+            var normalization = MermaidNativeEdgeSyntax.NormalizeForRenderer(source, token);
+            var renderOptions = normalization.HasChanges ?
+                options with { Limits = GetAdaptedRenderLimits(source, normalization.Source) } : options;
+            var svg = await RenderToStringAsync(normalization, renderOptions, token).ConfigureAwait(false);
+            return MermaidAccessibilitySyntax.RestoreDescription(svg, normalization.DescriptionPercentMarker);
+        }, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<string> RenderToStringAsync(
+        MermaidSourceNormalization normalization, RenderOptions options, CancellationToken cancellationToken)
+    {
+        using var destination = new SizeLimitedMemoryStream(MaximumSvgCharacters);
+        try
+        {
+            await _renderAsync(normalization.Source, destination, options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MermaidParseException error)
+        {
+            var mapped = normalization.MapParseError(error);
+            if (ReferenceEquals(mapped, error))
+                throw;
+            throw mapped;
+        }
+        return Encoding.UTF8.GetString(destination.GetBuffer(), 0, checked((int)destination.Length));
+    }
+
+    private async Task<T> RunBoundedRenderAsync<T>(
+        Func<CancellationToken, Task<T>> render,
+        CancellationToken cancellationToken)
+    {
         using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCancellation.CancelAfter(_renderTimeout);
         var operationToken = timeoutCancellation.Token;
         var slotAcquired = false;
-        var destinationTransferred = false;
-        var destination = new SizeLimitedMemoryStream(MaximumSvgCharacters);
         try
         {
             await _renderSlot.WaitAsync(operationToken).ConfigureAwait(false);
             slotAcquired = true;
             Interlocked.Increment(ref _renderInvocationCount);
-            var options = CreateOptions(palette, fontFamily, fontSize);
-            var renderOperation = Task.Run(
-                () => _renderAsync(source, destination, options, operationToken),
-                CancellationToken.None);
+            var renderOperation = Task.Run(() => render(operationToken), CancellationToken.None);
             try
             {
-                await renderOperation.WaitAsync(operationToken).ConfigureAwait(false);
+                var result = await renderOperation.WaitAsync(operationToken).ConfigureAwait(false);
+                operationToken.ThrowIfCancellationRequested();
+                return result;
             }
-            catch when (!renderOperation.IsCompleted)
+            catch (OperationCanceledException) when (operationToken.IsCancellationRequested)
             {
                 // The renderer did not observe cancellation. Keep the serial render
-                // slot and destination alive until it exits, while allowing the
+                // slot until it exits, while allowing the
                 // caller's timeout or cancellation to complete immediately.
-                destinationTransferred = true;
-                slotAcquired = false;
-                _ = ObserveAbandonedRenderAsync(renderOperation, destination, operationToken);
+                if (!renderOperation.IsCompletedSuccessfully)
+                {
+                    slotAcquired = false;
+                    _ = ObserveAbandonedRenderAsync(renderOperation, operationToken);
+                }
                 throw;
             }
-
-            operationToken.ThrowIfCancellationRequested();
-
-            if (destination.Length > MaximumSvgCharacters)
-                throw new InvalidOperationException("The generated Mermaid SVG exceeds the configured size limit.");
-
-            return Encoding.UTF8.GetString(destination.GetBuffer(), 0, checked((int)destination.Length));
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested && timeoutCancellation.IsCancellationRequested)
@@ -274,8 +526,6 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
         }
         finally
         {
-            if (!destinationTransferred)
-                destination.Dispose();
             if (slotAcquired)
                 _renderSlot.Release();
         }
@@ -283,7 +533,6 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
 
     private async Task ObserveAbandonedRenderAsync(
         Task renderOperation,
-        Stream destination,
         CancellationToken operationToken)
     {
         try
@@ -306,9 +555,54 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
         }
         finally
         {
-            destination.Dispose();
             _renderSlot.Release();
         }
+    }
+
+    private static void ValidateSourceLength(string source)
+    {
+        if (source.Length > MaximumSourceCharacters)
+            throw new InvalidOperationException("The Mermaid source exceeds the configured size limit.");
+    }
+
+    private static ResourceLimits GetAdaptedRenderLimits(string authoredSource, string adaptedSource)
+    {
+        var lineLimit = RenderLimits.MaxLineLength;
+        var authoredLineLength = GetOverlongDiagramLineLength(authoredSource, lineLimit);
+        if (authoredLineLength > lineLimit)
+            throw new MermaidResourceLimitException(nameof(ResourceLimits.MaxLineLength), authoredLineLength, lineLimit);
+
+        // Node labels can occupy several authored lines and one generated Mermaider declaration.
+        var adaptedLineLength = GetOverlongDiagramLineLength(adaptedSource, lineLimit);
+        if (adaptedLineLength <= lineLimit && adaptedSource.Length <= RenderLimits.MaxInputLength)
+            return RenderLimits;
+        return RenderLimits with
+        {
+            MaxLineLength = Math.Max(lineLimit, adaptedLineLength),
+            MaxInputLength = Math.Max(RenderLimits.MaxInputLength, adaptedSource.Length)
+        };
+    }
+
+    private static int GetOverlongDiagramLineLength(string source, int limit)
+    {
+        if (source.Length <= limit)
+            return 0;
+
+        var lines = source.AsSpan();
+        var longest = 0;
+        if (lines.TrimStart().StartsWith("---", StringComparison.Ordinal))
+        {
+            var header = MermaidNativeEdgeSyntax.ReadDiagramHeader(source, out var bodyStart);
+            longest = header.Length;
+            lines = lines[bodyStart..];
+        }
+        foreach (var range in lines.Split('\n'))
+        {
+            var line = lines[range].Trim();
+            if (!line.StartsWith("%%", StringComparison.Ordinal))
+                longest = Math.Max(longest, line.Length);
+        }
+        return longest > limit ? longest : 0;
     }
 
     private async Task ObserveCompletionAsync(RenderKey key, CacheEntry observedEntry)
@@ -354,7 +648,8 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
     private static RenderOptions CreateOptions(
         MarkdownThemePalette palette,
         string fontFamily,
-        double fontSize)
+        double fontSize,
+        ResourceLimits? limits = null)
     {
         var fallback = palette.IsDark ? MarkdownThemePalette.Dark : MarkdownThemePalette.Light;
         return new RenderOptions
@@ -372,7 +667,7 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
             Transparent = true,
             Strict = new StrictStylingOptions(),
             SanitizeMode = SanitizeMode.Block,
-            Limits = RenderLimits
+            Limits = limits ?? RenderLimits
         };
     }
 
@@ -612,3 +907,8 @@ internal sealed class MermaiderSvgRenderer : IMermaidSvgRenderer
             FontSize.Equals(fontSize);
     }
 }
+
+internal readonly record struct MermaidDiagramRenderResult(
+    string Svg,
+    MermaidAnimation? Animation = null,
+    bool IsAnimationFrame = false);

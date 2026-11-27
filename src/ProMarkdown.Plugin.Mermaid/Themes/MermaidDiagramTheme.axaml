@@ -3,6 +3,14 @@
               xmlns:mermaid="using:ProMarkdown.Plugin.Mermaid"
               x:Class="ProMarkdown.Plugin.Mermaid.Themes.MermaidDiagramTheme"
               TargetType="mermaid:MermaidDiagramControl">
+  <ControlTheme.Resources>
+    <x:Double x:Key="MermaidPlaybackButtonSize">28</x:Double>
+    <StreamGeometry x:Key="MermaidPlayIcon">M4 2.5Q3 2 3 3.2V12.8Q3 14 4 13.5L13 8.7Q14.2 8 13 7.3Z</StreamGeometry>
+    <StreamGeometry x:Key="MermaidPauseIcon">M4 2.5H6Q7 2.5 7 3.5V12.5Q7 13.5 6 13.5H4Q3 13.5 3 12.5V3.5Q3 2.5 4 2.5ZM10 2.5H12Q13 2.5 13 3.5V12.5Q13 13.5 12 13.5H10Q9 13.5 9 12.5V3.5Q9 2.5 10 2.5Z</StreamGeometry>
+    <StreamGeometry x:Key="MermaidReplayIcon">M2 2H3.5V4.5A6.5 6.5 0 1 1 2 10.5L3.4 9.9A5 5 0 1 0 4.6 5.5H7V7H2Z</StreamGeometry>
+    <StreamGeometry x:Key="MermaidPreviousStepIcon">M2 3H4V13H2ZM13 3.2Q14 2.7 14 3.8V12.2Q14 13.3 13 12.8L5.5 8.7Q4.4 8 5.5 7.3Z</StreamGeometry>
+    <StreamGeometry x:Key="MermaidNextStepIcon">M12 3H14V13H12ZM3 3.2Q2 2.7 2 3.8V12.2Q2 13.3 3 12.8L10.5 8.7Q11.6 8 10.5 7.3Z</StreamGeometry>
+  </ControlTheme.Resources>
   <Setter Property="Background" Value="Transparent" />
   <Setter Property="HorizontalAlignment" Value="Stretch" />
   <Setter Property="MinHeight" Value="48" />
@@ -12,8 +20,76 @@
       <Border x:Name="PART_FocusBorder" Background="{TemplateBinding Background}"
               BorderBrush="{TemplateBinding Foreground}" BorderThickness="0">
         <Grid>
-          <Image x:Name="PART_DiagramImage" HorizontalAlignment="Stretch" Stretch="Uniform" StretchDirection="DownOnly"
-                 IsVisible="{TemplateBinding HasImage}" />
+          <Grid RowDefinitions="*,Auto">
+            <Image x:Name="PART_DiagramImage" HorizontalAlignment="Stretch" Stretch="Uniform" StretchDirection="DownOnly"
+                   IsVisible="{TemplateBinding HasImage}" />
+            <ContentControl x:Name="PART_Playback" Grid.Row="1" Margin="0,8,0,0" IsVisible="False"
+                            HorizontalContentAlignment="Stretch">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="mermaid:MermaidPlayback" x:CompileBindings="True">
+                  <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto"
+                        Container.Name="MermaidPlayback" Container.Sizing="Width">
+                    <Grid.Styles>
+                      <Style Selector="Button.playbackButton">
+                        <Setter Property="Width" Value="{StaticResource MermaidPlaybackButtonSize}" />
+                        <Setter Property="Height" Value="{StaticResource MermaidPlaybackButtonSize}" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                      </Style>
+                      <Style Selector="PathIcon.playbackIcon">
+                        <Setter Property="Width" Value="16" />
+                        <Setter Property="Height" Value="16" />
+                        <Setter Property="IsHitTestVisible" Value="False" />
+                      </Style>
+                      <Style Selector="PathIcon.playPauseIcon">
+                        <Setter Property="Data" Value="{StaticResource MermaidPlayIcon}" />
+                      </Style>
+                      <Style Selector="PathIcon.playPauseIcon.playing">
+                        <Setter Property="Data" Value="{StaticResource MermaidPauseIcon}" />
+                      </Style>
+                      <Style Selector="ComboBox.scenarioSelector">
+                        <Setter Property="Grid.Column" Value="2" />
+                        <Setter Property="Margin" Value="8,0,0,0" />
+                      </Style>
+                      <ContainerQuery Name="MermaidPlayback" Query="max-width:400">
+                        <Style Selector="ComboBox.scenarioSelector">
+                          <Setter Property="Grid.Row" Value="1" />
+                          <Setter Property="Grid.Column" Value="0" />
+                          <Setter Property="Grid.ColumnSpan" Value="3" />
+                          <Setter Property="Margin" Value="0,4,0,0" />
+                        </Style>
+                      </ContainerQuery>
+                    </Grid.Styles>
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                      <Button Classes="playbackButton" Command="{Binding PlayPauseCommand}"
+                              AutomationProperties.Name="{Binding PlayPauseText}" ToolTip.Tip="{Binding PlayPauseText}">
+                        <PathIcon Classes="playbackIcon playPauseIcon" Classes.playing="{Binding IsPlaying}" />
+                      </Button>
+                      <Button Classes="playbackButton" Command="{Binding ReplayCommand}"
+                              AutomationProperties.Name="Replay" ToolTip.Tip="Replay">
+                        <PathIcon Classes="playbackIcon" Data="{StaticResource MermaidReplayIcon}" />
+                      </Button>
+                      <Button Classes="playbackButton" Command="{Binding PreviousCommand}" IsVisible="{Binding HasSteps}"
+                              AutomationProperties.Name="Previous step" ToolTip.Tip="Previous step">
+                        <PathIcon Classes="playbackIcon" Data="{StaticResource MermaidPreviousStepIcon}" />
+                      </Button>
+                      <Button Classes="playbackButton" Command="{Binding NextCommand}" IsVisible="{Binding HasSteps}"
+                              AutomationProperties.Name="Next step" ToolTip.Tip="Next step">
+                        <PathIcon Classes="playbackIcon" Data="{StaticResource MermaidNextStepIcon}" />
+                      </Button>
+                    </StackPanel>
+                    <Slider Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center"
+                            Maximum="{Binding DurationSeconds}" Value="{Binding PositionSeconds, Mode=TwoWay}"
+                            SmallChange="0.1" LargeChange="1" AutomationProperties.Name="Animation position in seconds" />
+                    <ComboBox Classes="scenarioSelector" MaxWidth="184" MinHeight="32" VerticalAlignment="Center"
+                              ItemsSource="{Binding ScenarioNames}" SelectedIndex="{Binding ScenarioIndex, Mode=TwoWay}"
+                              AutomationProperties.Name="Story ending" IsVisible="{Binding HasScenarios}" />
+                  </Grid>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Grid>
           <ProgressBar x:Name="PART_LoadingIndicator" Width="64" Height="4" IsIndeterminate="True"
                        IsVisible="{TemplateBinding IsLoading}"
                        HorizontalAlignment="Center" VerticalAlignment="Center" />

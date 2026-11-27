@@ -17,9 +17,21 @@ dotnet test --solution ProMarkdown.slnx
 dotnet pack ProMarkdown.slnx -o artifacts/packages
 ```
 
+## Runtime async
+
+The root `Directory.Build.props` enables `runtime-async=on` for `net11.0` across the core library, plugins, sample, and tests. The `net10.0` builds use compiler-generated async state machines. Runtime async applies to eligible methods that return `Task` or `ValueTask`. [Microsoft .NET 11 runtime notes](https://learn.microsoft.com/en-us/dotnet/core/whats-new/dotnet-11/runtime#runtime-async)
+
+Mermaid playback uses a synchronous dispatcher timer to queue frames. `MermaidPlayback.RenderFrameAsync` returns a `Task` and uses Runtime Async in the .NET 11 build. It prepares SVG frames on a worker thread and presents current frames on the UI thread. Recoverable rendering errors appear in the diagram preview. Exceptions that escape normal frame handling are forwarded to the UI dispatcher's exception handler.
+
+## Preview rendering and scrolling
+
+`MarkdownTextBlock` keeps wrapped content at its measured width when given a wider arrange slot. This prevents repeated measure and arrange passes during scrolling. A table cell with one selectable text segment can host that segment directly, removing a layer of inline layout.
+
+Mermaid scroll scrubbing maps nearby viewport positions to the same timeline sample and reuses prepared SVG frames when you scroll back. The scrub cache retains up to 16 frames per playback instance with an estimated 2 MiB budget. It releases cached frames when the diagram leaves the viewport, the scenario changes, or playback is disposed.
+
 ## AOT and trimming analysis
 
-`src/Directory.Build.props` enables `EnableAotAnalyzer` and `EnableTrimAnalyzer` for every library and the sample on both target frameworks. It imports the repository-wide build properties, including the runtime async opt-in for `net11.0`. Test projects are outside this configuration.
+`src/Directory.Build.props` imports the root build settings and enables `EnableAotAnalyzer` and `EnableTrimAnalyzer` for every library and the sample on both target frameworks. The test project uses the root build settings directly.
 
 The source analyzers report no AOT or trimming warnings. No warning suppressions or assembly preservation descriptors are needed for the current source. Analyzer results do not certify the complete third-party dependency graph, so packages are not marked `IsAotCompatible` or `IsTrimmable`.
 

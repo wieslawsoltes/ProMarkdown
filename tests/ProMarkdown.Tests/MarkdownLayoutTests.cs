@@ -14,6 +14,68 @@ namespace ProMarkdown.Tests;
 
 public sealed class MarkdownLayoutTests
 {
+    [AvaloniaFact]
+    public void ArrangingWrappedMarkdownInAWiderSlotKeepsTheMeasuredTextWidth()
+    {
+        var control = new MarkdownTextBlock
+        {
+            Markdown = "A paragraph with several words that need to wrap at the width offered by the parent.",
+            TextWrapping = TextWrapping.Wrap
+        };
+        var window = new Window { Width = 600, Height = 300, Content = control };
+        window.Show();
+        try
+        {
+            control.Measure(new Size(160, double.PositiveInfinity));
+            var measuredHeight = control.TextLayout.Height;
+            control.Arrange(new Rect(0, 0, 400, control.DesiredSize.Height));
+
+            control.Bounds.Width.ShouldBe(400);
+            control.TextLayout.Height.ShouldBe(measuredHeight);
+            control.IsMeasureValid.ShouldBeTrue();
+
+            control.Arrange(new Rect(0, -50, 400, control.Bounds.Height));
+            control.IsMeasureValid.ShouldBeTrue();
+
+            control.Measure(new Size(400, double.PositiveInfinity));
+            control.Arrange(new Rect(0, -50, 400, control.DesiredSize.Height));
+            control.TextLayout.Height.ShouldBeLessThan(measuredHeight);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void SingleSegmentTableCellsKeepTheirAlignmentAndHeaderWeight()
+    {
+        var control = new MarkdownTextBlock
+        {
+            Markdown = "| Name | Count |\n| :--- | ---: |\n| Item | 12 |",
+            TextWrapping = TextWrapping.Wrap
+        };
+        var window = new Window { Width = 600, Height = 300, Content = control };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var cells = control.GetVisualDescendants().OfType<MarkdownWrappingSelectableTextBlock>().ToArray();
+            cells.Length.ShouldBe(4);
+            foreach (var cell in cells)
+                cell.GetVisualParent().ShouldBeOfType<MarkdownRichBlockBorder>();
+
+            cells[1].TextAlignment.ShouldBe(TextAlignment.Right);
+            cells[1].FontWeight.ShouldBe(FontWeight.SemiBold);
+            cells[3].TextAlignment.ShouldBe(TextAlignment.Right);
+            cells[3].FontWeight.ShouldBe(FontWeight.Normal);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(HorizontalAlignment.Left)]
     [InlineData(HorizontalAlignment.Center)]

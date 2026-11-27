@@ -54,6 +54,8 @@ dotnet build ProMarkdown.slnx
 dotnet test --solution ProMarkdown.slnx
 ```
 
+The .NET 11 builds opt into Runtime Async. [Build configuration](site/articles/development/build-test-and-docs.md#runtime-async)
+
 ## Run the sample
 
 ```bash
@@ -63,6 +65,8 @@ dotnet run --project src/ProMarkdown.Sample/ProMarkdown.Sample.csproj --framewor
 Use `--framework net10.0` to run the sample on .NET 10.
 
 The sample provides an editor and preview surface with the plugin ecosystem registered together.
+
+The animated diagram demos cover native Mermaid edge animations and `Mermaider.Animate` scores. [Animation syntax and Mermaid Live compatibility](site/articles/markdown/plugin-ecosystem.md#native-mermaid-edge-animation)
 
 ## Documentation
 
