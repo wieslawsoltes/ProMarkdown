@@ -317,6 +317,51 @@ sequenceDiagram
 <p>Accepted fenced aliases are <code>mermaid</code>, <code>mmd</code>, <code>mermaidjs</code>, and <code>diagram-mermaid</code>. The <code>diagram mermaid</code> descriptor form is also recognized.</p>
 <p>The plugin renders SVG through Mermaider, sanitizes the result, applies the current Markdown palette, caches bounded results, cancels stale work, and exposes retry UI when rendering fails. Diagram work participates in <code>MarkdownTextBlock.IsRendering</code>, and palette changes regenerate the SVG without displaying a stale color variant. The editor previews changes with a short debounce and commits a safe backtick or tilde fence.</p>
 <p>Diagrams retain their natural SVG size and scale down uniformly when the available width or height is smaller. Resizing preserves the aspect ratio and does not regenerate the SVG.</p>
+<h3 id="native-mermaid-edge-animation">Native Mermaid edge animation</h3>
+<p>Flowcharts with Mermaid edge IDs support animated dashes (<code>animate: true</code> or <code>animation: fast</code>/<code>slow</code>) and numbered <code>step</code> properties. Declare each edge before setting its properties. Edge IDs can contain periods, as in <code>orders.lookup</code>. In these flowcharts, named and unnamed links support extended arrows with inline labels, including compact forms such as <code>A--Ready----&gt;B</code>, and circle or cross endings. Quoted Markdown edge labels can span multiple lines. Mermaider determines link spacing. Edges with the same step number animate together. Set <code>config.flowchart.stepDuration</code> and <code>config.flowchart.stepNumbers</code> in the diagram front matter to adjust the timing and display step badges. <a href="https://mermaid.js.org/syntax/flowchart.html#turning-an-animation-on">Mermaid edge animation syntax</a></p>
+<pre><code class="language-markdown">```mermaid
+flowchart LR
+    client[Client] request@--&gt; api[Orders API]
+    api orders.lookup@--&gt; db[(Database)]
+    request@{ step: 1 }
+    orders.lookup@{ step: 2, animation: fast }
+```
+</code></pre>
+<p>In ProMarkdown, use Play or the timeline slider. In Mermaid Live 12.3 or later, paste the diagram source without the Markdown fence. ProMarkdown translates the edge metadata for native playback and applies the Markdown theme. Hosts can set <code>EnableAnimation = false</code> to show static edges and any configured step badges. <a href="https://mermaid.live/">Mermaid Live Editor</a></p>
+<p>ProMarkdown resolves YAML aliases in the flowchart animation settings. The YAML body can share the indentation of its opening and closing fences. <code>stepDuration</code> accepts fractional seconds and YAML integers in decimal, binary, octal, or hexadecimal. ProMarkdown uses the default duration of one second per step if the configured duration is too small or the full timeline exceeds the supported range.</p>
+<p>Native edge property blocks also support quoted YAML keys, tagged scalars, integer formats, and aliases defined in the same block.</p>
+<p><code>animate: true</code> uses the <code>fast</code> dash preset by default. A later <code>animation: null</code> clears an explicit speed. If <code>animate: true</code> is still set, the edge returns to the fast preset.</p>
+<p>If a multiline front-matter title contains an indented <code>---</code>, ProMarkdown keeps the dashes in the title and displays the title on one line.</p>
+<p>A property block before a same-named edge defines or updates a node. A completed subgraph with the same ID takes precedence over the edge. ProMarkdown applies node declarations and metadata in source order and preserves shapes that have a Mermaider equivalent. Updates keep the existing label or shape when the property block omits that field or sets it to YAML null. An empty metadata label also keeps the existing label. Quoted labels can contain braces and literal <code>#</code> characters. Use YAML <code>|</code> to preserve line breaks in a multiline label or <code>&gt;</code> to fold lines together. Links can reference dotted nodes introduced by these property blocks or by standalone inline class assignments.</p>
+<p>To customize the dashes, define a class with <code>classDef</code> and apply it to a named edge with <code>class e1 dispatch</code> or a standalone <code>e1:::dispatch</code> statement. Declare the edge before the class assignment. ProMarkdown supports Mermaid's built-in <code>dash</code> animation with a positive duration in seconds or milliseconds, linear timing, and infinite repetition. Use numeric lengths or <code>px</code> values for the dash pattern and starting offset, and escape commas inside the pattern as <code>\,</code>. A class can override the offset or duration of an animated edge while keeping its existing dash pattern. A zero offset, zero duration, or <code>animation: none</code> keeps the pattern static. Use <code>stroke-dasharray: none</code> or an all-zero pattern to clear it. ProMarkdown retains the starting dash pattern when animation is disabled and keeps other styling under the Markdown theme. <a href="https://mermaid.js.org/syntax/flowchart.html#using-classdef-statements-for-animations">Mermaid classDef animation syntax</a></p>
+<pre><code class="language-markdown">```mermaid
+flowchart LR
+    producer[Order service] delivery@--&gt;|Order placed| worker[Queue worker]
+    worker --&gt; archive[(Archive)]
+    classDef dispatch stroke-dasharray: 10\,6,stroke-dashoffset: 160,animation: dash 4s linear infinite;
+    class delivery dispatch
+```
+</code></pre>
+<h3 id="mermaider-animation">Mermaider animation</h3>
+<p>The plugin uses Mermaider 0.19.0 and plays scores through <code>Mermaider.Animate</code> 0.19.0, a Mermaider-specific extension to Mermaid. Add an unindented <code>animate</code> block after the diagram in the same fence. The block describes what happens during playback, including steps, messages, and alternate endings. <a href="https://github.com/nullean/mermaider/blob/0.19.0/src/Mermaider.Animate/README.md#the-score">Mermaider score syntax</a></p>
+<p>For a static preview of a Mermaider score in Mermaid Live, paste only the diagram above <code>animate</code>, without the Markdown fence. <a href="https://mermaid.live/">Mermaid Live Editor</a></p>
+<pre><code class="language-markdown">```mermaid
+flowchart LR
+    Client --&gt; API --&gt; Database
+
+animate once
+  step &quot;The request reaches the database&quot;
+    tour Client -&gt; API -&gt; Database &quot;GET /orders&quot;
+  step &quot;The database replies&quot;
+    send Database -&gt; API &quot;Order saved&quot;
+```
+</code></pre>
+<p>The sample's request flow uses <code>tour</code>, <code>send</code>, <code>fail</code>, <code>recover</code>, and <code>callout</code> to show alternate outcomes. Its chart uses <code>set</code> to change a bar value, and the <code>animate scrub</code> timeline follows the scroll position. Set <code>EnableAnimation = false</code> in <code>MermaidMarkdownPluginOptions</code> to show the final frame without motion, or add the <code>still</code> motion preset to the score's <code>animate</code> line. <a href="https://github.com/nullean/mermaider/blob/0.19.0/src/Mermaider.Animate/README.md#playback">Mermaider playback modes</a></p>
+<h3 id="mermaid-playback-controls">Mermaid playback controls</h3>
+<p>Play/Pause and Replay use square icon buttons, 28 logical pixels per side, beside the timeline slider. Animations with multiple steps also show Previous step and Next step. The buttons have tooltips and accessible names. Scores with named scenarios show an ending selector that works with the mouse or keyboard, including while inline preview editing is enabled. On narrow previews, the selector moves below the toolbar to give the slider more room.</p>
+<p>Active playback pauses when the diagram scrolls off-screen and resumes when it comes back into view. The built-in renderer uses the Markdown palette for both light and dark mode. It chooses a contrasting foreground for Mermaider's filled animation labels and status icons, including in still frames.</p>
+<h3 id="mermaid-plugin-options">Mermaid plugin options</h3>
+<p>Mermaider 0.19 uses strict parsing by default. Malformed diagrams and invalid scores surface in the preview with diagnostic text and the original source.</p>
 <p>Configure localized UI text and link activation when constructing the plugin:</p>
 <pre><code class="language-csharp">var mermaidOptions = new MermaidMarkdownPluginOptions
 {

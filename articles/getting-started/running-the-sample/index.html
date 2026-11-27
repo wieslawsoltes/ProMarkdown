@@ -170,6 +170,10 @@ dotnet test --solution ProMarkdown.slnx
 </code></pre>
 <p>Use <code>--framework net10.0</code> to run the sample on .NET 10.</p>
 <p>The sample provides an editor and preview surface with the Markdown plugin ecosystem registered together.</p>
+<h2 id="try-the-mermaid-animations">Try the Mermaid animations</h2>
+<p>The <strong>Native Mermaid edge animation</strong> and <strong>Mermaid classDef edge animation</strong> examples also animate in Mermaid Live. Use the Play button or drag the timeline in the sample. In Mermaid Live, paste the diagram source without the Markdown fence. <a href="/ProMarkdown/articles/markdown/plugin-ecosystem#native-mermaid-edge-animation">Native Mermaid edge animation</a></p>
+<p><strong>Animated Mermaid</strong> and <strong>Animated Mermaid chart</strong> use the <code>Mermaider.Animate</code> extension. The request flow lets you select an ending and jump between steps. The chart's timeline follows the preview as you scroll. <a href="/ProMarkdown/articles/markdown/plugin-ecosystem#mermaider-animation">Mermaider animation scores</a></p>
+<p>Use the theme toggle to try the diagrams in light and dark mode. The preview eases whole mouse-wheel steps. Fractional wheel input and scrolling over controls such as the timeline and ending selector keep their usual behavior.</p>
 <h2 id="serve-the-documentation">Serve the documentation</h2>
 <pre><code class="language-bash">dotnet tool restore
 bash ./serve-docs.sh
