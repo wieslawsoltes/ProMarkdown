@@ -1996,6 +1996,7 @@ public sealed class MermaidRenderingTests
     public async Task DetachingPendingDiagramClearsLoadingState()
     {
         var renderer = new NonCancelingRenderer();
+        var operation = new CompletionTrackingDisposable();
         using var diagram = new MermaidDiagramControl(
             renderer,
             "flowchart TD\nA --> B",
@@ -2004,7 +2005,7 @@ public sealed class MermaidRenderingTests
             14,
             new MermaidMarkdownPluginOptions(),
             CancellationToken.None,
-            static () => new CompletionTrackingDisposable());
+            () => operation);
         var window = new Window { Width = 400, Height = 240, Content = diagram };
         window.Show();
         try
@@ -2022,6 +2023,8 @@ public sealed class MermaidRenderingTests
         {
             renderer.Complete();
             window.Close();
+            await operation.Disposed.Task.WaitAsync(
+                TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
         }
     }
 
@@ -2518,10 +2521,12 @@ public sealed class MermaidRenderingTests
             (_, _, _, _) => throw new InvalidOperationException("Invalid diagram syntax."));
         const string source = "flowchart TD\nA -->";
         var markdown = CreateMermaidMarkdown($"```mermaid\n{source}\n```", renderer);
+        await WaitForAsync(() => !markdown.IsRendering);
         var window = new Window { Width = 500, Height = 300, Content = markdown };
         window.Show();
         try
         {
+            await WaitForAsync(() => !markdown.IsRendering);
             var diagram = EnumerateMermaidControls(markdown.Inlines!).Single();
             await WaitForAsync(() => diagram.GetVisualDescendants()
                 .OfType<SelectableTextBlock>()
@@ -2587,12 +2592,21 @@ public sealed class MermaidRenderingTests
     [InlineData("```mmd\nflowchart TD\nA --> B\n```")]
     [InlineData(":::mermaid\nflowchart TD\nA --> B\n:::")]
     [InlineData(":::diagram mermaid\nflowchart TD\nA --> B\n:::")]
-    public void ExistingFenceAndContainerSyntaxProducesNativeDiagramControls(string markdown)
+    public async Task ExistingFenceAndContainerSyntaxProducesNativeDiagramControls(string markdown)
     {
         var control = CreateMermaidMarkdown(markdown, new MermaiderSvgRenderer(
             (_, destination, _, cancellationToken) => WriteMinimalSvgAsync(destination, cancellationToken)));
 
-        EnumerateMermaidControls(control.Inlines!).Count().ShouldBe(1);
+        try
+        {
+            // The next headless test can reset the dispatcher as soon as this test returns.
+            await WaitForAsync(() => !control.IsRendering);
+            EnumerateMermaidControls(control.Inlines!).ShouldHaveSingleItem().HasImage.ShouldBeTrue();
+        }
+        finally
+        {
+            control.Markdown = string.Empty;
+        }
     }
 
     [AvaloniaFact]
@@ -2621,10 +2635,12 @@ public sealed class MermaidRenderingTests
         var control = CreateMermaidMarkdown(
             "```mermaid\nflowchart TD\n  A[One] --> B[Two]\n```",
             renderer);
+        await WaitForAsync(() => !control.IsRendering);
         var window = new Window { Width = 500, Height = 300, Content = control };
         window.Show();
         try
         {
+            await WaitForAsync(() => !control.IsRendering);
             var source = await capturedSource.Task.WaitAsync(
                 TimeSpan.FromSeconds(2),
                 TestContext.Current.CancellationToken);
